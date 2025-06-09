@@ -3,6 +3,10 @@ kind: Kustomization
 
 namespace: snapshot-controller
 
+resources:
+  # Install volume snapshot CRDs
+  - https://github.com/kubernetes-csi/external-snapshotter/client/config/crd
+
 helmCharts:
   - name: snapshot-controller
     repo: https://democratic-csi.github.io/charts/
