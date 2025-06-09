@@ -34,7 +34,7 @@ storageClasses:
       controller-expand-secret:
 
 # if your cluster supports snapshots you may enable below
-volumeSnapshotClasses: []
+volumeSnapshotClasses:
   - name: zfs-generic-nfs-csi
     parameters:
     # if true, snapshots will be created with zfs send/receive
@@ -43,7 +43,7 @@ volumeSnapshotClasses: []
       snapshotter-secret:
 
 driver:
-  # Manifest with zfs configuration and ssh config, set on nixos -> 
+  # Manifest with zfs configuration and ssh config, set on nixos ->
   # revachol-cluster/dubois/manifests/bootstrap-democratic-csi-zfs.nix
   existingConfigSecret: democratic-csi-zfs-config
   config:
