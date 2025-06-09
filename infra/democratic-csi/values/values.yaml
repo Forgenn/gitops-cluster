@@ -35,12 +35,12 @@ storageClasses:
 
 # if your cluster supports snapshots you may enable below
 volumeSnapshotClasses: []
-- name: zfs-generic-nfs-csi
-  parameters:
-  # if true, snapshots will be created with zfs send/receive
-  # detachedSnapshots: "false"
-  secrets:
-    snapshotter-secret:
+  - name: zfs-generic-nfs-csi
+    parameters:
+    # if true, snapshots will be created with zfs send/receive
+    # detachedSnapshots: "false"
+    secrets:
+      snapshotter-secret:
 
 driver:
   # Manifest with zfs configuration and ssh config, set on nixos -> 
