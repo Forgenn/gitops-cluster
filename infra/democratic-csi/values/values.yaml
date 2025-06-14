@@ -48,3 +48,11 @@ driver:
   existingConfigSecret: democratic-csi-zfs-config
   config:
     driver: zfs-generic-nfs
+
+controller:
+  enabled: true
+  dnsPolicy: Default
+
+node:
+  enabled: true
+  dnsPolicy: Default
