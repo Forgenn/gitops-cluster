@@ -3,6 +3,9 @@ kind: Kustomization
 
 namespace: infisical
 
+resources:
+  - infisical-db.yaml
+
 helmCharts:
   - name: infisical-standalone
     repo: https://dl.cloudsmith.io/public/infisical/helm-charts/helm/charts/
