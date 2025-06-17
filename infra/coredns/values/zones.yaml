@@ -1,0 +1,16 @@
+servers:
+  # Complete example with all the options:
+  - zones:
+      - zone: monederobox.dev.
+    nodePort: 53
+    plugins:
+      - name: errors
+      - name: log
+      - name: cache
+        parameters: 30
+      - name: template
+        configBlock: |-
+          IN A *.monederobox.dev {
+            match "^([a-z0-9-]+)\.monederobox\.dev\.$"
+            answer "{{ .Name }} 60 IN A 10.10.10.10"
+          }
