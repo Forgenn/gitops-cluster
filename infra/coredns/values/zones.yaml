@@ -21,7 +21,11 @@ servers:
       #- name: prometheus
       #  parameters: 0.0.0.0:9153
       - name: forward
+        # To be a purely non-authorative server
+        # parameters: . /etc/resolv.conf
         parameters: . /etc/resolv.conf
+        configBlock: |-
+          except monederobox.dev
       - name: loop
       - name: log
       - name: reload
