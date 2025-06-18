@@ -35,63 +35,6 @@ serviceAccount:
 # isClusterService specifies whether chart should be deployed as cluster-service or normal k8s app.
 isClusterService: false
 
-# Default zone is what Kubernetes recommends:
-# https://kubernetes.io/docs/tasks/administer-cluster/dns-custom-nameservers/#coredns-configmap-options
-servers:
-  - zones:
-    plugins:
-      - name: errors
-      # Serves a /health endpoint on :8080, required for livenessProbe
-      - name: health
-        configBlock: |-
-          lameduck 10s
-      # Serves a /ready endpoint on :8181, required for readinessProbe
-      - name: ready
-      # Required to query kubernetes API for data
-      - name: kubernetes
-        parameters: cluster.local in-addr.arpa ip6.arpa
-        configBlock: |-
-          pods insecure
-          fallthrough in-addr.arpa ip6.arpa
-          ttl 30
-      # Serves a /metrics endpoint on :9153, required for serviceMonitor
-      #- name: prometheus
-      #  parameters: 0.0.0.0:9153
-      - name: forward
-        parameters: . /etc/resolv.conf
-      - name: cache
-        parameters: 30
-      - name: loop
-      - name: reload
-      - name: loadbalance
-
-# Complete example with all the options:
-# - zones:                 # the `zones` block can be left out entirely, defaults to "."
-#   - zone: hello.world.   # optional, defaults to "."
-#     scheme: tls://       # optional, defaults to "" (which equals "dns://" in CoreDNS)
-#   - zone: foo.bar.
-#     scheme: dns://
-#     use_tcp: true        # set this parameter to optionally expose the port on tcp as well as udp for the DNS protocol
-#                          # Note that this will not work if you are also exposing tls or grpc on the same server
-#   port: 12345            # optional, defaults to "" (which equals 53 in CoreDNS)
-#   plugins:               # the plugins to use for this server block
-#   - name: kubernetes     # name of plugin, if used multiple times ensure that the plugin supports it!
-#     parameters: foo bar  # list of parameters after the plugin
-#     configBlock: |-      # if the plugin supports extra block style config, supply it here
-#       hello world
-#       foo bar
-
-# expects input structure as per specification https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.11/#affinity-v1-core
-# for example:
-#   affinity:
-#     nodeAffinity:
-#      requiredDuringSchedulingIgnoredDuringExecution:
-#        nodeSelectorTerms:
-#        - matchExpressions:
-#          - key: foo.bar.com/role
-#            operator: In
-#            values:
-#            - master
 affinity: {}
 
 # Node labels for pod assignment
