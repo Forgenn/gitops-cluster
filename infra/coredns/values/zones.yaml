@@ -1,7 +1,6 @@
 servers:
   - zones:
-      # This single server block handles all requests on port 53.
-      # The order of plugins is critical.
+    port: 53
     plugins:
       # --- Core utility plugins first ---
       - name: errors
