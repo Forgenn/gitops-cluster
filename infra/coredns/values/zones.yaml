@@ -2,15 +2,13 @@ servers:
   - zones:
       - zone: monederobox.dev.
     port: 53
-    hostPort: 53
     plugins:
       - name: errors
       - name: log
       - name: cache
         parameters: 30
       - name: template
+        parameters: IN A monederobox.dev
         configBlock: |
-          template IN A monederobox.dev {
-            match "^([a-z0-9-]+)\.monederobox\.dev\.$"
-            answer "{{ .Name }} 60 IN A 10.10.10.10"
-          }
+          match ^([a-z0-9-]+)\.monederobox\.dev\.$
+          answer "{{ .Name }} 60 IN A 10.10.10.10"
