@@ -22,13 +22,10 @@ servers:
       #  parameters: 0.0.0.0:9153
       - name: forward
         parameters: . /etc/resolv.conf
-      - name: cache
-        parameters: 30
       - name: loop
+      - name: log
       - name: reload
       - name: loadbalance
-      - name: errors
-      - name: log
       - name: cache
         parameters: 30
       - name: template
