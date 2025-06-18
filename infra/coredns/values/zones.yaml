@@ -2,7 +2,7 @@ servers:
   # Complete example with all the options:
   - zones:
       - zone: monederobox.dev.
-    #port: 53
+    port: 53
     hostPort: 53
     plugins:
       - name: errors
