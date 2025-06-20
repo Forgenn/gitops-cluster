@@ -1,0 +1,8 @@
+provider:
+  kubernetes:
+    envoyService:
+      # This sets the type of the data plane service to LoadBalancer.
+      type: LoadBalancer
+      annotations:
+        # This tells MetalLB to assign a specific IP address.
+        metallb.io/load-balancer-ip: "192.169.1.1"
