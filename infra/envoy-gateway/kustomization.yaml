@@ -5,7 +5,7 @@ namespace: envoy-gateway
 
 helmCharts:
   - name: gateway-helm
-    repo: docker.io/envoyproxy
+    repo: oci://docker.io/envoyproxy/gateway-helm
     releaseName: envoy-gateway
     version: "v1.4.1"
     namespace: envoy-gateway
