@@ -3,8 +3,9 @@ kind: Kustomization
 
 namespace: envoy-gateway
 
-# Gateway API CRDs
-resources: https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml
+resources:
+  # Gateway API CRDs
+  - https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml
 
 helmCharts:
   - name: gateway-helm
