@@ -8,10 +8,10 @@ spec:
     - name: http
       protocol: HTTP
       port: 80
-    - name: https
-      protocol: HTTPS
-      port: 443
-      #tls:
-      #  mode: Terminate
-      #  certificateRefs:
-      #    - name: "exampe"
+    #- name: https
+    #protocol: HTTPS
+    #port: 443
+    #tls:
+    #  mode: Terminate
+    #  certificateRefs:
+    #    - name: "exampe"
