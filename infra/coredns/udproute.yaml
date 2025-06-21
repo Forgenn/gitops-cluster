@@ -5,10 +5,14 @@ metadata:
   name: coredns-udp-route
 spec:
   parentRefs:
-    - name: envoy-gateway
+    - group: gateway.networking.k8s.io	
+      kind: Gateway	
+      name: envoy-gateway
       namespace: envoy-gateway
       sectionName: dns-udp
   rules:
     - backendRefs:
-        - name: coredns
+        - group: ''	
+          kind: Service
+          name: coredns
           port: 53
