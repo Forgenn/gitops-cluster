@@ -6,6 +6,8 @@ namespace: envoy-gateway
 resources:
   # Gateway API CRDs
   - https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml
+  # For UDPRoute
+  - https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/experimental-install.yaml
   - gateway-class.yaml
   - gateway.yaml
   - http-redirect-route.yaml
