@@ -12,6 +12,8 @@ spec:
         kinds:
           - group: gateway.networking.k8s.io	
             kind: UDPRoute
+            namespaces:
+              from: All
     - name: http
       protocol: HTTP
       port: 80
