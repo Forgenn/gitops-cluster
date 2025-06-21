@@ -4,7 +4,7 @@ metadata:
   name: http-filter-redirect
 spec:
   parentRefs:
-    - name: redirect-gateway
+    - name: envoy-gateway
       sectionName: http
   rules:
     - filters:
