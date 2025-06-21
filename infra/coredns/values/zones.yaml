@@ -10,12 +10,15 @@ servers:
       - name: ready
       - name: log
 
+      # Get external node IP to always return and be dynamic
+      - name: k8s_external
+        parameters: monederobox.dev
       # Handle  custom zones before checking for anything else.
-      - name: template
-        parameters: IN A monederobox.dev
-        configBlock: |
-          match ^([a-z0-9-]+)\.monederobox\.dev\.$
-          answer "{{ .Name }} 60 IN A 10.10.10.10"
+      #- name: template
+      #  parameters: IN A monederobox.dev
+      #  configBlock: |
+      #    match ^([a-z0-9-]+)\.monederobox\.dev\.$
+      #    answer "{{ .Name }} 60 IN A 10.10.10.10"
 
       # If it's not a custom zones, check if it's a Kubernetes service.
       #- name: kubernetes
