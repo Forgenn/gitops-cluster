@@ -1,0 +1,14 @@
+# coredns-udproute.yaml
+apiVersion: gateway.networking.k8s.io/v1alpha2 # Note: API version may differ
+kind: UDPRoute
+metadata:
+  name: coredns-udp-route
+spec:
+  parentRefs:
+    - name: envoy-gateway
+      namespace: envoy-gateway
+      sectionName: dns-udp
+  rules:
+    - backendRefs:
+        - name: coredns
+          port: 53
