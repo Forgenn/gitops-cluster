@@ -6,7 +6,8 @@ metadata:
 spec:
   addresses:
     # Virtual IP given by MetalLB by ARP
-    - 192.168.10.1-192.168.10.250
+    # DHCP server from 192.168.1.33-199, but local network is /24, so 200-250 for MetalLB
+    - 192.168.1.200-192.168.1.250
 ---
 apiVersion: metallb.io/v1beta1
 kind: L2Advertisement
