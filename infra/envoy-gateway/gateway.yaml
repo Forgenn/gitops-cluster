@@ -10,7 +10,8 @@ spec:
       port: 53
       allowedRoutes:
         kinds:
-          - kind: UDPRoute # Allow UDPRoute resources to attach
+          - group: gateway.networking.k8s.io	
+            kind: UDPRoute
     - name: http
       protocol: HTTP
       port: 80
