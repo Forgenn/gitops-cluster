@@ -16,3 +16,4 @@ spec:
           kind: Service
           name: coredns
           port: 53
+          weight: 1
