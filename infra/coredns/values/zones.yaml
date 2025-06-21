@@ -10,6 +10,12 @@ servers:
       - name: ready
       - name: log
 
+      - name: kubernetes
+        parameters: cluster.local in-addr.arpa ip6.arpa
+        configBlock: |-
+          pods insecure
+          fallthrough in-addr.arpa ip6.arpa
+
       # Get external node IP to always return and be dynamic
       - name: k8s_external
         parameters: monederobox.dev
