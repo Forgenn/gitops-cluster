@@ -1,0 +1,23 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-porkbun
+  namespace: cert-manager
+spec:
+  acme:
+    email: your-email@example.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-porkbun-account-key
+    solvers:
+      - dns01:
+          webhook:
+            groupName: webhook.cert-manager.porkbun.io
+            solverName: porkbun
+            config:
+              apiKeySecretRef:
+                name: porkbun-credentials
+                key: apiKey
+              secretApiKeySecretRef:
+                name: porkbun-credentials
+                key: secretApiKey

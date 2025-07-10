@@ -11,12 +11,12 @@ spec:
     - "argocd.monederobox.dev"
   rules:
     - backendRefs:
-        - group: ''	
+        - group: ''
           kind: Service
           name: argocd-server
-          port: 80
-          weight: 1	
-      matches:	
-        - path:	
-            type: PathPrefix	
+          port: 443
+          weight: 1
+      matches:
+        - path:
+            type: PathPrefix
             value: /

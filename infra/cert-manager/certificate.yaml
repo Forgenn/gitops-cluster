@@ -1,0 +1,13 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: argocd-tls
+  namespace: envoy-gateway
+spec:
+  secretName: argocd-tls
+  issuerRef:
+    name: letsencrypt-porkbun
+    kind: ClusterIssuer
+  dnsNames:
+    - *.monederobox.dev
+    - monederobox.dev
