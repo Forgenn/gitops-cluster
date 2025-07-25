@@ -15,7 +15,7 @@ helmCharts:
     namespace: cert-manager
     valuesFile: values/values.yaml
   - name: cert-manager-webhook-porkbun
-    repo: ./porkbun-webhook-helm/deploy/porkbun-webhook
+    repo: ./charts/porkbun-webhook/deploy/porkbun-webhook
     version: v0.1.5
     releaseName: cert-manager-webhook-porkbun
     namespace: cert-manager
