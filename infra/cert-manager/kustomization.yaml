@@ -8,10 +8,7 @@ resources:
   - cluster-issuer.yaml
   - certificate.yaml
   - externalsecret.yaml
-
-helmGlobals:
-  # chartHome removed; using published Helm repo for porkbun-webhook
-
+  
 helmCharts:
   - name: cert-manager
     repo: https://charts.jetstack.io
@@ -21,7 +18,7 @@ helmCharts:
     valuesFile: values/values.yaml
   - name: cert-manager-webhook-porkbun
     repo: https://talinx.github.io/cert-manager-webhook-porkbun
-    version: 0.1.0
+    version: 1.0.0
     releaseName: cert-manager-webhook-porkbun
     valuesFile: values/webhook-porkbun-values.yaml
     includeCRDs: true
