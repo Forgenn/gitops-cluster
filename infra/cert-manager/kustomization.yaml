@@ -10,7 +10,7 @@ resources:
   - externalsecret.yaml
 
 helmGlobals:
-  chartHome: charts/porkbun-webhook/deploy
+  # chartHome removed; using published Helm repo for porkbun-webhook
 
 helmCharts:
   - name: cert-manager
@@ -19,8 +19,9 @@ helmCharts:
     releaseName: cert-manager
     namespace: cert-manager
     valuesFile: values/values.yaml
-  - name: porkbun-webhook
-    version: 0.1.5
+  - name: cert-manager-webhook-porkbun
+    repo: https://talinx.github.io/cert-manager-webhook-porkbun
+    version: 0.1.0
     releaseName: cert-manager-webhook-porkbun
     valuesFile: values/webhook-porkbun-values.yaml
     includeCRDs: true

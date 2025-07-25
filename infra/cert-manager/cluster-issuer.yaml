@@ -5,14 +5,14 @@ metadata:
   namespace: cert-manager
 spec:
   acme:
-    email: your-email@example.com
+    email: ipolmonxammar@gmail.com
     server: https://acme-v02.api.letsencrypt.org/directory
     privateKeySecretRef:
       name: letsencrypt-porkbun-account-key
     solvers:
       - dns01:
           webhook:
-            groupName: webhook.cert-manager.porkbun.io
+            groupName: porkbun.talinx.dev
             solverName: porkbun
             config:
               apiKeySecretRef:
