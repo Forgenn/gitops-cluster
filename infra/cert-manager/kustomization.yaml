@@ -10,8 +10,8 @@ resources:
   - externalsecret.yaml
 
 helmGlobals:
-  chartHome: charts/porkbun-webhook/deploy/porkbun-webhook
-  
+  chartHome: charts/porkbun-webhook/deploy
+
 helmCharts:
   - name: cert-manager
     repo: https://charts.jetstack.io
