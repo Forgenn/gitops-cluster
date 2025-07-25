@@ -9,5 +9,5 @@ spec:
     name: letsencrypt-porkbun
     kind: ClusterIssuer
   dnsNames:
-    - *.monederobox.dev
+    - "*.monederobox.dev"
     - monederobox.dev
