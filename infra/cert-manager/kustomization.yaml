@@ -6,7 +6,7 @@ resources:
   - cluster-issuer.yaml
   - certificate.yaml
   - externalsecret.yaml
-  - infisical-credentials-secret.yaml
+
 helmCharts:
   - name: cert-manager
     repo: https://charts.jetstack.io
