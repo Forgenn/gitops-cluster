@@ -27,4 +27,8 @@ spec:
       port: 443
       tls:
         mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: envoy-tls
+            group: ""
       hostname: "*.monederobox.dev"
