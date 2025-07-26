@@ -12,6 +12,8 @@ ingress:
 
 postgresql:
   enabled: false
+  fullnameOverride: ""
+  name: ""
   useExistingPostgresSecret:
     # -- Set to true if using an existing Kubernetes secret that contains PostgreSQL connection string
     enabled: true
@@ -21,3 +23,7 @@ postgresql:
       name: "infisical-cnpg-cluster-app"
       # -- Key name in the Kubernetes secret that holds the connection string
       key: "uri"
+
+# Additional explicit disabling of PostgreSQL components
+databaseSchemaMigrationJob:
+  enabled: false
