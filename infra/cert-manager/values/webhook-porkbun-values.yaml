@@ -1,2 +1,4 @@
 groupName: "webhook.cert-manager.porkbun.io"
 secretName: porkbun-credentials
+certManager:
+  namespace: cert-manager
