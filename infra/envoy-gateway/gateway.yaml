@@ -31,4 +31,5 @@ spec:
           - kind: Secret
             name: envoy-tls
             group: ""
+            namespace: envoy-gateway
       hostname: "*.monederobox.dev"
