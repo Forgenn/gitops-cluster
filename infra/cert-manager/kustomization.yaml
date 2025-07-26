@@ -6,6 +6,7 @@ resources:
   - https://github.com/cert-manager/cert-manager/releases/download/v1.15.1/cert-manager.crds.yaml
   - cluster-issuer.yaml
   - externalsecret.yaml
+  - webhook-rbac.yaml
   
 helmCharts:
   - name: cert-manager
