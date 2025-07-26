@@ -1,8 +1,0 @@
-groupName: "webhook.cert-manager.porkbun.io"
-secretName: porkbun-credentials
-certManager:
-  namespace: cert-manager
-nameOverride: cert-manager-webhook-porkbun
-commonLabels:
-  app.kubernetes.io/instance: cert-manager-webhook-porkbun
-  app.kubernetes.io/name: cert-manager-webhook-porkbun
