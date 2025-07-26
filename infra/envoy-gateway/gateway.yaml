@@ -2,6 +2,8 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: envoy-gateway
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-porkbun
 spec:
   gatewayClassName: envoy-gatewayclass
   listeners:
@@ -25,8 +27,4 @@ spec:
       port: 443
       tls:
         mode: Terminate
-        certificateRefs:
-          - name: argocd-tls
-            kind: Secret
-            group: ""
-      hostname: argocd.monederobox.dev
+      hostname: "*.monederobox.dev"
