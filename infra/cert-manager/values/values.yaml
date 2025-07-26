@@ -8,3 +8,7 @@ webhook:
   generateCA: true
   # Set a specific name for the CA secret
   caSecretName: cert-manager-webhook-ca
+  
+global:
+  leaderElection:
+    namespace: cert-manager
