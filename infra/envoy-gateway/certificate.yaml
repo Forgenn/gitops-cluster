@@ -1,10 +1,10 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: argocd-tls
+  name: envoy-tls
   namespace: envoy-gateway
 spec:
-  secretName: argocd-tls
+  secretName: envoy-tls
   issuerRef:
     name: letsencrypt-porkbun
     kind: ClusterIssuer

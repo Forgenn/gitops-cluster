@@ -11,6 +11,7 @@ resources:
   - gateway-class.yaml
   - gateway.yaml
   - http-redirect-route.yaml
+  - certificate.yaml
 
 helmCharts:
   - name: gateway-helm
