@@ -18,6 +18,6 @@ spec:
           image: qmcgaw/ddns-updater:latest
           envFrom:
             - secretRef:
-                name: ddns-config
+                name: porkbun-ddns-credentials
           ports:
             - containerPort: 8000
