@@ -1,12 +1,14 @@
+# cert-manager-webhook-porkbun-rbac-fix.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  # The name is the same, 'kubectl apply' will update the existing role.
   name: cert-manager-webhook-porkbun-auth-reader
 rules:
-  - apiGroups: [""]
-    resources: ["configmaps"]
-    verbs: ["get"]
-    resourceNames: ["extension-apiserver-authentication"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch"]
+  resourceNames: ["extension-apiserver-authentication"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -17,6 +19,7 @@ roleRef:
   kind: ClusterRole
   name: cert-manager-webhook-porkbun-auth-reader
 subjects:
-  - kind: ServiceAccount
-    name: cert-manager-webhook-porkbun
-    namespace: cert-manager
+- kind: ServiceAccount
+  name: cert-manager-webhook-porkbun
+  # Ensure this namespace is where your webhook pod is running.
+  namespace: cert-manager
