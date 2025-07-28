@@ -7,7 +7,6 @@ resources:
   - cluster-issuer.yaml
   - externalsecret.yaml
   - webhook-rbac.yaml
-  - rbac.yaml
   
 helmCharts:
   - name: cert-manager
