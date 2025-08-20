@@ -1,0 +1,272 @@
+---
+# Source: porkbun-webhook/templates/rbac.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cert-manager-webhook-porkbun-porkbun-webhook
+  namespace: "cert-manager"
+  labels:
+    app: porkbun-webhook
+    chart: porkbun-webhook-0.1.0
+    release: cert-manager-webhook-porkbun
+    heritage: Helm
+---
+# Source: porkbun-webhook/templates/rbac.yaml
+# Grant cert-manager permission to validate using our apiserver
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cert-manager-webhook-porkbun-porkbun-webhook:domain-solver
+  labels:
+    app: porkbun-webhook
+    chart: porkbun-webhook-0.1.0
+    release: cert-manager-webhook-porkbun
+    heritage: Helm
+rules:
+  - apiGroups:
+      - porkbun.ntb.dev
+    resources:
+      - "*"
+    verbs:
+      - "create"
+---
+# Source: porkbun-webhook/templates/rbac.yaml
+# apiserver gets the auth-delegator role to delegate auth decisions to
+# the core apiserver
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cert-manager-webhook-porkbun-porkbun-webhook:auth-delegator
+  labels:
+    app: porkbun-webhook
+    chart: porkbun-webhook-0.1.0
+    release: cert-manager-webhook-porkbun
+    heritage: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+  - apiGroup: ""
+    kind: ServiceAccount
+    name: cert-manager-webhook-porkbun-porkbun-webhook
+    namespace: cert-manager
+---
+# Source: porkbun-webhook/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cert-manager-webhook-porkbun-porkbun-webhook:domain-solver
+  labels:
+    app: porkbun-webhook
+    chart: porkbun-webhook-0.1.0
+    release: cert-manager-webhook-porkbun
+    heritage: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cert-manager-webhook-porkbun-porkbun-webhook:domain-solver
+subjects:
+  - apiGroup: ""
+    kind: ServiceAccount
+    name: cert-manager
+    namespace: cert-manager
+---
+# Source: porkbun-webhook/templates/rbac.yaml
+# Grant the webhook permission to read the ConfigMap containing the Kubernetes
+# apiserver's requestheader-ca-certificate.
+# This ConfigMap is automatically created by the Kubernetes apiserver.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cert-manager-webhook-porkbun-porkbun-webhook:webhook-authentication-reader
+  namespace: kube-system
+  labels:
+    app: porkbun-webhook
+    chart: porkbun-webhook-0.1.0
+    release: cert-manager-webhook-porkbun
+    heritage: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: extension-apiserver-authentication-reader
+subjects:
+  - apiGroup: ""
+    kind: ServiceAccount
+    name: cert-manager-webhook-porkbun-porkbun-webhook
+    namespace: cert-manager
+---
+# Source: porkbun-webhook/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: cert-manager-webhook-porkbun-porkbun-webhook
+  namespace: "cert-manager"
+  labels:
+    app: porkbun-webhook
+    chart: porkbun-webhook-0.1.0
+    release: cert-manager-webhook-porkbun
+    heritage: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 443
+      targetPort: https
+      protocol: TCP
+      name: https
+  selector:
+    app: porkbun-webhook
+    release: cert-manager-webhook-porkbun
+---
+# Source: porkbun-webhook/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cert-manager-webhook-porkbun-porkbun-webhook
+  namespace: "cert-manager"
+  labels:
+    app: porkbun-webhook
+    chart: porkbun-webhook-0.1.0
+    release: cert-manager-webhook-porkbun
+    heritage: Helm
+spec:
+  replicas:
+  selector:
+    matchLabels:
+      app: porkbun-webhook
+      release: cert-manager-webhook-porkbun
+  template:
+    metadata:
+      labels:
+        app: porkbun-webhook
+        release: cert-manager-webhook-porkbun
+    spec:
+      serviceAccountName: cert-manager-webhook-porkbun-porkbun-webhook
+      containers:
+        - name: porkbun-webhook
+          image: "4ntb/porkbun-webhook:v1.0"
+          imagePullPolicy: IfNotPresent
+          args:
+            - --tls-cert-file=/tls/tls.crt
+            - --tls-private-key-file=/tls/tls.key
+          env:
+            - name: GROUP_NAME
+              value: "porkbun.ntb.dev"
+          ports:
+            - name: https
+              containerPort: 443
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              scheme: HTTPS
+              path: /healthz
+              port: https
+          readinessProbe:
+            httpGet:
+              scheme: HTTPS
+              path: /healthz
+              port: https
+          volumeMounts:
+            - name: certs
+              mountPath: /tls
+              readOnly: true
+          resources: {}
+      volumes:
+        - name: certs
+          secret:
+            secretName: cert-manager-webhook-porkbun-porkbun-webhook-webhook-tls
+---
+# Source: porkbun-webhook/templates/apiservice.yaml
+apiVersion: apiregistration.k8s.io/v1
+kind: APIService
+metadata:
+  name: v1alpha1.porkbun.ntb.dev
+  labels:
+    app: porkbun-webhook
+    chart: porkbun-webhook-0.1.0
+    release: cert-manager-webhook-porkbun
+    heritage: Helm
+  annotations:
+    cert-manager.io/inject-ca-from: "cert-manager/cert-manager-webhook-porkbun-porkbun-webhook-webhook-tls"
+spec:
+  group: porkbun.ntb.dev
+  groupPriorityMinimum: 1000
+  versionPriority: 15
+  service:
+    name: cert-manager-webhook-porkbun-porkbun-webhook
+    namespace: cert-manager
+  version: v1alpha1
+---
+# Source: porkbun-webhook/templates/pki.yaml
+# Generate a CA Certificate used to sign certificates for the webhook
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cert-manager-webhook-porkbun-porkbun-webhook-ca
+  namespace: "cert-manager"
+  labels:
+    app: porkbun-webhook
+    chart: porkbun-webhook-0.1.0
+    release: cert-manager-webhook-porkbun
+    heritage: Helm
+spec:
+  secretName: cert-manager-webhook-porkbun-porkbun-webhook-ca
+  duration: 43800h # 5y
+  issuerRef:
+    name: cert-manager-webhook-porkbun-porkbun-webhook-selfsign
+  commonName: "ca.example-webhook.cert-manager"
+  isCA: true
+---
+# Source: porkbun-webhook/templates/pki.yaml
+# Finally, generate a serving certificate for the webhook to use
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cert-manager-webhook-porkbun-porkbun-webhook-webhook-tls
+  namespace: "cert-manager"
+  labels:
+    app: porkbun-webhook
+    chart: porkbun-webhook-0.1.0
+    release: cert-manager-webhook-porkbun
+    heritage: Helm
+spec:
+  secretName: cert-manager-webhook-porkbun-porkbun-webhook-webhook-tls
+  duration: 8760h # 1y
+  issuerRef:
+    name: cert-manager-webhook-porkbun-porkbun-webhook-ca
+  dnsNames:
+    - cert-manager-webhook-porkbun-porkbun-webhook
+    - cert-manager-webhook-porkbun-porkbun-webhook.cert-manager
+    - cert-manager-webhook-porkbun-porkbun-webhook.cert-manager.svc
+---
+# Source: porkbun-webhook/templates/pki.yaml
+# Create a selfsigned Issuer, in order to create a root CA certificate for
+# signing webhook serving certificates
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: cert-manager-webhook-porkbun-porkbun-webhook-selfsign
+  namespace: "cert-manager"
+  labels:
+    app: porkbun-webhook
+    chart: porkbun-webhook-0.1.0
+    release: cert-manager-webhook-porkbun
+    heritage: Helm
+spec:
+  selfSigned: {}
+---
+# Source: porkbun-webhook/templates/pki.yaml
+# Create an Issuer that uses the above generated CA certificate to issue certs
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: cert-manager-webhook-porkbun-porkbun-webhook-ca
+  namespace: "cert-manager"
+  labels:
+    app: porkbun-webhook
+    chart: porkbun-webhook-0.1.0
+    release: cert-manager-webhook-porkbun
+    heritage: Helm
+spec:
+  ca:
+    secretName: cert-manager-webhook-porkbun-porkbun-webhook-ca
