@@ -7,6 +7,12 @@ resources:
   - cluster-issuer.yaml
   - externalsecret.yaml
   - webhook-rbac.yaml
+  # Chart is uploaded to dockerhub, (https://hub.docker.com/r/4ntb/porkbun-webhook/tags)
+  # but kustomize doesn't allow oci artifacts yet...
+  # Instead, render helm chart to a yaml and apply that yaml:
+  # helm template cert-manager-webhook-porkbun ./charts/porkbun-webhook
+  # --version 0.1.0  --namespace cert-manager -f ./values/webhook-porkbun-values.yaml --include-crds > porkbun-webhook.yaml 2>&1
+  - porkbun-webhook.yaml
 
 helmCharts:
   - name: cert-manager
@@ -15,11 +21,3 @@ helmCharts:
     releaseName: cert-manager
     namespace: cert-manager
     valuesFile: values/values.yaml
-  # Chart is uploaded to dockerhub, (https://hub.docker.com/r/4ntb/porkbun-webhook/tags)
-  # but kustomize doesn't allow oci artifacts yet...
-  - name: ./charts/porkbun-webhook
-    version: 0.1.0
-    releaseName: cert-manager-webhook-porkbun
-    namespace: cert-manager
-    valuesFile: values/webhook-porkbun-values.yaml
-    includeCRDs: true
