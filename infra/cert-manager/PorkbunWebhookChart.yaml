@@ -1,6 +1,0 @@
-apiVersion: builtin
-kind: HelmChartInflationGenerator
-metadata:
-  name: porkbun-webhook
-chart: oci://registry-1.docker.io/4ntb/porkbun-webhook
-version: 0.1.0
