@@ -7,6 +7,7 @@ resources:
   - cluster-issuer.yaml
   - externalsecret.yaml
   - webhook-rbac.yaml
+  - PorkbunWebhookChart.yaml
 
 helmCharts:
   - name: cert-manager
@@ -15,10 +16,3 @@ helmCharts:
     releaseName: cert-manager
     namespace: cert-manager
     valuesFile: values/values.yaml
-  - name: cert-manager-webhook-porkbun
-    repo: oci://registry-1.docker.io/4ntb/porkbun-webhook
-    version: 0.1.0
-    releaseName: cert-manager-webhook-porkbun
-    namespace: cert-manager
-    valuesFile: values/webhook-porkbun-values.yaml
-    includeCRDs: true
