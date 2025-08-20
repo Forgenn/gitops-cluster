@@ -144,7 +144,7 @@ spec:
       serviceAccountName: cert-manager-webhook-porkbun-porkbun-webhook
       containers:
         - name: porkbun-webhook
-          image: "4ntb/porkbun-webhook:v1.0"
+          image: "4ntb/porkbun-webhook:v1.1"
           imagePullPolicy: IfNotPresent
           args:
             - --tls-cert-file=/tls/tls.crt
