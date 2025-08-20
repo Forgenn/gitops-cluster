@@ -149,7 +149,7 @@ spec:
           args:
             - --tls-cert-file=/tls/tls.crt
             - --tls-private-key-file=/tls/tls.key
-          command: ["webhook"]
+          command: ["/usr/local/bin/webhook"]
           env:
             - name: GROUP_NAME
               value: "porkbun.ntb.dev"
