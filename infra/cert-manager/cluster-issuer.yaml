@@ -12,7 +12,7 @@ spec:
     solvers:
       - dns01:
           webhook:
-            groupName: porkbun.talinx.dev
+            groupName: porkbun.ntb.dev
             solverName: porkbun
             config:
               apiKeySecretRef:
