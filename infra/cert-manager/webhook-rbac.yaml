@@ -23,3 +23,32 @@ subjects:
     name: cert-manager-webhook-porkbun-porkbun-webhook
     # Ensure this namespace is where your webhook pod is running.
     namespace: cert-manager
+---
+# This Role grants permission to read ONLY the 'porkbun-credentials' secret
+# within the 'cert-manager' namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cert-manager-webhook-porkbun-secret-reader
+  namespace: cert-manager # Must be in the same namespace as the secret and webhook
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    # This is the critical part: it specifies the exact secret name
+    resourceNames: ["porkbun-credentials"]
+    verbs: ["get"]
+---
+# This RoleBinding applies the above Role to the webhook's ServiceAccount.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cert-manager-webhook-porkbun-secret-reader
+  namespace: cert-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cert-manager-webhook-porkbun-secret-reader
+subjects:
+  - kind: ServiceAccount
+    name: cert-manager-webhook-porkbun-porkbun-webhook # The identity of your webhook pod
+    namespace: cert-manager
