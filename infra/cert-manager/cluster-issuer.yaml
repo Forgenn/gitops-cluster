@@ -13,7 +13,7 @@ spec:
       - dns01:
           webhook:
             groupName: porkbun.ntb.dev
-            solverName: porkbun
+            solverName: porkbun-solver
             config:
               apiKeySecretRef:
                 name: porkbun-credentials
