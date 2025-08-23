@@ -18,6 +18,6 @@ spec:
               apiKeySecretRef:
                 name: porkbun-credentials
                 key: apiKey
-              secretApiKeySecretRef:
+              secretKeySecretRef:
                 name: porkbun-credentials
                 key: secretApiKey
