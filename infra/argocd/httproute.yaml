@@ -4,14 +4,15 @@ metadata:
   name: argocd-route
 spec:
   parentRefs:
-    - group: gateway.networking.k8s.io	
+    - group: gateway.networking.k8s.io
       kind: Gateway
       name: envoy-gateway
+      sectionName: https
   hostnames:
     - "argocd.monederobox.dev"
   rules:
     - backendRefs:
-        - group: ''
+        - group: ""
           kind: Service
           name: argocd-server
           port: 443
