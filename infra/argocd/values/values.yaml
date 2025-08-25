@@ -1,6 +1,11 @@
 redis-ha:
   enabled: true
 
+# We terminate TLS at the gateway
+configs:
+  params:
+    server.insecure: true
+
 controller:
   replicas: 1
 
