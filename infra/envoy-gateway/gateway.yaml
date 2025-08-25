@@ -12,7 +12,7 @@ spec:
       port: 53
       allowedRoutes:
         kinds:
-          - group: gateway.networking.k8s.io	
+          - group: gateway.networking.k8s.io
             kind: UDPRoute
         namespaces:
           from: All
@@ -32,4 +32,7 @@ spec:
             name: envoy-tls
             group: ""
             namespace: envoy-gateway
+      allowedRoutes:
+        namespaces:
+          from: All
       hostname: "*.monederobox.dev"
