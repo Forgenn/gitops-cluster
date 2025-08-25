@@ -2,7 +2,7 @@ infisical:
   enabled: true
   image:
     repository: infisical/infisical
-    tag: "v0.131.0-postgres"
+    tag: "v0.147.1"
     pullPolicy: "Always"
   readinessProbe:
     initialDelaySeconds: 60
