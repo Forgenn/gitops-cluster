@@ -6,7 +6,9 @@ spec:
   instances: 3
   backup:
     barmanObjectStore:
-      destinationPath: "hel1.your-objectstorage.com"
+      # URL to hetzner S3 services
+      endpointURL: "hel1.your-objectstorage.com"
+      destinationPath: "revachol"
       s3Credentials:
         accessKeyId:
           name: hetzner-backup-bucket-credentials
@@ -14,6 +16,9 @@ spec:
         secretAccessKey:
           name: hetzner-backup-bucket-credentials
           key: ACCESS_SECRET_KEY
+    retentionPolicy: 60d
+    data:
+      compression: gzip
   storage:
     # Custom democratic-csi storage class
     storageClass: zfs-generic-nfs-csi
