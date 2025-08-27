@@ -5,6 +5,7 @@ namespace: infisical
 
 resources:
   - infisical-db.yaml
+  - httproute.yaml
 
 helmCharts:
   - name: infisical-standalone
