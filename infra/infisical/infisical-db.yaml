@@ -7,7 +7,7 @@ spec:
   backup:
     barmanObjectStore:
       # URL to hetzner S3 services
-      endpointURL: "hel1.your-objectstorage.com"
+      endpointURL: "https://hel1.your-objectstorage.com"
       destinationPath: "s3://revachol/backups/infisical-cnpg-db"
       s3Credentials:
         accessKeyId:
