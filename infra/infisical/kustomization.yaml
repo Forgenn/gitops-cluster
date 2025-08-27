@@ -5,6 +5,7 @@ namespace: infisical
 
 resources:
   - infisical-db.yaml
+  - infisical-db-backup.yaml
   - httproute.yaml
   - secret.yaml
 

@@ -1,0 +1,10 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: infisical-cnpg-cluster-backup
+spec:
+  immediate: true
+  schedule: 0 8 * * *
+  backupOwnerReference: self
+  cluster:
+    name: infisical-cnpg-cluster
