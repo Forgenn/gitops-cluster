@@ -17,8 +17,7 @@ spec:
           name: hetzner-backup-bucket-credentials
           key: ACCESS_SECRET_KEY
     retentionPolicy: 60d
-    data:
-      compression: gzip
+    compression: gzip
   storage:
     # Custom democratic-csi storage class
     storageClass: zfs-generic-nfs-csi
