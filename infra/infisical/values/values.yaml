@@ -4,16 +4,6 @@ infisical:
     repository: infisical/infisical
     tag: "v0.147.1"
     pullPolicy: "Always"
-  readinessProbe:
-    initialDelaySeconds: 60
-    periodSeconds: 15
-    failureThreshold: 10
-    timeoutSeconds: 10
-  livenessProbe:
-    initialDelaySeconds: 90
-    periodSeconds: 30
-    failureThreshold: 3
-    timeoutSeconds: 10
 
 ingress:
   enabled: false

@@ -10,6 +10,6 @@ helmCharts:
   - name: infisical-standalone
     repo: https://dl.cloudsmith.io/public/infisical/helm-charts/helm/charts/
     releaseName: infisical
-    version: "1.5.0"
+    version: "1.6.1"
     namespace: infisical
     valuesFile: values/values.yaml
