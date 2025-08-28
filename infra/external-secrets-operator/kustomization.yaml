@@ -5,6 +5,7 @@ namespace: external-secrets
 
 resources:
   - clustersecretstore.yaml
+  - k8s-clustersecretstore.yaml
 
 helmCharts:
   - name: external-secrets
