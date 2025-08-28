@@ -1,2 +1,3 @@
 secret:
+  create: false
   name: pocket-id-cnpg-cluster-app
