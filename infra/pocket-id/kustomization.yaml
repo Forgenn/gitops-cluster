@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: pocket-id
+
+resources:
+  - pocket-id-db.yaml
+  - pocket-id-backup.yaml
+
+helmCharts:
+  - name: pocket-id
+    repo: https://anza-labs.github.io/charts
+    releaseName: pocket-id
+    version: "1.6.1"
+    namespace: pocket-id
+    valuesFile: values/values.yaml
