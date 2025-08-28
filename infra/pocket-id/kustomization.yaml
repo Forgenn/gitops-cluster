@@ -6,6 +6,7 @@ namespace: pocket-id
 resources:
   - pocket-id-db.yaml
   - pocket-id-backup.yaml
+  - secret-templater-db.yaml
 
 helmCharts:
   - name: pocket-id
