@@ -7,9 +7,6 @@ resources:
   - pocket-id-db.yaml
   - pocket-id-backup.yaml
   - secret-templater-db.yaml
-  - eso-reader-role.yaml
-  - eso-reader-rolebinding.yaml
-  - local-k8s-secretstore.yaml
 
 helmCharts:
   - name: pocket-id
