@@ -5,6 +5,10 @@ infisical:
     tag: "v0.147.1"
     pullPolicy: "IfNotPresent"
 
+redis:
+  enabled: true
+  usePassword: false
+
 ingress:
   enabled: false
   nginx:
