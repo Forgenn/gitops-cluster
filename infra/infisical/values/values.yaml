@@ -26,4 +26,4 @@ postgresql:
 
 # Additional explicit disabling of PostgreSQL components
 databaseSchemaMigrationJob:
-  enabled: false
+  enabled: true
