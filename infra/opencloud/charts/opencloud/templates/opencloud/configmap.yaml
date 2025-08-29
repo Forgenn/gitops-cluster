@@ -1,0 +1,38 @@
+{{- if .Values.opencloud.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "opencloud.opencloud.fullname" . }}-config
+  labels:
+    {{- include "opencloud.labels" . | nindent 4 }}
+    app.kubernetes.io/component: opencloud
+data:
+  # App registry configuration
+  app-registry.yaml: |-
+{{- if empty .Values.opencloud.config.appRegistry -}}
+{{ .Files.Get "files/opencloud/app-registry.yaml" | nindent 4 }}
+{{- else -}}
+{{ toYaml (dict "app_registry" .Values.opencloud.config.appRegistry) | nindent 4 }}
+{{- end }}
+
+  # CSP configuration
+  csp.yaml: |-
+{{- if empty .Values.opencloud.config.csp -}}
+{{ tpl (.Files.Get "files/opencloud/csp.yaml.gotmpl") . | nindent 4 }}
+{{- else -}}
+{{ .Values.opencloud.config.csp | nindent 4 }}
+{{- end }}
+
+  # Banned password list
+  banned-password-list.txt: |-
+{{- if empty .Values.opencloud.config.bannedPasswordList -}}
+{{- .Files.Get "files/opencloud/banned-password-list.txt" | nindent 4 }}
+{{- else -}}
+{{- .Values.opencloud.config.bannedPasswordList | nindent 4 }}
+{{- end }}
+
+  # Search configuration
+  search.yaml: |-
+{{- .Files.Get "files/opencloud/search.yaml" | nindent 4 }}
+
+{{- end }}

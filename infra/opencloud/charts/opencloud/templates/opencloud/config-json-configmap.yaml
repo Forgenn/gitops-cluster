@@ -1,0 +1,12 @@
+{{- if .Values.opencloud.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "opencloud.opencloud.fullname" . }}-config-json
+  labels:
+    {{- include "opencloud.labels" . | nindent 4 }}
+    app.kubernetes.io/component: opencloud
+data:
+  config.json: |-
+{{- (tpl (.Files.Get "files/opencloud/config.json.gotmpl") . ) | nindent 4 }}
+{{- end }}

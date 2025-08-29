@@ -1,0 +1,485 @@
+{{- if .Values.opencloud.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "opencloud.opencloud.fullname" . }}
+  labels:
+    {{- include "opencloud.labels" . | nindent 4 }}
+    app.kubernetes.io/component: opencloud
+  annotations:
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: {{ .Values.opencloud.replicas }}
+  selector:
+    matchLabels:
+      {{- include "opencloud.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: opencloud
+  strategy:
+    {{- if and (gt (int .Values.opencloud.replicas) 1) .Values.opencloud.persistence.enabled }}
+    # When using multiple replicas with persistence enabled, use RollingUpdate strategy
+    # Note: This may cause issues with PVCs that use ReadWriteOnce access mode
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    {{- else }}
+    type: Recreate
+    {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "opencloud.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: opencloud
+      annotations:
+        checksum/config-json: {{ include (print $.Template.BasePath "/opencloud/config-json-configmap.yaml") . | sha256sum }}
+        checksum/configmap: {{ include (print $.Template.BasePath "/opencloud/configmap.yaml") . | sha256sum }}
+        checksum/web-extensions-init: {{ include (print $.Template.BasePath "/opencloud/web-extensions-init.yaml") . | sha256sum }}
+    spec:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+      initContainers:
+        - name: init-config
+          image: {{ include "opencloud.image" (dict "imageValues" .Values.busybox.image "global" .Values.global) | quote }}
+          imagePullPolicy: {{ include "opencloud.image.pullPolicy" (dict "pullPolicy" .Values.busybox.image.pullPolicy "global" .Values.global) | quote }}
+          command: ['sh', '-c', 'mkdir -p /etc/opencloud /var/lib/opencloud']
+          volumeMounts:
+            - name: config
+              mountPath: /etc/opencloud
+            - name: data
+              mountPath: /var/lib/opencloud
+        {{- if .Values.webExtensions.enabled }}
+        # Web extensions init containers
+        {{- if .Values.webExtensions.extensions.drawio.enabled }}
+        - name: init-drawio
+          image: {{ include "opencloud.image" (dict "imageValues" (merge (dict "tag" .Values.webExtensions.extensions.drawio.tag) .Values.webExtensions.image) "global" .Values.global) | quote }}
+          command: ['sh', '-c', 'mkdir -p /extensions/draw-io && cp -R /usr/share/nginx/html/draw-io/ /extensions/']
+          volumeMounts:
+            - name: extensions
+              mountPath: /extensions
+        {{- end }}
+        {{- if .Values.webExtensions.extensions.externalsites.enabled }}
+        - name: init-externalsites
+          image: {{ include "opencloud.image" (dict "imageValues" (merge (dict "tag" .Values.webExtensions.extensions.externalsites.tag) .Values.webExtensions.image) "global" .Values.global) | quote }}
+          command: ['sh', '-c', 'mkdir -p /extensions/external-sites && cp -R /usr/share/nginx/html/external-sites/ /extensions/']
+          volumeMounts:
+            - name: extensions
+              mountPath: /extensions
+        {{- end }}
+        {{- if .Values.webExtensions.extensions.importer.enabled }}
+        - name: init-importer
+          image: {{ include "opencloud.image" (dict "imageValues" (merge (dict "tag" .Values.webExtensions.extensions.importer.tag) .Values.webExtensions.image) "global" .Values.global) | quote }}
+          command: ['sh', '-c', 'mkdir -p /extensions/importer && cp -R /usr/share/nginx/html/importer/ /extensions/']
+          volumeMounts:
+            - name: extensions
+              mountPath: /extensions
+        {{- end }}
+        {{- if .Values.webExtensions.extensions.jsonviewer.enabled }}
+        - name: init-jsonviewer
+          image: {{ include "opencloud.image" (dict "imageValues" (merge (dict "tag" .Values.webExtensions.extensions.jsonviewer.tag) .Values.webExtensions.image) "global" .Values.global) | quote }}
+          command: ['sh', '-c', 'mkdir -p /extensions/json-viewer && cp -R /usr/share/nginx/html/json-viewer/ /extensions/']
+          volumeMounts:
+            - name: extensions
+              mountPath: /extensions
+        {{- end }}
+        {{- if .Values.webExtensions.extensions.progressbars.enabled }}
+        - name: init-progressbars
+          image: {{ include "opencloud.image" (dict "imageValues" (merge (dict "tag" .Values.webExtensions.extensions.progressbars.tag) .Values.webExtensions.image) "global" .Values.global) | quote }}
+          command: ['sh', '-c', 'mkdir -p /extensions/progress-bars && cp -R /usr/share/nginx/html/progress-bars/ /extensions/']
+          volumeMounts:
+            - name: extensions
+              mountPath: /extensions
+        {{- end }}
+        {{- if .Values.webExtensions.extensions.unzip.enabled }}
+        - name: init-unzip
+          image: {{ include "opencloud.image" (dict "imageValues" (merge (dict "tag" .Values.webExtensions.extensions.unzip.tag) .Values.webExtensions.image) "global" .Values.global) | quote }}
+          command: ['sh', '-c', 'mkdir -p /extensions/unzip && cp -R /usr/share/nginx/html/unzip/ /extensions/']
+          volumeMounts:
+            - name: extensions
+              mountPath: /extensions
+        {{- end }}
+        # Final init container to copy all extensions to the apps directory
+        - name: init-web-extensions
+          image: {{ include "opencloud.image" (dict "imageValues" .Values.busybox.image "global" .Values.global) | quote }}
+          imagePullPolicy: {{ include "opencloud.image.pullPolicy" (dict "pullPolicy" .Values.busybox.image.pullPolicy "global" .Values.global) | quote }}
+          command: ['sh', '/scripts/init-web-extensions.sh']
+          volumeMounts:
+            - name: extensions
+              mountPath: /extensions
+            - name: data
+              mountPath: /var/lib/opencloud
+            - name: web-extensions-init-script
+              mountPath: /scripts
+        {{- end }}
+      containers:
+        - name: opencloud
+          image: {{ include "opencloud.image" (dict "imageValues" .Values.image "global" .Values.global) | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          imagePullPolicy: {{ include "opencloud.image.pullPolicy" (dict "pullPolicy" .Values.image.pullPolicy "global" .Values.global) }}
+          command: ["/bin/sh"]
+          args: ["-c", "opencloud init || true; opencloud server"]
+          {{- with .Values.opencloud.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          env:
+            # OpenCloud URL
+            - name: OC_URL
+              value: "https://{{ include "opencloud.domain" . }}"
+            # Available roles
+            - name: GRAPH_AVAILABLE_ROLES
+              value: "b1e2218d-eef8-4d4c-b82d-0f1a1b48f3b5,a8d5fe5e-96e3-418d-825b-534dbdf22b99,fb6c3e19-e378-47e5-b277-9732f9de6e21,58c63c02-1d89-4572-916a-870abc5a1b7d,2d00ce52-1fc2-4dbc-8b95-a73b73395f5a,1c996275-f1c9-4e71-abdf-a42f6495e960,312c0871-5ef7-4b3a-85b6-0e4074c64049,aa97fe03-7980-45ac-9e50-b325749fd7e6"
+            # Log settings
+            - name: OC_LOG_LEVEL
+              value: {{ .Values.opencloud.logLevel | quote }}
+            - name: OC_LOG_COLOR
+              value: {{ .Values.opencloud.logColor | quote }}
+            - name: OC_LOG_PRETTY
+              value: {{ .Values.opencloud.logPretty | quote }}
+            # Enable services that are not started automatically
+            {{- with .Values.opencloud.additionalServices }}
+            - name: OC_ADD_RUN_SERVICES
+              value: {{ join "," . | quote }}
+            {{- end }}
+            {{- $exclude := .Values.opencloud.excludeServices | default (list) }}
+            {{- if .Values.opencloud.nats.external.enabled }}
+              {{- $exclude = append $exclude "nats" }}
+            {{- end }}
+            {{- if gt (len $exclude) 0 }}
+            - name: OC_EXCLUDE_RUN_SERVICES
+              value: {{ join "," $exclude | quote }}
+            {{- end }}
+            # Do not use SSL between proxy and OpenCloud
+            - name: PROXY_TLS
+              value: "false"
+            # Make the REVA gateway accessible to the app drivers
+            - name: GATEWAY_GRPC_ADDR
+              value: "0.0.0.0:9142"
+            # INSECURE: needed if OpenCloud is using self generated certificates
+            - name: OC_INSECURE
+              value: {{ tpl (toString .Values.opencloud.insecure) . | quote }}
+            # Basic auth (only needed when not using Keycloak)
+            - name: PROXY_ENABLE_BASIC_AUTH
+              value: "false"
+            # These vars are needed to the csp config file to include the web office apps and the importer
+            - name: ONLYOFFICE_DOMAIN
+              value: "{{ .Values.global.domain.onlyoffice }}"
+            - name: COMPANION_DOMAIN
+              value: "{{ .Values.global.domain.companion }}"
+            # Sharing settings
+            - name: OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD
+              value: "false"
+            - name: OC_PASSWORD_POLICY_BANNED_PASSWORDS_LIST
+              value: "banned-password-list.txt"
+            # Search settings
+            - name: SEARCH_EXTRACTOR_TYPE
+              value: "tika"
+            - name: SEARCH_EXTRACTOR_TIKA_TIKA_URL
+              value: "http://{{ include "opencloud.tika.fullname" . }}:9998"
+            # Performance settings
+            - name: OC_GRPC_MAX_RECEIVED_MESSAGE_SIZE
+              value: "102400000"
+            # Email server (if configured)
+            {{- if .Values.opencloud.smtp.enabled }}
+            - name: NOTIFICATIONS_SMTP_HOST
+              value: "{{ .Values.opencloud.smtp.host }}"
+            - name: NOTIFICATIONS_SMTP_PORT
+              value: "{{ .Values.opencloud.smtp.port }}"
+            - name: NOTIFICATIONS_SMTP_SENDER
+              value: "{{ .Values.opencloud.smtp.sender | default (printf "OpenCloud notifications <notifications@%s>" (include "opencloud.domain" .)) }}"
+            - name: NOTIFICATIONS_SMTP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{- if .Values.opencloud.smtp.existingSecret }}
+                          {{ .Values.opencloud.smtp.existingSecret }}
+                        {{- else }}
+                          {{ include "opencloud.opencloud.fullname" . }}-smtp
+                        {{- end }}
+                  key: smtpUser
+            - name: NOTIFICATIONS_SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{- if .Values.opencloud.smtp.existingSecret }}
+                          {{ .Values.opencloud.smtp.existingSecret }}
+                        {{- else }}
+                          {{ include "opencloud.opencloud.fullname" . }}-smtp
+                        {{- end }}
+                  key: smtpPassword
+            - name: NOTIFICATIONS_SMTP_INSECURE
+              value: {{ tpl (toString .Values.opencloud.smtp.insecure) . | quote }}
+            - name: NOTIFICATIONS_SMTP_AUTHENTICATION
+              value: "{{ .Values.opencloud.smtp.authentication }}"
+            - name: NOTIFICATIONS_SMTP_ENCRYPTION
+              value: "{{ .Values.opencloud.smtp.encryption }}"
+            {{- end }}
+            {{- if or .Values.keycloak.internal.enabled .Values.global.oidc.issuer }}
+            # IDP specific configuration
+            - name: PROXY_AUTOPROVISION_ACCOUNTS
+              value: "true"
+            # user properties are edited in the idp, so we have to make them readonly
+            - name: FRONTEND_READONLY_USER_ATTRIBUTES
+              value: "user.onPremisesSamAccountName,user.displayName,user.mail,user.passwordProfile,user.accountEnabled,user.appRoleAssignments"
+            - name: PROXY_ROLE_ASSIGNMENT_DRIVER
+              value: "oidc"
+            - name: OC_OIDC_ISSUER
+              {{- if .Values.global.oidc.issuer }}
+              value: {{ .Values.global.oidc.issuer | quote }}
+              {{- else }}
+              value: {{ printf "https://%s/realms/%s" (include "opencloud.keycloak.domain" .) .Values.keycloak.internal.realm | quote }}
+              {{- end }}
+            - name: WEB_OPTION_ACCOUNT_EDIT_LINK_HREF
+              {{- if .Values.global.oidc.accountUrl }}
+              value: {{ .Values.global.oidc.accountUrl | quote }}
+              {{- else }}
+              value: {{ printf "https://%s/realms/%s/account" (include "opencloud.keycloak.domain" .) .Values.keycloak.internal.realm | quote }}
+              {{- end }}
+            - name: PROXY_OIDC_REWRITE_WELLKNOWN
+              value: "true"
+            - name: WEB_OIDC_CLIENT_ID
+              value: {{ .Values.global.oidc.clientId | quote}}
+            - name: PROXY_USER_OIDC_CLAIM
+              value: "preferred_username"
+            - name: PROXY_USER_CS3_CLAIM
+              value: "username"
+            - name: OC_ADMIN_USER_ID
+              value: ""
+            - name: GRAPH_ASSIGN_DEFAULT_USER_ROLE
+              value: "false"
+            - name: GRAPH_USERNAME_MATCH
+              value: "none"
+            - name: PROXY_ROLE_ASSIGNMENT_OIDC_CLAIM
+              value: "roles"
+            - name: PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD
+              value: "jwt"
+            - name: WEB_OIDC_METADATA_URL
+              {{- if .Values.global.oidc.issuer }}
+              value: {{ printf "%s/.well-known/openid-configuration" .Values.global.oidc.issuer | quote }}
+              {{- else }}
+              value: {{ printf "https://%s/realms/%s/.well-known/openid-configuration" (include "opencloud.keycloak.domain" .) .Values.keycloak.internal.realm | quote }}
+              {{- end }}
+            - name: WEB_OIDC_SCOPE
+              value: "openid profile email groups roles"
+            {{- end }}
+            # Admin user password
+            - name: IDM_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{- if .Values.opencloud.existingSecret }}
+                          {{ .Values.opencloud.existingSecret }}
+                        {{- else }}
+                          {{ include "opencloud.opencloud.fullname" . }}
+                        {{- end }}
+                  key: adminPassword
+            # Demo users
+            - name: IDM_CREATE_DEMO_USERS
+              value: {{ .Values.opencloud.createDemoUsers | quote }}
+            {{- if .Values.opencloud.nats.external.enabled }}
+            # Use the external nats as the service registry
+            - name: MICRO_REGISTRY_ADDRESS
+              value: {{ .Values.opencloud.nats.external.endpoint | quote }}
+            # Use the external nats as the cache and persistent store
+            - name: OC_CACHE_STORE_NODES
+              value: {{ .Values.opencloud.nats.external.endpoint | quote }}
+            - name: OC_PERSISTENT_STORE_NODES
+              value: {{ .Values.opencloud.nats.external.endpoint | quote }}
+            # Use the external nats as the messaging system
+            - name: OC_EVENTS_ENDPOINT
+              value: {{ .Values.opencloud.nats.external.endpoint | quote }}
+            - name: OC_EVENTS_CLUSTER
+              value: {{ .Values.opencloud.nats.external.cluster | quote }}
+            - name: OC_EVENTS_ENABLE_TLS
+              value: {{ .Values.opencloud.nats.external.tls.enabled | quote }}
+            - name: OC_EVENTS_TLS_INSECURE
+              value: {{ .Values.opencloud.nats.external.tls.insecure | quote }}
+            {{- if not .Values.opencloud.nats.external.tls.certTrusted }}
+            - name: OC_EVENTS_TLS_ROOT_CA_CERTIFICATE
+              value: /etc/opencloud/nats-ca/ca.crt
+            {{- end }}
+            {{- else }}
+            - name: MICRO_REGISTRY_ADDRESS
+              value: "127.0.0.1:9233"
+            # Make the registry available to the app provider containers
+            - name: NATS_NATS_HOST
+              value: "0.0.0.0"
+            - name: NATS_NATS_PORT
+              value: "9233"
+            {{- end }}
+            # CSP configuration
+            - name: PROXY_CSP_CONFIG_FILE_LOCATION
+              value: "/etc/opencloud/csp.yaml"
+            # Storage configuration
+            # Always use decomposeds3 for user storage and decomposed for system storage
+            - name: STORAGE_USERS_DRIVER
+            {{- if eq .Values.opencloud.storage.mode "posixfs" }}
+              value: "posix"
+            {{- else }}
+              value: "decomposeds3"
+            {{- end }}
+            - name: STORAGE_SYSTEM_DRIVER
+              value: "decomposed"
+            
+            {{- if eq .Values.opencloud.storage.mode "posixfs" }}
+            - name: STORAGE_USERS_POSIX_ROOT
+              value: {{ .Values.opencloud.storage.posixfs.rootPath | quote }}
+            - name: STORAGE_USERS_ID_CACHE_STORE
+              value: {{ .Values.opencloud.storage.posixfs.idCacheStore | quote }}
+            # S3 storage configuration
+            {{- else if and (eq .Values.opencloud.storage.mode "s3") .Values.opencloud.storage.s3.external.enabled }}
+            # External S3 storage
+            - name: STORAGE_USERS_DECOMPOSEDS3_ENDPOINT
+              value: {{ .Values.opencloud.storage.s3.external.endpoint | quote }}
+            - name: STORAGE_USERS_DECOMPOSEDS3_REGION
+              value: {{ .Values.opencloud.storage.s3.external.region | quote }}
+            - name: STORAGE_USERS_DECOMPOSEDS3_BUCKET
+              value: {{ .Values.opencloud.storage.s3.external.bucket | quote }}
+            - name: STORAGE_USERS_DECOMPOSEDS3_CREATE_BUCKET
+              value: {{ .Values.opencloud.storage.s3.external.createBucket | default true | quote }}
+            - name: STORAGE_USERS_DECOMPOSEDS3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.opencloud.storage.s3.external.existingSecret | default (printf "%s-s3" (include "opencloud.opencloud.fullname" .)) }}
+                  key: accessKey
+            - name: STORAGE_USERS_DECOMPOSEDS3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.opencloud.storage.s3.external.existingSecret | default (printf "%s-s3" (include "opencloud.opencloud.fullname" .)) }}
+                  key: secretKey
+            {{- else }}
+            # Internal S3 (MinIO) storage
+            - name: STORAGE_USERS_DECOMPOSEDS3_ENDPOINT
+              value: {{ printf "http://%s:9000" (include "opencloud.minio.fullname" .) | quote }}
+            - name: STORAGE_USERS_DECOMPOSEDS3_REGION
+              value: {{ .Values.opencloud.storage.s3.internal.region | default "default" | quote }}
+            - name: STORAGE_USERS_DECOMPOSEDS3_BUCKET
+              value: {{ .Values.opencloud.storage.s3.internal.bucketName | quote }}
+            - name: STORAGE_USERS_DECOMPOSEDS3_CREATE_BUCKET
+              value: "true"
+            - name: STORAGE_USERS_DECOMPOSEDS3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.opencloud.storage.s3.internal.existingSecret | default (include "opencloud.minio.fullname" .) }}
+                  key: rootUser
+            - name: STORAGE_USERS_DECOMPOSEDS3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.opencloud.storage.s3.internal.existingSecret | default (include "opencloud.minio.fullname" .) }}
+                  key: rootPassword
+            {{- end }}
+            {{- with .Values.opencloud.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 9200
+            - name: nats
+              containerPort: 9233
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 9200
+            periodSeconds: 2
+            timeoutSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 9200
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 9200
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: config
+              mountPath: /etc/opencloud
+            - name: data
+              mountPath: /var/lib/opencloud
+            {{- if and (eq .Values.opencloud.storage.mode "posixfs") .Values.opencloud.storage.posixfs.persistence.enabled }}
+            - name: posixfs
+              mountPath: {{ .Values.opencloud.storage.posixfs.rootPath | default "/var/lib/opencloud/storage" | quote }}
+            {{- end }}
+            - name: config-json
+              mountPath: /var/lib/opencloud/config.json
+              subPath: config.json
+            - name: config-files
+              mountPath: /etc/opencloud/search.yaml
+              subPath: search.yaml
+            - name: config-files
+              mountPath: /etc/opencloud/csp.yaml
+              subPath: csp.yaml
+            - name: config-files
+              mountPath: /etc/opencloud/banned-password-list.txt
+              subPath: banned-password-list.txt
+            {{- if and (.Values.opencloud.nats.external.enabled) (not .Values.opencloud.nats.external.tls.certTrusted) }}
+            - name: nats-ca
+              mountPath: /etc/opencloud/nats-ca
+              readOnly: true
+            {{- end }}
+          resources:
+            {{- toYaml .Values.opencloud.resources | nindent 12 }}
+      volumes:
+        - name: config
+          {{- if .Values.opencloud.persistence.config.enabled }}
+          persistentVolumeClaim:
+            {{- if .Values.opencloud.persistence.config.existingClaim }}
+            claimName: {{ .Values.opencloud.persistence.config.existingClaim | quote }}
+            {{- else }}
+            claimName: {{ include "opencloud.opencloud.fullname" . }}-config
+            {{- end }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: data
+          {{- if .Values.opencloud.persistence.data.enabled }}
+          persistentVolumeClaim:
+            {{- if .Values.opencloud.persistence.data.existingClaim }}
+            claimName: {{ .Values.opencloud.persistence.data.existingClaim | quote }}
+            {{- else }}
+            claimName: {{ include "opencloud.opencloud.fullname" . }}-data
+            {{- end }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- if and (eq .Values.opencloud.storage.mode "posixfs") .Values.opencloud.storage.posixfs.persistence.enabled }}
+        - name: posixfs
+          persistentVolumeClaim:
+            {{- if .Values.opencloud.storage.posixfs.persistence.existingClaim }}
+            claimName: {{ .Values.opencloud.storage.posixfs.persistence.existingClaim | quote }}
+            {{- else }}
+            claimName: {{ include "opencloud.opencloud.fullname" . }}-posixfs
+            {{- end }}
+        {{- end }}
+        - name: config-json
+          configMap:
+            name: {{ include "opencloud.opencloud.fullname" . }}-config-json
+        - name: config-files
+          configMap:
+            name: {{ include "opencloud.opencloud.fullname" . }}-config
+        - name: proxy-config
+          configMap:
+            name: {{ include "opencloud.opencloud.fullname" . }}-proxy-config
+        {{ if and (.Values.opencloud.nats.external.enabled) (not .Values.opencloud.nats.external.tls.certTrusted) }}
+        - name: nats-ca
+          secret:
+            secretName: {{ .Values.opencloud.nats.external.tls.caSecretName }}
+        {{ end }}
+        {{- if .Values.webExtensions.enabled }}
+        - name: extensions
+          emptyDir: {}
+        - name: web-extensions-init-script
+          configMap:
+            name: {{ include "opencloud.opencloud.fullname" . }}-web-extensions-init
+        {{- end }}
+{{- end }}

@@ -1,0 +1,732 @@
+# OpenCloud Helm Chart Values
+# This is a YAML-formatted file with configuration values for the OpenCloud Helm chart.
+# The file is organized into logical sections for different components of the system.
+
+# =====================================================================
+# SECURITY WARNING
+# =====================================================================
+# IMPORTANT: The following default credentials MUST be changed in production environments.
+# Using these default values in production is a significant security risk.
+#
+# Credentials that need to be changed:
+# 1. Keycloak Admin: adminUser: admin, adminPassword: admin
+# 2. OpenCloud Admin: adminPassword: admin
+# 3. PostgreSQL: user: keycloak, password: keycloak
+# 4. MinIO: rootUser: opencloud, rootPassword: opencloud-secret-key
+# 5. RabbitMQ: url: amqp://guest:guest@localhost
+
+
+# =====================================================================
+# GLOBAL SETTINGS
+# =====================================================================
+
+# Global settings that apply across components
+global:
+  # Domain settings for various services
+  domain:
+    # Main domain for OpenCloud
+    opencloud: cloud.opencloud.test
+    # Domain for Keycloak
+    keycloak: keycloak.opencloud.test
+    # Domain for MinIO
+    minio: minio.opencloud.test
+    # Domain for WOPI server
+    wopi: wopiserver.opencloud.test
+    # Domain for Collabora CODE
+    collabora: collabora.opencloud.test
+    # Domain for OnlyOffice
+    onlyoffice: onlyoffice.opencloud.test
+    # Domain for Companion
+    companion: companion.opencloud.test
+
+  # TLS settings for secure connections
+  tls:
+    # Enable TLS (set to false when using gateway TLS termination externally)
+    enabled: false
+    # secretName for TLS certificate
+    secretName: ""
+
+  oidc:
+    # OpenID Connect issuer URL. If set, overrides the default Keycloak internal issuer URL.
+    # This is useful for external OIDC providers or custom Keycloak configurations.
+    # Example: https://keycloak.opencloud.test/realms/openCloud
+    issuer: ""
+    # OIDC client ID for OpenCloud
+    clientId: "web"
+    # OIDC account URL for user account management. If set, overrides the default Keycloak internal account URL.
+    # This is the URL where users can manage their accounts, typically provided by Keycloak.
+    # Example: https://keycloak.opencloud.test/realms/openCloud/account
+    accountUrl: ""
+
+  # Global storage settings
+  storage:
+    # Storage class for persistent volumes
+    storageClass: ""
+
+  # Global image settings
+  image:
+    # Global registry override - if set, it will override all image registries
+    # Example: my-private-registry.com
+    registry: ""
+    # Global pull policy override - if set, it will override all image pull policies
+    # Options: Always, IfNotPresent, Never
+    pullPolicy: ""
+
+# =====================================================================
+# UTILITY IMAGES
+# =====================================================================
+
+# Busybox image settings (used for init containers)
+busybox:
+  image:
+    # Busybox image registry
+    registry: docker.io
+    # Busybox image repository
+    repository: library/busybox
+    # Busybox image tag
+    tag: "1.36"
+    # Image pull policy
+    pullPolicy: IfNotPresent
+
+# =====================================================================
+# IDENTITY PROVIDER (KEYCLOAK)
+# =====================================================================
+
+# Keycloak settings for identity and access management
+# Structure follows issue #64 - standardized internal/external pattern
+keycloak:
+  # Internal Keycloak deployment
+  internal:
+    # Enable internal Keycloak instance
+    enabled: true
+    # Keycloak image settings
+    image:
+      # Keycloak image registry
+      registry: quay.io
+      # Keycloak image repository
+      repository: keycloak/keycloak
+      # Keycloak image tag
+      tag: "26.1.4"
+      # Image pull policy
+      pullPolicy: IfNotPresent
+    # Number of Keycloak replicas
+    replicas: 1
+
+    # Use existing secret for keycloak credentials (Note: secretKeyName must be adminUser and adminPassword)
+    existingSecret: ""
+
+    # Admin user
+    # ignored if keycloak.internal.existingSecret is set
+    adminUser: admin
+
+    # Admin password
+    # ignored if keycloak.internal.existingSecret is set
+    adminPassword: admin
+
+    # Keycloak realm
+    realm: "openCloud"
+
+    # CORS settings for cross-origin requests
+    cors:
+      # Enable CORS
+      enabled: true
+      # Allow all origins
+      allowAllOrigins: true
+      # Allowed origins (used if allowAllOrigins is false)
+      origins: []
+      # Allowed methods
+      methods: "GET,POST,PUT,DELETE,OPTIONS"
+      # Allowed headers
+      headers: "Origin,Accept,Authorization,Content-Type,Cache-Control"
+      # Exposed headers
+      exposedHeaders: "Access-Control-Allow-Origin,Access-Control-Allow-Credentials"
+      # Allow credentials
+      allowCredentials: "true"
+      # Max age in seconds
+      maxAge: "3600"
+    # Resources
+    resources: {}
+
+# PostgreSQL settings for Keycloak
+postgres:
+  # Enable PostgreSQL
+  enabled: true
+  # PostgreSQL image settings
+  image:
+    # PostgreSQL image registry
+    registry: docker.io
+    # PostgreSQL image repository
+    repository: postgres
+    # PostgreSQL image tag
+    tag: "alpine"
+    # Image pull policy
+    pullPolicy: IfNotPresent
+
+  # Database name
+  database: keycloak
+
+  # Use existing secret for postgres credentials (Note: secretKeyName must be username and password)
+  existingSecret: ""
+
+  # Database user
+  # ignored if postgres.existingSecret is set
+  user: keycloak
+
+  # Database password
+  # ignored if postgres.existingSecret is set
+  password: keycloak
+
+  # Resources allocation
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  # Persistence configuration
+  persistence:
+    enabled: true
+    # Name of existing PVC to use (overrides all other persistence values)
+    existingClaim: ""
+    # Size of the persistent volume
+    size: 1Gi
+    # Storage class
+    storageClass: ""
+    # Access mode
+    accessMode: ReadWriteOnce
+
+
+# =====================================================================
+# EXTENSIONS
+# =====================================================================
+
+# Tika settings for full-text search
+tika:
+  # Enable Tika
+  enabled: true
+  # Tika image settings
+  image:
+    # Tika image registry
+    registry: docker.io
+    # Tika image repository
+    repository: apache/tika
+    # Tika image tag
+    tag: "2.9.2.1-full"
+    # Image pull policy
+    pullPolicy: IfNotPresent
+  # Resources allocation
+  resources:
+    requests:
+      cpu: 100m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 3Gi
+
+# Web Extensions settings
+webExtensions:
+  # Enable web extensions
+  enabled: true
+  # Common image settings for all extensions
+  image:
+    # Registry for web extensions
+    registry: docker.io
+    # Repository for web extensions
+    repository: opencloudeu/web-extensions
+    # Image pull policy
+    pullPolicy: IfNotPresent
+  # List of extensions to install
+  extensions:
+    # Draw.io extension
+    drawio:
+      enabled: true
+      tag: draw-io-1.0.0
+    # External Sites extension
+    externalsites:
+      enabled: true
+      tag: external-sites-1.0.0
+    # Importer extension
+    importer:
+      enabled: true
+      tag: importer-1.0.0
+    # JSON Viewer extension
+    jsonviewer:
+      enabled: true
+      tag: json-viewer-1.0.0
+    # Progress Bars extension
+    progressbars:
+      enabled: true
+      tag: progress-bars-1.0.0
+    # Unzip extension
+    unzip:
+      enabled: true
+      tag: unzip-1.0.0
+
+# =====================================================================
+# COLLABORATION (COLLABORA)
+# =====================================================================
+
+collabora:
+  enabled: false
+  image:
+    registry: docker.io
+    repository: collabora/code
+    pullPolicy: IfNotPresent
+    tag: 24.04.13.2.1
+  ssl:
+    enabled: true
+    verification: true
+
+  # Use existing secret for collabora credentials (Note: secretKeyName must be username and password)
+  existingSecret: ""
+
+  admin:
+    # ignored if collabora.existingSecret is set
+    username: admin
+
+    # ignored if collabora.existingSecret is set
+    password: admin
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1
+      memory: 1Gi
+
+# =====================================================================
+# COLLABORATION (ONLYOFFICE)
+# =====================================================================
+
+# OnlyOffice settings for document collaboration
+onlyoffice:
+  # Enable OnlyOffice
+  enabled: true
+  # OnlyOffice image settings
+  image:
+    # OnlyOffice image registry
+    registry: docker.io
+    # OnlyOffice image repository
+    repository: onlyoffice/documentserver
+    # OnlyOffice image tag
+    tag: 8.2.2
+    # Image pull policy
+    pullPolicy: IfNotPresent
+  # WOPI settings
+  wopi:
+    # Enable WOPI
+    enabled: true
+  # Use unauthorized storage (for self-signed certificates)
+  useUnauthorizedStorage: true
+  # Database configuration
+  db:
+    # Use existing secret for database password
+    existingSecret: ""
+    # Key in the existing secret that contains the password
+    secretKeyName: "password"
+  # Persistence configuration
+  persistence:
+    # Enable persistence
+    enabled: true
+    # Name of existing PVC to use (overrides all other persistence values)
+    existingClaim: ""
+    # Size of the persistent volume
+    size: 2Gi
+  # Resources allocation
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 5000m
+      memory: 10Gi
+  # Configuration for local.json
+  config:
+    # CoAuthoring service settings
+    coAuthoring:
+      # SQL database settings
+      sql:
+        type: "postgres"
+        dbHost: "localhost"
+        dbPort: "5432"
+        dbName: "onlyoffice"
+        dbUser: "onlyoffice"
+      
+      # Secret settings
+      secret:
+        # Use existing secret for onlyoffice credentials (Note: secretKeyName must be sessionSecret)
+        existingSecret: ""
+        
+        # ignored if onlyoffice.config.coAuthoring.secret.existingSecret is set
+        session:
+          string: "Dd0SXIe1k9oCfdffgrfNmA0TK1bb1B1d38OFSb"
+    # RabbitMQ settings
+    rabbitmq:
+      # Use existing secret for onlyoffice rabbitmq credentials (Note: secretKeyName must be url)
+      existingSecret: ""
+
+      # ignored if onlyoffice.config.rabbitmq.existingSecret is set
+      url: "amqp://guest:Dd0SXIe1k9osdfjkmA0TK1bb1B1d38OFSb@localhost"
+    # File converter settings
+    fileConverter:
+      converter:
+        inputLimits:
+          - type: "docx;dotx;docm;dotm"
+            zip:
+              uncompressed: "1GB"
+              template: "*.xml"
+          - type: "xlsx;xltx;xlsm;xltm"
+            zip:
+              uncompressed: "1GB"
+              template: "*.xml"
+          - type: "pptx;ppsx;potx;pptm;ppsm;potm"
+            zip:
+              uncompressed: "1GB"
+              template: "*.xml"
+  # Collaboration service settings
+  collaboration:
+    # Enable collaboration service
+    enabled: true
+    # Resources allocation
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 5000m
+        memory: 10Gi
+
+# =====================================================================
+# OPENCLOUD CORE
+# =====================================================================
+
+# Image settings for OpenCloud
+image:
+  # OpenCloud image registry
+  registry: docker.io
+  # OpenCloud image repository
+  repository: opencloudeu/opencloud-rolling
+  # OpenCloud image tag
+  tag: "2.1.0"
+  # Image pull policy
+  pullPolicy: IfNotPresent
+  # Image pull secrets
+  pullSecrets: []
+
+# OpenCloud core settings
+opencloud:
+  # Enable OpenCloud
+  enabled: true
+  # Number of replicas (Note: When using multiple replicas, persistence should be disabled
+  # or use a storage class that supports ReadWriteMany access mode)
+  replicas: 1
+  # Log level
+  logLevel: info
+  # Log color
+  logColor: false
+  # Log pretty
+  logPretty: false
+  # Insecure mode (for self-signed certificates)
+  insecure: true
+  
+  # Use existing secret for opencloud admin credentials (Note: secretKeyName must be adminPassword)
+  existingSecret: ""
+  
+  # Admin password
+  # ignored if opencloud.existingSecret is set
+  adminPassword: admin
+  
+  # Create demo users
+  createDemoUsers: false
+  # Additional services to start
+  additionalServices: []
+  # Services to exclude from starting
+  excludeServices:
+    - "idp"
+  env: []
+  envFrom: []
+  # Resources allocation
+  resources:
+    requests:
+      cpu: 128m
+      memory: 128Mi
+    limits:
+      memory: 20Gi
+  # Persistence configuration
+  persistence:
+    config:
+      # Enable persistence
+      enabled: true
+      # Name of existing PVC to use (overrides all other persistence values)
+      existingClaim: ""
+      # Size of the persistent volume for config
+      size: 5Gi
+      # Storage class
+      storageClass: ""
+      # Access mode (ReadWriteOnce or ReadWriteMany for multiple replicas)
+      accessMode: ReadWriteOnce
+    data:
+      # Enable persistence
+      enabled: true
+      # Name of existing PVC to use (overrides all other persistence values)
+      existingClaim: ""
+      # Size of the persistent volume for data
+      size: 30Gi
+      # Storage class
+      storageClass: ""
+      # Access mode (ReadWriteOnce or ReadWriteMany for multiple replicas)
+      accessMode: ReadWriteOnce
+  # Configuration files
+  config:
+    theme: "owncloud"
+    # App registry configuration
+    appRegistry: {}
+    # CSP configuration
+    csp: {}
+    # Banned password list configuration
+    # Format: Multi-line string (not YAML array)
+    # Use the |- syntax to preserve line breaks
+    # Add one password per line - do not use YAML list syntax (no dashes)
+    # Example:
+    #   bannedPasswordList: |-
+    #     password1
+    #     password2
+    #     password3
+    # For very long lists override the file 'files/opencloud/banned-password-list.txt'
+    bannedPasswordList: |-
+
+  nats:
+    external:
+      # -- Use an external NATS messaging system instead of the internal one.
+      # Recommended for all production instances.
+      # Needs to be used if HighAvailability is needed.
+      # Needs to be used if OpenCloud shall be used by more than a 2-digit user count.
+      enabled: false
+
+      # -- Endpoint of the messaging system.
+      endpoint: nats.opencloud-nats.svc.cluster.local:4222
+
+      # -- Cluster name to use with the messaging system.
+      cluster: opencloud-cluster
+
+      tls:
+        # -- Enables TLS encrypted communication with the messaging system.
+        # Recommended for production installations.
+        enabled: false
+        
+        # -- Set only to false, if the certificate of your messaging system service is not trusted.
+        # If set to false, you need to put the CA cert of the messaging system server into the secret referenced by "caSecretName"
+        certTrusted: true
+
+        # -- Disables SSL certificate checking for connections to the messaging system server.
+        # -- For self signed certificates, consider to put the CA cert of the messaging system secure server into the secret referenced by "caSecretName"
+        # Not recommended for production installations.
+        insecure: false
+
+        # Use existing CA secret for nats credentials (Note: secretKeyName must be 'ca.crt' with the root CA certificate for NATS)
+        # Only used if certTrusted is false
+        caSecretName : opencloud-nats-ca
+
+  # =====================================================================
+  # EMAIL (SMTP)
+  # =====================================================================
+  
+  # SMTP settings for email notifications
+  smtp:
+    # Enable SMTP
+    enabled: false
+    # SMTP host
+    host: ""
+    # SMTP port
+    port: "587"
+    # SMTP sender
+    sender: ""
+    
+    # Use existing secret for opencloud smtp credentials (Note: secretKeyName must be smtpUser and smtpPassword)
+    existingSecret: ""
+    
+    # SMTP username
+    # ignored if opencloud.smtp.existingSecret is set
+    username: ""
+
+    # SMTP password
+    # ignored if opencloud.smtp.existingSecret is set
+    password: ""
+
+    # SMTP insecure (allow self-signed certificates)
+    insecure: "false"
+    # SMTP authentication method
+    authentication: "plain"
+    # SMTP encryption method
+    encryption: "starttls"
+
+  # =====================================================================
+  # STORAGE CONFIGURATION
+  # =====================================================================
+  
+  # Storage configuration
+  storage:
+    # Storage mode for user files, can be "s3" (default) or "posixfs"
+    mode: s3
+    # S3 storage configuration
+    s3:
+      # Internal MinIO instance
+      internal:
+        # Enable internal test MinIO instance (default: true)
+        enabled: true
+        # MinIO image settings
+        image:
+          # MinIO image registry
+          registry: docker.io
+          # MinIO image repository
+          repository: minio/minio
+          # MinIO image tag
+          tag: latest
+          # Image pull policy
+          pullPolicy: IfNotPresent
+        # httpRoute configuration
+        httpRoute:
+          # Enable HTTPRoute for MinIO (default: false)
+          enabled: false
+        
+        # Use existing secret for minio credentials (Note: secretKeyName must be rootUser and rootPassword)
+        existingSecret: ""
+        
+        # Minio Root user
+        # ignored if opencloud.storage.s3.internal.existingSecret is set
+        rootUser: opencloud
+
+        # Minio Root password
+        # ignored if opencloud.storage.s3.internal.existingSecret is set
+        rootPassword: opencloud-secret-key
+        
+        # Bucket name
+        bucketName: opencloud-bucket
+        # Region (optional)
+        region: "default"
+        # Resources allocation
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+        # Persistence configuration
+        persistence:
+          enabled: true
+          # Name of existing PVC to use (overrides all other persistence values)
+          existingClaim: ""
+          # Size of the persistent volume
+          size: 30Gi
+          # Storage class
+          storageClass: ""
+          # Access mode
+          accessMode: ReadWriteOnce
+      # External S3 (can be S3, Ceph, or external MinIO)
+      external:
+        # Enable external S3
+        enabled: false
+        # External S3 endpoint URL
+        endpoint: ""
+        # External S3 region
+        region: "default"
+        
+        # Use existing secret for external s3 credentials (Note: secretKeyName must be accessKey and secretKey)
+        existingSecret: ""
+        
+        # External S3 access key
+        # ignored if opencloud.storage.s3.external.existingSecret is set
+        accessKey: ""
+
+        # External S3 secret key
+        # ignored if opencloud.storage.s3.external.existingSecret is set
+        secretKey: ""
+
+        # External S3 bucket
+        bucket: ""
+        # Create bucket if it doesn't exist
+        createBucket: true
+    posixfs:
+      # The type of the cache store, supported values are: 'memory', 'redis-sentinel', 'nats-js-kv' (default), 'noop'
+      idCacheStore: nats-js-kv
+      # Path of storage root directory, default is /var/lib/opencloud/storage
+      rootPath: "/var/lib/opencloud/storage"
+      persistence:
+        # Enable persistence
+        enabled: true
+        # Name of existing PVC to use (overrides all other persistence values)
+        existingClaim: ""
+        # Size of the persistent volume for data
+        size: 30Gi
+        # Storage class
+        storageClass: ""
+        # Access mode (ReadWriteOnce or ReadWriteMany for multiple replicas)
+        accessMode: ReadWriteMany
+
+# =====================================================================
+# GATEWAY-API HTTPRoute
+# =====================================================================
+
+# Requires Gateway API resources and suitable controller installed within the cluster
+# (see: https://gateway-api.sigs.k8s.io/guides/)
+httpRoute:
+  # Enable HTTPRoute resources (set to true to create Gateway API routes)
+  enabled: false
+
+  # Gateway configuration
+  gateway:
+    # Create the gateway
+    create: false
+    # HTTPS Port to listen to (k3s traefik defaults to 8443)
+    port: 443
+    # Gateway name
+    name: opencloud-gateway
+    # Gateway class (defaults to "cilium")
+    className: cilium
+    # Gateway namespace (defaults to Release.Namespace)
+    namespace: ""
+    # Gateway section name (applies to all routes). If set to a non-empty value, this overrides the default component-specific section names (e.g., opencloud-https, onlyoffice-https) for all routes. If left empty, the defaults are used.
+    sectionName: ""
+    # Gateway annotations
+    annotations:
+    # Gateway annotations
+    infrastructure:
+      annotations: {}
+
+# =====================================================================
+# INGRESS
+# =====================================================================
+
+# Ingress configuration
+ingress:
+  # Whether to enable ingress resources for components
+  enabled: false
+
+  # The ingress class name to use (e.g., nginx, traefik). Leave empty to use the cluster default.
+  # Note: This sets the Kubernetes `spec.ingressClassName` field.
+  ingressClassName: ""
+
+  # Some components (e.g., OnlyOffice) require the X-Forwarded-Proto header to be set.
+  #
+  # Set 'annotationsPreset' to inject known ingress-controller-specific annotations
+  # for injecting the header. Supported values: nginx, traefik, haproxy, contour, istio
+  #
+  # If set to "traefik" and OnlyOffice is enabled, the chart will create a Middleware
+  # named 'add-x-forwarded-proto-https' for use in both Ingress and Gateway HTTPRoute.
+  #
+  # This is required because Traefik does not allow simple header injection via annotations
+  # or Gateway filters and instead expects a Middleware to be referenced.
+  #
+  # These annotations are added in addition to any defined in 'annotations'.
+  # If there's a conflict, Helm will error. To avoid this, set annotationsPreset: ""
+  # and define all annotations manually (including creating any required Middleware).
+  annotationsPreset: ""  # optional, default ""
+
+  # Custom annotations applied to all ingress resources.
+  # These are merged with any annotations from 'annotationsPreset' (if set).
+  annotations: {}
+    # Example:
+    # cert-manager.io/cluster-issuer: letsencrypt

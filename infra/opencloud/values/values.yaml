@@ -1,0 +1,304 @@
+# OpenCloud Helm Chart Values
+# This is a YAML-formatted file with configuration values for the OpenCloud Helm chart.
+# The file is organized into logical sections for different components of the system.
+
+# =====================================================================
+# SECURITY WARNING
+# =====================================================================
+# IMPORTANT: The following default credentials MUST be changed in production environments.
+# Using these default values in production is a significant security risk.
+#
+# Credentials that need to be changed:
+# 1. Keycloak Admin: adminUser: admin, adminPassword: admin
+# 2. OpenCloud Admin: adminPassword: admin
+# 3. PostgreSQL: user: keycloak, password: keycloak
+# 4. MinIO: rootUser: opencloud, rootPassword: opencloud-secret-key
+# 5. RabbitMQ: url: amqp://guest:guest@localhost
+
+# =====================================================================
+# GLOBAL SETTINGS
+# =====================================================================
+
+# Global settings that apply across components
+global:
+  oidc:
+    # OpenID Connect issuer URL. If set, overrides the default Keycloak internal issuer URL.
+    # This is useful for external OIDC providers or custom Keycloak configurations.
+    # Example: https://keycloak.opencloud.test/realms/openCloud
+    issuer: ""
+    # OIDC client ID for OpenCloud
+    clientId: "web"
+    # OIDC account URL for user account management. If set, overrides the default Keycloak internal account URL.
+    # This is the URL where users can manage their accounts, typically provided by Keycloak.
+    # Example: https://keycloak.opencloud.test/realms/openCloud/account
+    accountUrl: ""
+
+  # Global storage settings
+  storage:
+    # Storage class for persistent volumes
+    storageClass: ""
+
+# =====================================================================
+# UTILITY IMAGES
+# =====================================================================
+
+# Busybox image settings (used for init containers)
+busybox:
+  image:
+    # Busybox image registry
+    registry: docker.io
+    # Busybox image repository
+    repository: library/busybox
+    # Busybox image tag
+    tag: "1.36"
+    # Image pull policy
+    pullPolicy: IfNotPresent
+
+# =====================================================================
+# IDENTITY PROVIDER (KEYCLOAK)
+# =====================================================================
+
+# Keycloak settings for identity and access management
+# Structure follows issue #64 - standardized internal/external pattern
+keycloak:
+  # Internal Keycloak deployment
+  internal:
+    # Enable internal Keycloak instance
+    enabled: false
+
+# =====================================================================
+# EXTENSIONS
+# =====================================================================
+
+# Tika settings for full-text search
+tika:
+  # Enable Tika
+  enabled: true
+  # Tika image settings
+  image:
+    # Tika image registry
+    registry: docker.io
+    # Tika image repository
+    repository: apache/tika
+    # Tika image tag
+    tag: "2.9.2.1-full"
+    # Image pull policy
+    pullPolicy: IfNotPresent
+  # Resources allocation
+  resources:
+    requests:
+      cpu: 100m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 3Gi
+
+# Web Extensions settings
+webExtensions:
+  # Enable web extensions
+  enabled: true
+  # Common image settings for all extensions
+  image:
+    # Registry for web extensions
+    registry: docker.io
+    # Repository for web extensions
+    repository: opencloudeu/web-extensions
+    # Image pull policy
+    pullPolicy: IfNotPresent
+  # List of extensions to install
+  extensions:
+    # Draw.io extension
+    drawio:
+      enabled: true
+      tag: draw-io-1.0.0
+    # External Sites extension
+    externalsites:
+      enabled: true
+      tag: external-sites-1.0.0
+    # Importer extension
+    importer:
+      enabled: true
+      tag: importer-1.0.0
+    # JSON Viewer extension
+    jsonviewer:
+      enabled: true
+      tag: json-viewer-1.0.0
+    # Progress Bars extension
+    progressbars:
+      enabled: true
+      tag: progress-bars-1.0.0
+    # Unzip extension
+    unzip:
+      enabled: true
+      tag: unzip-1.0.0
+
+# =====================================================================
+# COLLABORATION (COLLABORA)
+# =====================================================================
+
+collabora:
+  enabled: false
+
+# =====================================================================
+# COLLABORATION (ONLYOFFICE)
+# =====================================================================
+
+# OnlyOffice settings for document collaboration
+onlyoffice:
+  # Enable OnlyOffice
+  enabled: false
+
+# =====================================================================
+# OPENCLOUD CORE
+# =====================================================================
+
+# Image settings for OpenCloud
+image:
+  # OpenCloud image registry
+  registry: docker.io
+  # OpenCloud image repository
+  repository: opencloudeu/opencloud-rolling
+  # OpenCloud image tag
+  tag: "2.1.0"
+  # Image pull policy
+  pullPolicy: IfNotPresent
+  # Image pull secrets
+  pullSecrets: []
+
+# OpenCloud core settings
+opencloud:
+  # Enable OpenCloud
+  enabled: true
+  # Number of replicas (Note: When using multiple replicas, persistence should be disabled
+  # or use a storage class that supports ReadWriteMany access mode)
+  replicas: 1
+  # Log level
+  logLevel: info
+  # Log color
+  logColor: false
+  # Log pretty
+  logPretty: false
+  # Insecure mode (for self-signed certificates)
+  insecure: true
+
+  # Use existing secret for opencloud admin credentials (Note: secretKeyName must be adminPassword)
+  existingSecret: ""
+
+  # Admin password
+  # ignored if opencloud.existingSecret is set
+  adminPassword: admin
+  # Services to exclude from starting
+  excludeServices:
+    - "idp"
+  env: []
+  envFrom: []
+  # Resources allocation
+  persistence:
+    config:
+      # Enable persistence
+      enabled: true
+      # Name of existing PVC to use (overrides all other persistence values)
+      existingClaim: ""
+      # Size of the persistent volume for config
+      size: 5Gi
+      # Storage class
+      storageClass: "zfs-generic-nfs-csi"
+      # Access mode (ReadWriteOnce or ReadWriteMany for multiple replicas)
+      accessMode: ReadWriteOnce
+    data:
+      # Enable persistence
+      enabled: true
+      # Name of existing PVC to use (overrides all other persistence values)
+      existingClaim: ""
+      # Size of the persistent volume for data
+      size: 30Gi
+      # Storage class
+      storageClass: "zfs-generic-nfs-csi"
+      # Access mode (ReadWriteOnce or ReadWriteMany for multiple replicas)
+      accessMode: ReadWriteOnce
+  # Configuration files
+  config:
+    theme: "owncloud"
+
+  nats:
+    external:
+      # -- Use an external NATS messaging system instead of the internal one.
+      # Recommended for all production instances.
+      # Needs to be used if HighAvailability is needed.
+      # Needs to be used if OpenCloud shall be used by more than a 2-digit user count.
+      enabled: false
+
+  # =====================================================================
+  # EMAIL (SMTP)
+  # =====================================================================
+
+  # SMTP settings for email notifications
+  smtp:
+    # Enable SMTP
+    enabled: false
+    # SMTP host
+    host: ""
+    # SMTP port
+    port: "587"
+    # SMTP sender
+    sender: ""
+
+    # Use existing secret for opencloud smtp credentials (Note: secretKeyName must be smtpUser and smtpPassword)
+    existingSecret: ""
+
+    # SMTP username
+    # ignored if opencloud.smtp.existingSecret is set
+    username: ""
+
+    # SMTP password
+    # ignored if opencloud.smtp.existingSecret is set
+    password: ""
+
+    # SMTP insecure (allow self-signed certificates)
+    insecure: "false"
+    # SMTP authentication method
+    authentication: "plain"
+    # SMTP encryption method
+    encryption: "starttls"
+
+  # =====================================================================
+  # STORAGE CONFIGURATION
+  # =====================================================================
+
+  # Storage configuration
+  storage:
+    # Storage mode for user files, can be "s3" (default) or "posixfs"
+    mode: s3
+    # S3 storage configuration
+    s3:
+      # Internal MinIO instance
+      internal:
+        # Enable internal test MinIO instance (default: true)
+        enabled: false
+
+      # External S3 (can be S3, Ceph, or external MinIO)
+      external:
+        # Enable external S3
+        enabled: false
+        # External S3 endpoint URL
+        endpoint: ""
+        # External S3 region
+        region: "default"
+
+        # Use existing secret for external s3 credentials (Note: secretKeyName must be accessKey and secretKey)
+        existingSecret: ""
+
+        # External S3 access key
+        # ignored if opencloud.storage.s3.external.existingSecret is set
+        accessKey: ""
+
+        # External S3 secret key
+        # ignored if opencloud.storage.s3.external.existingSecret is set
+        secretKey: ""
+
+        # External S3 bucket
+        bucket: ""
+        # Create bucket if it doesn't exist
+        createBucket: true
+    posixfs:
+      enabled: false
