@@ -3,7 +3,7 @@ infisical:
   image:
     repository: infisical/infisical
     tag: "v0.147.1"
-    pullPolicy: "Always"
+    pullPolicy: "IfNotPresent"
 
 ingress:
   enabled: false
@@ -26,4 +26,4 @@ postgresql:
 
 # Additional explicit disabling of PostgreSQL components
 databaseSchemaMigrationJob:
-  enabled: true
+  enabled: false
