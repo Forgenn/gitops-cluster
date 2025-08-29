@@ -4,7 +4,7 @@ metadata:
   name: infisical-cnpg-cluster-backup
 spec:
   immediate: false
-  schedule: 0 9 * * *
+  schedule: 0 8 * * *
   backupOwnerReference: self
   cluster:
     name: infisical-cnpg-cluster
