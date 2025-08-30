@@ -10,4 +10,5 @@ helmGlobals:
 helmCharts:
   - name: opencloud
     valuesFile: values/values.yaml
+    releaseName: opencloud
     namespace: opencloud

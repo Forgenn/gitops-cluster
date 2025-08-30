@@ -211,11 +211,11 @@ opencloud:
       # Name of existing PVC to use (overrides all other persistence values)
       existingClaim: ""
       # Size of the persistent volume for data
-      size: 30Gi
+      size: 1000Gi
       # Storage class
       storageClass: "zfs-generic-nfs-csi"
       # Access mode (ReadWriteOnce or ReadWriteMany for multiple replicas)
-      accessMode: ReadWriteOnce
+      accessMode: ReadWriteMany
   # Configuration files
   config:
     theme: "owncloud"
@@ -301,4 +301,6 @@ opencloud:
         # Create bucket if it doesn't exist
         createBucket: true
     posixfs:
-      enabled: false
+      enabled: true
+      persistence:
+        enabled: true
