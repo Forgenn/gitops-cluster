@@ -3,7 +3,7 @@ kind: ScheduledBackup
 metadata:
   name: pocket-id-cnpg-cluster-backup
 spec:
-  immediate: true
+  immediate: false
   schedule: 0 8 * * *
   backupOwnerReference: self
   cluster:
