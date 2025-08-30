@@ -11,7 +11,6 @@ resources:
   - secret-reader-role.yaml
   - secret-reader-role-binding.yaml
   - secretstore-serviceaccount.yaml
-  - cnpg-secret-reader-role-binding.yaml
 
 helmCharts:
   - name: pocket-id
