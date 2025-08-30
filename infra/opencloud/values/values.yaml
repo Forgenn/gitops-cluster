@@ -204,7 +204,7 @@ opencloud:
       # Storage class
       storageClass: "zfs-generic-nfs-csi"
       # Access mode (ReadWriteOnce or ReadWriteMany for multiple replicas)
-      accessMode: ReadWriteOnce
+      accessMode: ReadWriteMany
     data:
       # Enable persistence
       enabled: true
@@ -304,3 +304,5 @@ opencloud:
       enabled: true
       persistence:
         enabled: true
+        storageClass: "zfs-generic-nfs-csi"
+        size: 1000Gbi
