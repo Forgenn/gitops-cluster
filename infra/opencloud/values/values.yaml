@@ -211,7 +211,7 @@ opencloud:
       # Name of existing PVC to use (overrides all other persistence values)
       existingClaim: ""
       # Size of the persistent volume for data
-      size: 1000Gi
+      size: 10Gi
       # Storage class
       storageClass: "zfs-generic-nfs-csi"
       # Access mode (ReadWriteOnce or ReadWriteMany for multiple replicas)
