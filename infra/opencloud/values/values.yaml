@@ -305,4 +305,4 @@ opencloud:
       persistence:
         enabled: true
         storageClass: "zfs-generic-nfs-csi"
-        size: 1000Gbi
+        size: 1000Gi
