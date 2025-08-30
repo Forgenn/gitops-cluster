@@ -3,7 +3,8 @@ kind: Kustomization
 
 namespace: opencloud
 
-#resources:
+resources:
+  - httproute.yaml
 
 helmGlobals:
   chartHome: charts
