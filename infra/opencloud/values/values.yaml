@@ -268,7 +268,7 @@ opencloud:
   # Storage configuration
   storage:
     # Storage mode for user files, can be "s3" (default) or "posixfs"
-    mode: s3
+    mode: posixfs
     # S3 storage configuration
     s3:
       # Internal MinIO instance
