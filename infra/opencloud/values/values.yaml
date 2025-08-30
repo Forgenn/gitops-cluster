@@ -36,7 +36,7 @@ global:
   # Global storage settings
   storage:
     # Storage class for persistent volumes
-    storageClass: ""
+    storageClass: "zfs-generic-nfs-csi"
 
 # =====================================================================
 # UTILITY IMAGES
