@@ -32,7 +32,8 @@ global:
     # This is the URL where users can manage their accounts, typically provided by Keycloak.
     # Example: https://keycloak.opencloud.test/realms/openCloud/account
     accountUrl: ""
-  domain: opencloud.monederobox.dev
+  domain:
+    opencloud: opencloud.monederobox.dev
   # Global storage settings
   storage:
     # Storage class for persistent volumes
