@@ -5,7 +5,10 @@ namespace: external-secrets
 
 resources:
   - clustersecretstore.yaml
-  - kubernetes-cluster-secret-store.yaml
+  - kube-cluster-secret-store.yaml
+  - kube-clusterstore-role.yaml
+  - kube-clusterstore-role-binding.yaml
+  - kube-clusterstore-sa.yaml
 
 helmCharts:
   - name: external-secrets
