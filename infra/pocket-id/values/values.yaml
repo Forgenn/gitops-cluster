@@ -1,5 +1,6 @@
 database:
   provider: "postgres"
+  connectionString: "postgresql://user:password@host:port/dbname"
 
 config:
   # -- Specifies whether a config map should be created.
