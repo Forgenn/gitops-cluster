@@ -4,7 +4,7 @@ metadata:
   name: pocket-id
 data:
   ANALYTICS_DISABLED: "false"
-  APP_URL: https://pocket-id.monederbox.dev
+  APP_URL: https://pocket-id.monederobox.dev
   DB_PROVIDER: postgres
   GEOLITE_DB_PATH: data/GeoLite2-City.mmdb
   GEOLITE_DB_URL: https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-City&license_key=%s&suffix=tar.gz
