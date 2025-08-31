@@ -1,11 +1,9 @@
 database:
   provider: "postgres"
-  connectionString: "postgresql://user:password@host:port/dbname"
 
 config:
   # -- Specifies whether a config map should be created.
   create: false
-  name: pocket-id
 
   audit:
     # -- User configured local IPv6 ranges for the audit log.
@@ -124,5 +122,5 @@ config:
             adminGroup: ""
 
 secret:
-  create: true
-  #name: pocket-id-db-credentials
+  create: false
+  name: pocket-id-db-credentials
