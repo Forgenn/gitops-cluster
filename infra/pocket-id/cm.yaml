@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pocket-id
+data:
+  ANALYTICS_DISABLED: "false"
+  APP_URL: https://pocket-id.monederbox.dev
+  DB_PROVIDER: postgres
+  GEOLITE_DB_PATH: data/GeoLite2-City.mmdb
+  GEOLITE_DB_URL: https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-City&license_key=%s&suffix=tar.gz
+  HOST: https://pocket-id.monederbox.dev
+  KEYS_PATH: data/keys
+  LOCAL_IPV6_RANGES: ""
+  METRICS_ENABLED: "false"
+  PORT: "1411"
+  TRACING_ENABLED: "false"
+  TRUST_PROXY: "true"
+  TZ: Etc/UTC
+  UI_CONFIG_DISABLED: "false"
+  UPDATE_CHECK_DISABLED: "true"
+  UPLOAD_PATH: data/uploads
