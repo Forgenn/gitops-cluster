@@ -8,7 +8,7 @@ data:
   DB_PROVIDER: postgres
   GEOLITE_DB_PATH: data/GeoLite2-City.mmdb
   GEOLITE_DB_URL: https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-City&license_key=%s&suffix=tar.gz
-  HOST: https://pocket-id.monederbox.dev
+  HOST: 0.0.0.0
   KEYS_PATH: data/keys
   LOCAL_IPV6_RANGES: ""
   METRICS_ENABLED: "false"
