@@ -123,5 +123,5 @@ config:
             adminGroup: ""
 
 secret:
-  create: false
-  name: pocket-id-db-credentials
+  create: true
+  #name: pocket-id-db-credentials
