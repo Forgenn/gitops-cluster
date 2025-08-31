@@ -1,3 +1,6 @@
+database:
+  provider: "postgres"
+
 secret:
   create: false
   name: pocket-id-db-credentials
