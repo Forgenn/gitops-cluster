@@ -124,3 +124,6 @@ config:
 secret:
   create: false
   name: pocket-id-db-credentials
+
+ingress:
+  host: login.int.imdevinc.com
