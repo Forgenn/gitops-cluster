@@ -11,7 +11,7 @@ config:
 
   ui:
     # -- Whether to enable default settings for the UI or allow customizations
-    useDefaults: true
+    useDefaults: false
 
     settings:
       app:
