@@ -25,7 +25,7 @@ config:
         emailsVerified: false
 
         # -- Whether users can edit their own account details
-        allowOwnAccountEdit: true
+        allowOwnAccountEdit: false
 
         # -- Whether to disable animations in the Admin UI
         disableAnimations: false
@@ -121,9 +121,17 @@ config:
             # -- LDAP attribute for the admin group (used to assign Admin privileges)
             adminGroup: ""
 
+persistence:
+  data:
+    # -- Enable/disable PVC creation for data.
+    enabled: true
+    # -- Specify the StorageClass (if required).
+    storageClass: "zfs-generic-nfs-csi"
+    # -- Access mode for the PVC.
+    accessMode: ReadWriteMany
+    # -- Storage size for the PVC.
+    size: 10Gi
+
 secret:
   create: false
-  name: pocket-id-db-credentials
-
-ingress:
-  host: login.int.imdevinc.com
+  name: pocket-id-secret
