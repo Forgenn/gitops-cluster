@@ -16,6 +16,6 @@ data:
   TRACING_ENABLED: "false"
   TRUST_PROXY: "true"
   TZ: Etc/UTC
-  UI_CONFIG_DISABLED: "false"
+  UI_CONFIG_DISABLED: "true"
   UPDATE_CHECK_DISABLED: "true"
   UPLOAD_PATH: data/uploads

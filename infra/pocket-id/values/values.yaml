@@ -1,6 +1,7 @@
 database:
   provider: "postgres"
 
+# We are using a cm directly, changing here changes nothing
 config:
   # -- Specifies whether a config map should be created.
   create: false
