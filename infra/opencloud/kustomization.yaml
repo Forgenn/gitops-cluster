@@ -19,7 +19,7 @@ patches:
       apiVersion: apps/v1
       kind: Deployment
       metadata:
-        name: opencloud
+        name: opencloud-opencloud
       spec:
         template:
           spec:
