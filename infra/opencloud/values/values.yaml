@@ -223,7 +223,7 @@ opencloud:
   # Configuration files
   config:
     theme: "owncloud"
-    csp:
+    csp: |-
       directives:
         child-src:
           - "'self'"
