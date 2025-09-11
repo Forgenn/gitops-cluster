@@ -28,3 +28,19 @@ patches:
                 env:
                   - name: PROXY_OIDC_REWRITE_WELLKNOWN
                     value: "false"
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: opencloud-opencloud
+      spec:
+        template:
+          spec:
+            dnsPolicy: "None"
+            dnsConfig:
+              nameservers:
+                - "10.43.230.214"
+              searches:
+                - opencloud.svc.cluster.local
+                - svc.cluster.local
+                - cluster.local
