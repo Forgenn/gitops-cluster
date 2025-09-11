@@ -13,3 +13,12 @@ helmCharts:
     valuesFile: values/values.yaml
     releaseName: opencloud
     namespace: opencloud
+
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/24/value
+        value: "false"
+    target:
+      kind: Deployment
+      name: opencloud
