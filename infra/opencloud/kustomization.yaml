@@ -16,6 +16,10 @@ helmCharts:
 
 patches:
   - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: opencloud
       spec:
         template:
           spec:
@@ -24,6 +28,3 @@ patches:
                 env:
                   - name: PROXY_OIDC_REWRITE_WELLKNOWN
                     value: "false"
-    target:
-      kind: Deployment
-      name: opencloud
