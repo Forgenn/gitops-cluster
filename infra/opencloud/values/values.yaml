@@ -64,6 +64,8 @@ busybox:
 keycloak:
   # Internal Keycloak deployment
   enabled: false
+  external:
+    enabled: false
   internal:
     # Enable internal Keycloak instance
     enabled: false
@@ -221,6 +223,49 @@ opencloud:
   # Configuration files
   config:
     theme: "owncloud"
+    csp:
+      directives:
+        child-src:
+          - "'self'"
+        connect-src:
+          - "'self'"
+          - "blob:"
+          - "https://companion.opencloud.test/"
+          - "wss://companion.opencloud.test/"
+          - "https://raw.githubusercontent.com/opencloud-eu/awesome-apps/"
+          - "https://keycloak.opencloud.test/"
+          - "https://pocket-id.monederobox.dev/"
+        default-src:
+          - "'none'"
+        font-src:
+          - "'self'"
+        frame-ancestors:
+          - "'self'"
+        frame-src:
+          - "'self'"
+          - "blob:"
+          - "https://embed.diagrams.net/"
+          - "https://docs.opencloud.eu"
+        img-src:
+          - "'self'"
+          - "data:"
+          - "blob:"
+          - "https://raw.githubusercontent.com/opencloud-eu/awesome-apps/"
+        manifest-src:
+          - "'self'"
+        media-src:
+          - "'self'"
+        object-src:
+          - "'self'"
+          - "blob:"
+        script-src:
+          - "'self'"
+          - "'unsafe-inline'"
+        style-src:
+          - "'self'"
+          - "'unsafe-inline'"
+        worker-src:
+          - "'self'"
 
   nats:
     external:
