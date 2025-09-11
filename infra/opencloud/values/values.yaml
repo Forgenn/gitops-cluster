@@ -31,9 +31,10 @@ global:
     # OIDC account URL for user account management. If set, overrides the default Keycloak internal account URL.
     # This is the URL where users can manage their accounts, typically provided by Keycloak.
     # Example: https://keycloak.opencloud.test/realms/openCloud/account
-    accountUrl: ""
+    accountUrl: "https://pocket-id.monederobox.dev/settings/account"
   domain:
     opencloud: opencloud.monederobox.dev
+    keycloak: pocket-id.monederobox.dev
   # Global storage settings
   storage:
     # Storage class for persistent volumes
