@@ -16,9 +16,14 @@ helmCharts:
 
 patches:
   - patch: |-
-      - op: replace
-        path: /spec/template/spec/containers/0/env/24/value
-        value: "false"
+      spec:
+        template:
+          spec:
+            containers:
+              - name: opencloud
+                env:
+                  - name: PROXY_OIDC_REWRITE_WELLKNOWN
+                    value: "false"
     target:
       kind: Deployment
       name: opencloud
