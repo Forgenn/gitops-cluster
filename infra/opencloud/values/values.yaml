@@ -25,7 +25,7 @@ global:
     # OpenID Connect issuer URL. If set, overrides the default Keycloak internal issuer URL.
     # This is useful for external OIDC providers or custom Keycloak configurations.
     # Example: https://keycloak.opencloud.test/realms/openCloud
-    issuer: ""
+    issuer: "https://pocket-id.monederobox.dev/.well-known/openid-configuration"
     # OIDC client ID for OpenCloud
     clientId: "web"
     # OIDC account URL for user account management. If set, overrides the default Keycloak internal account URL.
@@ -63,6 +63,7 @@ busybox:
 # Structure follows issue #64 - standardized internal/external pattern
 keycloak:
   # Internal Keycloak deployment
+  enabled: false
   internal:
     # Enable internal Keycloak instance
     enabled: false
