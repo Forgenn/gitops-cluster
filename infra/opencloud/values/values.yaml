@@ -194,9 +194,7 @@ opencloud:
   # Services to exclude from starting
   excludeServices:
     - "idp"
-  env:
-    - name: PROXY_OIDC_REWRITE_WELLKNOWN
-      value: "false"
+  env: []
   envFrom: []
   # Resources allocation
   persistence:
