@@ -1,0 +1,1 @@
+In this repository there is the configuration for a kubernetes cluster managed with ArgoCD via the GitOps pattern. The initialization of ArgoCD is generated via ApplicationSets poiting to `infra` in another repository.

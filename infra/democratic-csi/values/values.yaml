@@ -25,7 +25,8 @@ storageClasses:
 
     mountOptions:
       - noatime
-      - nfsvers=3
+      - nfsvers=4.2
+      - xattr
     secrets:
       provisioner-secret:
       controller-publish-secret:
