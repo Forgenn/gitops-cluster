@@ -178,7 +178,7 @@ opencloud:
   # or use a storage class that supports ReadWriteMany access mode)
   replicas: 1
   # Log level
-  logLevel: info
+  logLevel: debug
   # Log color
   logColor: false
   # Log pretty
