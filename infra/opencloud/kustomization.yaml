@@ -36,6 +36,8 @@ patches:
                     value: "openid profile email groups"
                   - name: PROXY_ROLE_ASSIGNMENT_DRIVER
                     value: "default"
+                  - name: STORAGE_USERS_POSIX_WATCH_FS
+                    value: "true"
   # We have to set the local DNS server, as its trying to resolve the pocket-id instance
   # without our local dns server, it is not public.
   - patch: |-
