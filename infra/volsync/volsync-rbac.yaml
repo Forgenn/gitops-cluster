@@ -1,79 +1,87 @@
+---
+# This ClusterRole contains all the permissions the VolSync operator controller needs to function.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: volsync-edit
-  labels:
-    # Grant access to namespace admins
-    rbac.authorization.k8s.io/aggregate-to-admin: "true"
-    # Grant access to namespace editors
-    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+  name: volsync-controller-role
 rules:
-  # Give users full control of ReplicationSource and ReplicationDestination
-  # objects so they can manage data replication
   - apiGroups:
-      - volsync.backube
+      - ""
     resources:
-      - replicationdestinations
-      - replicationsources
+      - persistentvolumeclaims
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - pods
     verbs:
       - create
       - delete
-      - deletecollection
       - get
       - list
-      - patch
-      - update
       - watch
   - apiGroups:
-      - volsync.backube
+      - ""
     resources:
-      - replicationdestinations/status
-      - replicationsources/status
+      - secrets
     verbs:
       - get
       - list
       - watch
-  # Give users the ability to view VolumeSnapshots so they can "promote" the
-  # destination snapshots into usable PVCs
   - apiGroups:
       - snapshot.storage.k8s.io
     resources:
+      - volumesnapshotclasses
       - volumesnapshots
-      - volumesnapshots/status
     verbs:
+      - create
+      - delete
       - get
       - list
       - watch
-
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: volsync-view
-  labels:
-    # Grant access to namespace viewers
-    rbac.authorization.k8s.io/aggregate-to-view: "true"
-rules:
-  # Give users read access to ReplicationSource and ReplicationDestination
-  # objects so they can monitor data replication
+  - apiGroups:
+      - snapshot.storage.k8s.io
+    resources:
+      - volumesnapshots/status
+    verbs:
+      - get
+      - update
+      - patch
   - apiGroups:
       - volsync.backube
     resources:
       - replicationdestinations
       - replicationsources
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - volsync.backube
+    resources:
       - replicationdestinations/status
       - replicationsources/status
     verbs:
       - get
-      - list
-      - watch
-  # Give users the ability to monitor (destination) VolumeSnapshots
-  - apiGroups:
-      - snapshot.storage.k8s.io
-    resources:
-      - volumesnapshots
-      - volumesnapshots/status
-    verbs:
-      - get
-      - list
-      - watch
+      - patch
+      - update
+---
+# This ClusterRoleBinding grants the permissions from the ClusterRole above
+# to the VolSync ServiceAccount.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: volsync-controller-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: volsync-controller-role
+subjects:
+  - kind: ServiceAccount
+    # IMPORTANT: Update the namespace and name if you installed VolSync differently.
+    # This assumes the operator is in the 'volsync' namespace with a service account named 'volsync'.
+    name: volsync
+    namespace: volsync
