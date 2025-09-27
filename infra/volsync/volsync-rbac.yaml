@@ -6,6 +6,16 @@ metadata:
   name: volsync-controller-role
 rules:
   - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - create
+      - delete
+      - get
+      - patch
+      - update
+  - apiGroups:
       - ""
     resources:
       - persistentvolumeclaims
