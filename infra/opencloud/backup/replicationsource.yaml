@@ -8,11 +8,10 @@ spec:
   trigger:
     schedule: "0 8 * * *"
   restic:
-    copyMethod: Snapshot
+    copyMethod: Clone
     pruneIntervalDays: 7
     repository: restic-config
     storageClassName: local-path
-    volumeSnapshotClassName: local-path
     cacheCapacity: 2Gi
     retain:
       daily: 7
