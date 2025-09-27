@@ -1,0 +1,21 @@
+apiVersion: volsync.backube.io/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: opencloud-data-backup
+  namespace: opencloud
+spec:
+  sourcePVC: opencloud-opencloud-data
+  trigger:
+    schedule: "0 3 * * *"
+  restic:
+    copyMethod: Snapshot
+    pruneIntervalDays: 7
+    repository: restic-config
+    storageClassName: zfs-generic-nfs-csi
+    volumeSnapshotClassName: zfs-generic-nfs-csi
+    cacheCapacity: 2Gi
+    retain:
+      daily: 7
+      weekly: 4
+      monthly: 6
+      yearly: 1

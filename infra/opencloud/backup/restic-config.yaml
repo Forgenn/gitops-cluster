@@ -1,0 +1,24 @@
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: restic-config
+  namespace: opencloud
+spec:
+  secretStoreRef:
+    name: infisical-cluster-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: restic-config
+    creationPolicy: Owner
+  data:
+    - secretKey: RESTIC_REPOSITORY
+      value: s3:https://hel1.your-objectstorage.com/revachol/backups/opencloud-data
+    - secretKey: RESTIC_PASSWORD
+      remoteRef:
+        key: /volsync/restic-password
+    - secretKey: AWS_ACCESS_KEY_ID
+      remoteRef:
+        key: /hetzner/revachol-bucket/ACCESS_KEY
+    - secretKey: AWS_SECRET_ACCESS_KEY
+      remoteRef:
+        key: /hetzner/revachol-bucket/ACCESS_SECRET_KEY
