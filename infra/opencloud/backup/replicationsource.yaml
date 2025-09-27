@@ -4,9 +4,9 @@ metadata:
   name: opencloud-data-backup
   namespace: opencloud
 spec:
-  sourcePVC: opencloud-opencloud-data
+  sourcePVC: opencloud-opencloud-posixfs
   trigger:
-    schedule: "35 23 * * *"
+    schedule: "0 8 * * *"
   restic:
     copyMethod: Snapshot
     pruneIntervalDays: 7
