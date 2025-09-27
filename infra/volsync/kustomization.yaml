@@ -3,6 +3,9 @@ kind: Kustomization
 
 namespace: volsync-system
 
+resources:
+  - namespace.yaml
+
 helmCharts:
   - name: volsync
     repo: https://backube.github.io/helm-charts/
