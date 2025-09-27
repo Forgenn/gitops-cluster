@@ -11,8 +11,8 @@ spec:
     copyMethod: Snapshot
     pruneIntervalDays: 7
     repository: restic-config
-    storageClassName: zfs-generic-nfs-csi
-    volumeSnapshotClassName: zfs-generic-nfs-csi
+    storageClassName: local-path
+    volumeSnapshotClassName: local-path
     cacheCapacity: 2Gi
     retain:
       daily: 7
