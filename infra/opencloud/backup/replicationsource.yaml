@@ -6,7 +6,7 @@ metadata:
 spec:
   sourcePVC: opencloud-opencloud-data
   trigger:
-    schedule: "0 3 * * *"
+    schedule: "35 23 * * *"
   restic:
     copyMethod: Snapshot
     pruneIntervalDays: 7
