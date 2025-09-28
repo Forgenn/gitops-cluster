@@ -195,6 +195,7 @@ opencloud:
   # Services to exclude from starting
   excludeServices:
     - "idp"
+    - "nats"
   env: []
   envFrom: []
   # Resources allocation
