@@ -275,6 +275,7 @@ opencloud:
     # Storage mode for user files, can be "s3" (default) or "posixfs"
     mode: posixfs
     posixfs:
+      idCacheStore: redis-sentinel
       enabled: true
       persistence:
         enabled: true

@@ -15,7 +15,6 @@
 # 4. MinIO: rootUser: opencloud, rootPassword: opencloud-secret-key
 # 5. RabbitMQ: url: amqp://guest:guest@localhost
 
-
 # =====================================================================
 # GLOBAL SETTINGS
 # =====================================================================
@@ -196,7 +195,6 @@ postgres:
     # Access mode
     accessMode: ReadWriteOnce
 
-
 # =====================================================================
 # EXTENSIONS
 # =====================================================================
@@ -353,12 +351,12 @@ onlyoffice:
         dbPort: "5432"
         dbName: "onlyoffice"
         dbUser: "onlyoffice"
-      
+
       # Secret settings
       secret:
         # Use existing secret for onlyoffice credentials (Note: secretKeyName must be sessionSecret)
         existingSecret: ""
-        
+
         # ignored if onlyoffice.config.coAuthoring.secret.existingSecret is set
         session:
           string: "Dd0SXIe1k9oCfdffgrfNmA0TK1bb1B1d38OFSb"
@@ -430,14 +428,14 @@ opencloud:
   logPretty: false
   # Insecure mode (for self-signed certificates)
   insecure: true
-  
+
   # Use existing secret for opencloud admin credentials (Note: secretKeyName must be adminPassword)
   existingSecret: ""
-  
+
   # Admin password
   # ignored if opencloud.existingSecret is set
   adminPassword: admin
-  
+
   # Create demo users
   createDemoUsers: false
   # Additional services to start
@@ -515,7 +513,7 @@ opencloud:
         # -- Enables TLS encrypted communication with the messaging system.
         # Recommended for production installations.
         enabled: false
-        
+
         # -- Set only to false, if the certificate of your messaging system service is not trusted.
         # If set to false, you need to put the CA cert of the messaging system server into the secret referenced by "caSecretName"
         certTrusted: true
@@ -527,12 +525,12 @@ opencloud:
 
         # Use existing CA secret for nats credentials (Note: secretKeyName must be 'ca.crt' with the root CA certificate for NATS)
         # Only used if certTrusted is false
-        caSecretName : opencloud-nats-ca
+        caSecretName: opencloud-nats-ca
 
   # =====================================================================
   # EMAIL (SMTP)
   # =====================================================================
-  
+
   # SMTP settings for email notifications
   smtp:
     # Enable SMTP
@@ -543,10 +541,10 @@ opencloud:
     port: "587"
     # SMTP sender
     sender: ""
-    
+
     # Use existing secret for opencloud smtp credentials (Note: secretKeyName must be smtpUser and smtpPassword)
     existingSecret: ""
-    
+
     # SMTP username
     # ignored if opencloud.smtp.existingSecret is set
     username: ""
@@ -565,7 +563,7 @@ opencloud:
   # =====================================================================
   # STORAGE CONFIGURATION
   # =====================================================================
-  
+
   # Storage configuration
   storage:
     # Storage mode for user files, can be "s3" (default) or "posixfs"
@@ -590,10 +588,10 @@ opencloud:
         httpRoute:
           # Enable HTTPRoute for MinIO (default: false)
           enabled: false
-        
+
         # Use existing secret for minio credentials (Note: secretKeyName must be rootUser and rootPassword)
         existingSecret: ""
-        
+
         # Minio Root user
         # ignored if opencloud.storage.s3.internal.existingSecret is set
         rootUser: opencloud
@@ -601,7 +599,7 @@ opencloud:
         # Minio Root password
         # ignored if opencloud.storage.s3.internal.existingSecret is set
         rootPassword: opencloud-secret-key
-        
+
         # Bucket name
         bucketName: opencloud-bucket
         # Region (optional)
@@ -633,10 +631,10 @@ opencloud:
         endpoint: ""
         # External S3 region
         region: "default"
-        
+
         # Use existing secret for external s3 credentials (Note: secretKeyName must be accessKey and secretKey)
         existingSecret: ""
-        
+
         # External S3 access key
         # ignored if opencloud.storage.s3.external.existingSecret is set
         accessKey: ""
@@ -723,7 +721,7 @@ ingress:
   # These annotations are added in addition to any defined in 'annotations'.
   # If there's a conflict, Helm will error. To avoid this, set annotationsPreset: ""
   # and define all annotations manually (including creating any required Middleware).
-  annotationsPreset: ""  # optional, default ""
+  annotationsPreset: "" # optional, default ""
 
   # Custom annotations applied to all ingress resources.
   # These are merged with any annotations from 'annotationsPreset' (if set).
