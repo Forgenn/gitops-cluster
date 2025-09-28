@@ -14,7 +14,6 @@ spec:
     storageClassName: zfs-generic-nfs-csi
     volumeSnapshotClassName: zfs-generic-nfs-csi
     cacheCapacity: 2Gi
-    unlock: true
     retain:
       daily: 7
       weekly: 4
