@@ -10,6 +10,7 @@ spec:
   restic:
     copyMethod: Snapshot
     pruneIntervalDays: 7
+    unlock: unlock
     repository: restic-config
     storageClassName: zfs-generic-nfs-csi
     volumeSnapshotClassName: zfs-generic-nfs-csi
