@@ -8,7 +8,7 @@ resources:
 helmCharts:
   - name: longhorn
     repo: https://charts.longhorn.io
-    version: 1.6.0
-    releaseName: longhorn
+    version: 1.10.0
+    releaseName: longhorn-system
     namespace: longhorn-system
     valuesFile: values/values.yaml
