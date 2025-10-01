@@ -16,6 +16,9 @@ helmCharts:
     namespace: opencloud
 
 patches:
+  # Waiting on https://github.com/opencloud-eu/desktop/issues/217
+  # for - name: PROXY_ROLE_ASSIGNMENT_DRIVER
+  #                 value: "oidc"
   - patch: |-
       apiVersion: apps/v1
       kind: Deployment
@@ -34,7 +37,7 @@ patches:
                   - name: WEB_OIDC_SCOPE
                     value: "openid profile email groups"
                   - name: PROXY_ROLE_ASSIGNMENT_DRIVER
-                    value: "oidc"
+                    value: "default"
                   - name: PROXY_AUTOPROVISION_ACCOUNTS
                     value: "true"
                   - name: STORAGE_USERS_POSIX_WATCH_FS
