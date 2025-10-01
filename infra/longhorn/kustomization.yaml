@@ -4,7 +4,7 @@ namespace: longhorn-system
 
 resources:
   - namespace.yaml
-  - httproute-internal.yaml
+  #- httproute-internal.yaml
 
 helmCharts:
   - name: longhorn
