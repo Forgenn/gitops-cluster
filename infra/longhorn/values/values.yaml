@@ -1,5 +1,5 @@
-# Longhorn values for home server
-# For more information, see: https://longhorn.io/docs/latest/references/settings/
+# Necessary for ArgoCD installation, else init loop
+preUpgradeChecker.jobEnabled: false
 
 persistence:
   # Default number of replicas for each volume.
