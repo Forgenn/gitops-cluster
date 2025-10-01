@@ -9,5 +9,5 @@ spec:
     kind: Gateway
     name: envoy-gateway
   clientIPDetection:
-    xff:
+    xForwardedFor:
       numTrustedHops: 1
