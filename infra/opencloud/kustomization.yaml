@@ -27,8 +27,6 @@ patches:
             containers:
               - name: opencloud
                 env:
-                  - name: PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD
-                    value: "none"
                   - name: PROXY_OIDC_REWRITE_WELLKNOWN
                     value: "true"
                   - name: PROXY_ROLE_ASSIGNMENT_OIDC_CLAIM
@@ -37,6 +35,8 @@ patches:
                     value: "openid profile email groups"
                   - name: PROXY_ROLE_ASSIGNMENT_DRIVER
                     value: "oidc"
+                  - name: PROXY_AUTOPROVISION_ACCOUNTS
+                    value: "true"
                   - name: STORAGE_USERS_POSIX_WATCH_FS
                     value: "true"
   # We have to set the local DNS server, as its trying to resolve the pocket-id instance
