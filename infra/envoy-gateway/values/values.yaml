@@ -3,6 +3,7 @@ provider:
     envoyService:
       # This sets the type of the data plane service to LoadBalancer.
       type: LoadBalancer
+      externalTrafficPolicy: Local
       annotations:
         # This tells MetalLB to assign a specific IP address. NOT WORKING
         metallb.io/load-balancer-ip: "192.168.1.201"
