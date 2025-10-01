@@ -13,6 +13,7 @@ resources:
   - gateway-class.yaml
   - gateway.yaml
   - http-redirect-route.yaml
+  - client-traffic-policy.yaml
 
 helmCharts:
   - name: gateway-helm
