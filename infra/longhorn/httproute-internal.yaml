@@ -22,3 +22,20 @@ spec:
         - path:
             type: PathPrefix
             value: /
+---
+# SecurityPolicy as it is internal
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: internal-longhorn-route
+spec:
+  targetRefs:
+    - name: longhorn-route
+  authorization:
+    defaultAction: Deny
+    rules:
+      - action: AllowW
+        principal:
+          clientCIDRs:
+            - 100.64.0.0/10
+            - 192.168.1.0/24
