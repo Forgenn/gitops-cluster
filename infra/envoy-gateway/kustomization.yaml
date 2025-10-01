@@ -7,7 +7,7 @@ resources:
   # Gateway API CRDs
   # - https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml
   # For UDPRoute
-  - https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/experimental-install.yaml
+  # - https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/experimental-install.yaml
   # Envoy Gateway CRDs
   # - https://github.com/envoyproxy/gateway/releases/download/v1.5.1/install.yaml
   - gateway-class.yaml
@@ -21,3 +21,4 @@ helmCharts:
     version: "v1.5.1"
     namespace: envoy-gateway
     valuesFile: values/values.yaml
+    includeCRDs: true
