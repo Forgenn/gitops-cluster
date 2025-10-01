@@ -23,7 +23,7 @@ defaultSettings:
   # Number of replicas for each volume.
   # With a 3-node cluster, 3 replicas is recommended for high availability.
   # This allows one node to fail without data loss.
-  defaultReplicaCount: 3
+  defaultReplicaCount: \"\{"v1":"3","v2":"3"\}\"
   #
   # Allow scheduling on cordoned nodes.
   # This is useful for single-node clusters or for maintenance.
@@ -31,8 +31,8 @@ defaultSettings:
   #
   # Storage over-provisioning percentage.
   # Set to 0 to disable over-provisioning.
-  storageOverProvisioningPercentage: 0
+  storageOverProvisioningPercentage: "0"
   #
   # Minimal available percentage of storage on a node.
   # If the available storage on a node is less than this, Longhorn will not schedule new replicas on it.
-  storageMinimalAvailablePercentage: 10
+  storageMinimalAvailablePercentage: "10"
