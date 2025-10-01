@@ -30,7 +30,7 @@ metadata:
   name: internal-longhorn-route
 spec:
   targetRefs:
-    - group: ""
+    - group: "gateway.networking.k8s.io"
       name: longhorn-route
       kind: HTTPRoute
   authorization:
