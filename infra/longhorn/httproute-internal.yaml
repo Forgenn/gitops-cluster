@@ -34,7 +34,7 @@ spec:
   authorization:
     defaultAction: Deny
     rules:
-      - action: AllowW
+      - action: Allow
         principal:
           clientCIDRs:
             - 100.64.0.0/10
