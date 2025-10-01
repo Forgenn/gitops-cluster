@@ -30,7 +30,8 @@ metadata:
   name: internal-longhorn-route
 spec:
   targetRefs:
-    - name: longhorn-route
+    - group: ""
+      name: longhorn-route
   authorization:
     defaultAction: Deny
     rules:
