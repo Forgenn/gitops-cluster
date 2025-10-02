@@ -38,7 +38,7 @@ global:
   # Global storage settings
   storage:
     # Storage class for persistent volumes
-    storageClass: "zfs-generic-nfs-csi"
+    storageClass: "longhorn"
 
 # =====================================================================
 # UTILITY IMAGES
@@ -207,7 +207,7 @@ opencloud:
       # Size of the persistent volume for config
       size: 5Gi
       # Storage class
-      storageClass: "zfs-generic-nfs-csi"
+      storageClass: "longhorn"
       # Access mode (ReadWriteOnce or ReadWriteMany for multiple replicas)
       accessMode: ReadWriteMany
     data:
@@ -218,7 +218,7 @@ opencloud:
       # Size of the persistent volume for data
       size: 10Gi
       # Storage class
-      storageClass: "zfs-generic-nfs-csi"
+      storageClass: "longhorn"
       # Access mode (ReadWriteOnce or ReadWriteMany for multiple replicas)
       accessMode: ReadWriteMany
   # Configuration files
