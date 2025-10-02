@@ -1,11 +1,12 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: minio
-#helmCharts:
-#  - name: minio
-#    repo: https://charts.min.io/
-#    releaseName: minio
-#    version: "5.4.0"
-#    namespace: minio
-#    valuesFile: values/values.yaml
+namespace: seaweedfs
+
+helmCharts:
+  - name: seaweedfs
+    repo: https://seaweedfs.github.io/seaweedfs/helm
+    releaseName: seaweedfs
+    version: "4.0.393"
+    namespace: seaweedfs
+    valuesFile: values/values.yaml
