@@ -10,8 +10,8 @@ persistence:
   defaultDataLocality: "best-effort"
 
 defaultSettings:
-  defaultDataPath: /var/lib/longhorn-data/
-  defaultReplicaCount: 3
-  disableSchedulingOnCordonedNode: false
+  defaultDataPath: "/var/lib/longhorn-data/"
+  defaultReplicaCount: "3"
+  disableSchedulingOnCordonedNode: "false"
   storageOverProvisioningPercentage: "0"
   storageMinimalAvailablePercentage: "10"
