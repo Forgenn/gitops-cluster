@@ -797,7 +797,7 @@ filer:
     #     key: password
 
   s3:
-    enabled: false
+    enabled: true
     port: 8333
     # add additional https port
     httpsPort: 0
@@ -806,10 +806,10 @@ filer:
     # Suffix of the host name, {bucket}.{domainName}
     domainName: ""
     # enable user & permission to s3 (need to inject to all services)
-    enableAuth: false
+    enableAuth: true
     # set to the name of an existing kubernetes Secret with the s3 json config file
     # should have a secret key called seaweedfs_s3_config with an inline json configure
-    existingConfigSecret: null
+    existingConfigSecret: seaweedfs-s3-secret
     auditLogConfig: {}
     # You may specify buckets to be created during the install process.
     # Buckets may be exposed publicly by setting `anonymousRead` to `true`
