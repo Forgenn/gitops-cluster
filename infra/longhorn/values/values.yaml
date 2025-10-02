@@ -11,7 +11,7 @@ persistence:
 
 defaultSettings:
   defaultDataPath: /var/lib/longhorn-data/
-  defaultReplicaCount: \"\{"v1":"3","v2":"3"\}\"
+  defaultReplicaCount: 3
   disableSchedulingOnCordonedNode: false
   storageOverProvisioningPercentage: "0"
   storageMinimalAvailablePercentage: "10"
