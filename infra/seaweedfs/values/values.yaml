@@ -4,7 +4,7 @@ global:
   createClusterRole: true
   registry: ""
   repository: ""
-  imageName: chrislusf/seaweedfs:3.97
+  imageName: chrislusf/seaweedfs
   imagePullPolicy: IfNotPresent
   imagePullSecrets: ""
   restartPolicy: Always
