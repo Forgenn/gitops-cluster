@@ -833,10 +833,10 @@ s3:
   # allow empty folders
   allowEmptyFolder: true
   # enable user & permission to s3 (need to inject to all services)
-  enableAuth: false
+  enableAuth: true
   # set to the name of an existing kubernetes Secret with the s3 json config file
   # should have a secret key called seaweedfs_s3_config with an inline json config
-  existingConfigSecret: null
+  existingConfigSecret: seaweedfs-s3-secret
   auditLogConfig: {}
 
   # Suffix of the host name, {bucket}.{domainName}
