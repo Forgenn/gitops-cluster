@@ -4,7 +4,7 @@ kind: Kustomization
 namespace: argocd
 
 resources:
-  - httproute.yaml
+  - httproute-internal.yaml
 
 helmCharts:
   - name: argo-cd
