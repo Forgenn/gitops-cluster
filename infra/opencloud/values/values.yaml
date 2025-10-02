@@ -273,11 +273,28 @@ opencloud:
   # Storage configuration
   storage:
     # Storage mode for user files, can be "s3" (default) or "posixfs"
-    mode: posixfs
-    posixfs:
-      enabled: true
-      persistence:
+    mode: s3
+    s3:
+      external:
+        # Enable external S3
         enabled: true
-        storageClass: "zfs-generic-nfs-csi"
-        size: 1000Gi
-        accessMode: ReadWriteMany
+        # External S3 endpoint URL
+        endpoint: "http://seaweedfs-s3.seaweedfs.svc.cluster.local:8333"
+        # External S3 region
+        region: "default"
+
+        # Use existing secret for external s3 credentials (Note: secretKeyName must be accessKey and secretKey)
+        existingSecret: ""
+
+        # External S3 access key
+        # ignored if opencloud.storage.s3.external.existingSecret is set
+        accessKey: ""
+
+        # External S3 secret key
+        # ignored if opencloud.storage.s3.external.existingSecret is set
+        secretKey: ""
+
+        # External S3 bucket
+        bucket: "opencloud"
+        # Create bucket if it doesn't exist
+        createBucket: true
