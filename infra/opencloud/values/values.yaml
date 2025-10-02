@@ -275,6 +275,8 @@ opencloud:
     # Storage mode for user files, can be "s3" (default) or "posixfs"
     mode: s3
     s3:
+      internal:
+        enabled: false
       external:
         # Enable external S3
         enabled: true
