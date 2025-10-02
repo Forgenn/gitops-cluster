@@ -283,7 +283,7 @@ opencloud:
         # External S3 endpoint URL
         endpoint: "http://seaweedfs-s3.seaweedfs.svc.cluster.local:8333"
         # External S3 region
-        region: ""
+        region: "us-east-1"
 
         # Use existing secret for external s3 credentials (Note: secretKeyName must be accessKey and secretKey)
         existingSecret: "opencloud-s3-secret"
