@@ -813,9 +813,9 @@ filer:
     auditLogConfig: {}
     # You may specify buckets to be created during the install process.
     # Buckets may be exposed publicly by setting `anonymousRead` to `true`
-    # createBuckets:
-    #   - name: bucket-a
-    #     anonymousRead: true
+    createBuckets:
+      - name: opencloud
+        anonymousRead: false
     #   - name: bucket-b
     #     anonymousRead: false
 
