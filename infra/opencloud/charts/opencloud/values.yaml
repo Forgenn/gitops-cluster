@@ -425,7 +425,7 @@ opencloud:
   # Log color
   logColor: false
   # Log pretty
-  logPretty: false
+  logPretty: true
   # Insecure mode (for self-signed certificates)
   insecure: true
 
