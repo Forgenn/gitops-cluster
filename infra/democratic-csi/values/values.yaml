@@ -7,7 +7,7 @@ csiDriver:
 storageClasses:
   - name: zfs-generic-nfs-csi
     defaultClass: false
-    reclaimPolicy: Delete
+    reclaimPolicy: Retain
     volumeBindingMode: Immediate
     allowVolumeExpansion: true
     parameters:
@@ -26,6 +26,7 @@ storageClasses:
     mountOptions:
       - noatime
       - nfsvers=4.2
+      - user_xattr
     secrets:
       provisioner-secret:
       controller-publish-secret:
