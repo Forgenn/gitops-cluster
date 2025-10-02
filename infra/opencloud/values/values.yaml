@@ -286,7 +286,7 @@ opencloud:
         region: "default"
 
         # Use existing secret for external s3 credentials (Note: secretKeyName must be accessKey and secretKey)
-        existingSecret: ""
+        existingSecret: "opencloud-s3-secret"
 
         # External S3 access key
         # ignored if opencloud.storage.s3.external.existingSecret is set

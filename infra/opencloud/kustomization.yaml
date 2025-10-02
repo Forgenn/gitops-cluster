@@ -6,6 +6,7 @@ namespace: opencloud
 resources:
   - httproute.yaml
   - backup
+  - s3-secret.yaml
 
 helmGlobals:
   chartHome: charts
