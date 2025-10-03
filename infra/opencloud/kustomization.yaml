@@ -5,7 +5,7 @@ namespace: opencloud
 
 resources:
   - httproute.yaml
-  - backup
+  #- backup
   - s3-secret.yaml
 
 helmGlobals:
