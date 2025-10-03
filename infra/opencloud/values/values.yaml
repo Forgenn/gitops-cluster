@@ -273,22 +273,40 @@ opencloud:
   # Storage configuration
   storage:
     # Storage mode for user files, can be "s3" (default) or "posixfs"
-    mode: s3
-    s3:
-      internal:
-        enabled: false
-      external:
-        # Enable external S3
+    mode: posixfs
+    posixfs:
+      # The type of the cache store, supported values are: 'memory', 'redis-sentinel', 'nats-js-kv' (default), 'noop'
+      idCacheStore: nats-js-kv
+      # Path of storage root directory, default is /var/lib/opencloud/storage
+      rootPath: "/var/lib/opencloud/storage"
+      persistence:
+        # Enable persistence
         enabled: true
-        # External S3 endpoint URL
-        endpoint: "http://seaweedfs-s3.seaweedfs.svc.cluster.local:8333"
-        # External S3 region
-        region: "us-east-1"
-
-        # Use existing secret for external s3 credentials (Note: secretKeyName must be accessKey and secretKey)
-        existingSecret: "opencloud-s3-secret"
-
-        # External S3 bucket
-        bucket: "opencloud"
-        # Create bucket if it doesn't exist
-        createBucket: true
+        # Name of existing PVC to use (overrides all other persistence values)
+        existingClaim: ""
+        # Size of the persistent volume for data
+        size: 1Ti
+        # Storage class
+        storageClass: "zfs-generic-nfs-csi"
+        # Access mode (ReadWriteOnce or ReadWriteMany for multiple replicas)
+        accessMode: ReadWriteMany
+    #mode: s3
+    #s3:
+    #  internal:
+    #    enabled: false
+    #  external:
+    #    # Enable external S3
+    #    enabled: true
+    #    # External S3 endpoint URL
+    #    endpoint: "http://seaweedfs-s3.seaweedfs.svc.cluster.local:8333"
+    #    # External S3 region
+    #    region: "us-east-1"
+    #
+    #    # Use existing secret for external s3 credentials (Note: secretKeyName must be accessKey and secretKey)
+    #    existingSecret: "opencloud-s3-secret"
+    #
+    #    # External S3 bucket
+    #    bucket: "opencloud"
+    #    # Create bucket if it doesn't exist
+    #    createBucket: true
+    #
