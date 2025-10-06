@@ -10,7 +10,7 @@ configs:
     oidc.config: |
       name: PocketID
       issuer: https://pocket-id.monederobox.dev
-      clientID: argocd
+      clientID: $argocd-secret:oidc.clientId
       clientSecret: $argocd-secret:oidc.clientSecret
       requestedScopes:
         - openid
