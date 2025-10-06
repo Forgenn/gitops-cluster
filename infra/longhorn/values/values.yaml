@@ -8,7 +8,8 @@ persistence:
 
 defaultSettings:
   defaultDataPath: "/var/lib/longhorn-data/"
-  defaultReplicaCount: "3"
+  # Defaults to "{"v1":"3","v2":"3"}".
+  #defaultReplicaCount: "3"
 
   # Scheduling settings
   disableSchedulingOnCordonedNode: "false"
