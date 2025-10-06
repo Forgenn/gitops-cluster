@@ -5,6 +5,21 @@ redis-ha:
 configs:
   params:
     server.insecure: true
+  cm:
+    url: https://argocd.monederobox.dev
+    oidc.config: |
+      name: PocketID
+      issuer: https://pocket-id.monederobox.dev
+      clientID: argocd
+      clientSecret: $argocd-secret:oidc.clientSecret
+      requestedScopes:
+        - openid
+        - profile
+        - email
+        - groups
+  rbac:
+    policy.csv: |
+      g, ArgoCDAdmins, role:admin
 
 controller:
   replicas: 1

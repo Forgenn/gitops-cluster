@@ -5,6 +5,7 @@ namespace: argocd
 
 resources:
   - httproute-internal.yaml
+  - externalsecret.yaml
 
 helmCharts:
   - name: argo-cd
