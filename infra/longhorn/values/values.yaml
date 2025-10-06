@@ -17,7 +17,7 @@ defaultSettings:
   replicaAutoBalance: "best-effort" # Auto-balance replicas
 
   # Storage settings
-  storageOverProvisioningPercentage: "200"
+  storageOverProvisioningPercentage: "0"
   storageMinimalAvailablePercentage: "10"
   storageReservedPercentageForDefaultDisk: "25" # Match your reserved space
 
