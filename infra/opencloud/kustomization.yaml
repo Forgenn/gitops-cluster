@@ -38,7 +38,7 @@ patches:
                   - name: WEB_OIDC_SCOPE
                     value: "openid profile email groups"
                   - name: PROXY_ROLE_ASSIGNMENT_DRIVER
-                    value: "default"
+                    value: "oidc"
                   - name: PROXY_AUTOPROVISION_ACCOUNTS
                     value: "true"
                   - name: STORAGE_USERS_POSIX_WATCH_FS
