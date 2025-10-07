@@ -19,9 +19,9 @@ defaultSettings:
   replicaAutoBalance: "best-effort" # Auto-balance replicas
 
   # Storage settings
-  storageOverProvisioningPercentage: "0"
-  storageMinimalAvailablePercentage: "10"
-  storageReservedPercentageForDefaultDisk: "25" # Match your reserved space
+  storageOverProvisioningPercentage: "100"
+  storageMinimalAvailablePercentage: "5"
+  storageReservedPercentageForDefaultDisk: "15" # Match your reserved space
 
   # Node scheduling
   allowVolumeCreationWithDegradedAvailability: "true" # Allow creation even if degraded
