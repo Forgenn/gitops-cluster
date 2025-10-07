@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: navidrome
+  namespace: navidrome
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: navidrome
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: navidrome
+    spec:
+      containers:
+        - name: navidrome
+          image: deluan/navidrome:0.58.0
+          ports:
+            - containerPort: 4533
+              protocol: TCP
+          env:
+            - name: ND_AUTHREQUESTLIMIT
+              value: "30"
+            - name: ND_AUTOIMPORTPLAYLISTS
+              value: "true"
+            - name: ND_BASEURL
+              value: "https://navidrome.monederobox.dev"
+            - name: ND_COVERARTPRIORITY
+              value: "cover.*, folder.*, front.*, external, embedded"
+            - name: ND_LASTFM_ENABLED
+              value: "true"
+            - name: ND_LOGLEVEL
+              value: "info"
+            - name: ND_PLAYLISTSPATH
+              value: "playlists:playlists/**"
+            - name: ND_SCANNER_GROUPALBUMRELEASES
+              value: "true"
+            - name: ND_SCANSCHEDULE
+              value: "@every 24h"
+            - name: ND_SESSIONTIMEOUT
+              value: "24h"
+            - name: ND_UILOGINBACKGROUNDURL
+              value: "https://nextcloud.monederobox.xyz/s/84LgB8rNA2z4xza/download/20231212_174559.jpg"
+          envFrom:
+            - secretRef:
+                name: navidrome-secrets
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: music
+              mountPath: /music/Album
+              subPath: projects/10042e7c-84c1-47ae-8244-36b33d47b184
+              readOnly: true
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: navidrome-data
+        - name: music
+          nfs:
+            server: dolores.home
+            path: /revachol-pool/k8s-data/main/pvc-a2248f1d-c3a0-4d9a-89f1-e0d42103f27d
+            readOnly: true
