@@ -42,6 +42,8 @@ spec:
               value: "@every 24h"
             - name: ND_SESSIONTIMEOUT
               value: "24h"
+            - name: ND_LOGLEVEL
+              value: "trace"
             - name: ND_UILOGINBACKGROUNDURL
               value: "https://nextcloud.monederobox.xyz/s/84LgB8rNA2z4xza/download/20231212_174559.jpg"
           envFrom:
@@ -54,7 +56,7 @@ spec:
             - name: data
               mountPath: /data
             - name: music
-              mountPath: /music/Album
+              mountPath: /music/
               subPath: projects/10042e7c-84c1-47ae-8244-36b33d47b184
               readOnly: true
       volumes:
