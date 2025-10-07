@@ -33,7 +33,7 @@ spec:
             - name: ND_LASTFM_ENABLED
               value: "true"
             - name: ND_LOGLEVEL
-              value: "info"
+              value: "trace"
             - name: ND_PLAYLISTSPATH
               value: "playlists:playlists/**"
             - name: ND_SCANNER_GROUPALBUMRELEASES
@@ -42,8 +42,6 @@ spec:
               value: "@every 24h"
             - name: ND_SESSIONTIMEOUT
               value: "24h"
-            - name: ND_LOGLEVEL
-              value: "trace"
             - name: ND_UILOGINBACKGROUNDURL
               value: "https://nextcloud.monederobox.xyz/s/84LgB8rNA2z4xza/download/20231212_174559.jpg"
           envFrom:
