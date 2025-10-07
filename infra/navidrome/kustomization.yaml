@@ -4,7 +4,6 @@ kind: Kustomization
 namespace: navidrome
 
 resources:
-  - namespace.yaml
   - data-pvc.yaml
   - externalsecret.yaml
   - navidrome-deployment.yaml
