@@ -3,6 +3,7 @@ preUpgradeChecker:
   upgradeVersionCheck: true
 
 persistence:
+  dataEngine: "v2"
   defaultClassReplicaCount: 3
   defaultDataLocality: "best-effort"
 
