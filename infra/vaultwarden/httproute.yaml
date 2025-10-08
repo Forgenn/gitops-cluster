@@ -1,19 +1,22 @@
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: vaultwarden
+  name: vaultwarden-route
   namespace: vaultwarden
 spec:
   parentRefs:
-  - name: gateway
-    namespace: envoy-gateway
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: envoy-gateway
+      namespace: envoy-gateway
+      sectionName: https
   hostnames:
-  - "vaultwarden.monederobox.dev"
+    - "vault.monederobox.dev"
   rules:
-  - matches:
-    - path:
-        type: PathPrefix
-        value: /
-    backendRefs:
-    - name: vaultwarden
-      port: 80
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: vaultwarden
+          port: 80
