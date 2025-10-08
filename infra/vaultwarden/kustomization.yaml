@@ -3,7 +3,7 @@ kind: Kustomization
 namespace: vaultwarden
 
 resources:
-  - httproute.yaml
+  - httproute-internal.yaml
   - externalsecret.yaml
   - smtp-externalsecret.yaml
   - db

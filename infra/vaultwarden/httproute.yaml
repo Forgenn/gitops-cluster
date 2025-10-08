@@ -20,3 +20,22 @@ spec:
       backendRefs:
         - name: vaultwarden
           port: 80
+---
+# SecurityPolicy as it is internal
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: internal-vaultwarden-route
+spec:
+  targetRefs:
+    - group: "gateway.networking.k8s.io"
+      name: vaultwarden-route
+      kind: HTTPRoute
+  authorization:
+    defaultAction: Deny
+    rules:
+      - action: Allow
+        principal:
+          clientCIDRs:
+            - 100.64.0.0/10
+            - 192.168.1.0/24
