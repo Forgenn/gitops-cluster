@@ -29,7 +29,7 @@ smtp:
 webVaultEnabled: "true"
 
 # Set the domain
-domain: "https://vaultwarden.monederobox.dev"
+domain: "https://vault.monederobox.dev"
 
 # Allow signups but require verification
 signupsAllowed: true
