@@ -3,6 +3,13 @@ database:
   existingSecret: "vaultwarden-cnpg-cluster-app"
   existingSecretKey: "uri"
 
+replicas: 3
+service:
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+
 data:
   name: "vaultwarden-data"
   size: "5Gi"
