@@ -20,6 +20,12 @@ spec:
       backendRefs:
         - name: vaultwarden
           port: 80
+      sessionPersistence:
+        sessionName: vaultwarden-session
+        type: Cookie
+        absoluteTimeout: 7200s # 2 hours
+        cookieConfig:
+          lifetimeType: Permanent
 ---
 # SecurityPolicy as it is internal
 apiVersion: gateway.envoyproxy.io/v1alpha1
