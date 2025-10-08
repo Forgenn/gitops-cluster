@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: vaultwarden
+
+resources:
+  - httproute.yaml
+  - externalsecret.yaml
+  - smtp-externalsecret.yaml
+  - db
+
+helmCharts:
+  - name: vaultwarden
+    repo: https://guerzon.github.io/charts/
+    version: 0.34.3
+    releaseName: vaultwarden
+    valuesFile: values/values.yaml

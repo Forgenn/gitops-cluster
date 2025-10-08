@@ -1,0 +1,36 @@
+database:
+  type: "postgresql"
+  existingSecret: "vaultwarden-cnpg-cluster-app"
+  existingSecretKey: "uri"
+
+data:
+  name: "vaultwarden-data"
+  size: "5Gi"
+  class: "longhorn"
+
+adminToken:
+  existingSecret: "vaultwarden"
+  existingSecretKey: "ADMIN_TOKEN"
+  value: ""
+
+smtp:
+  host: smtp.gmail.com
+  from: "no-reply@monederobox.dev"
+  fromName: "Vaultwarden"
+  security: "force_tls"
+  port: 465
+  existingSecret: "vaultwarden-smtp"
+  username:
+    existingSecretKey: "SMTP_USER"
+  password:
+    existingSecretKey: "SMTP_PASSWORD"
+
+# Enable the web vault
+webVaultEnabled: "true"
+
+# Set the domain
+domain: "https://vaultwarden.monederobox.dev"
+
+# Allow signups but require verification
+signupsAllowed: true
+signupsVerify: true
