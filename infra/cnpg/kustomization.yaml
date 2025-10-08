@@ -7,6 +7,6 @@ helmCharts:
   - name: cloudnative-pg
     repo: https://cloudnative-pg.github.io/charts
     releaseName: cngp
-    version: "0.24.0"
+    version: "0.26.0"
     namespace: cngp
     valuesFile: values/values.yaml
