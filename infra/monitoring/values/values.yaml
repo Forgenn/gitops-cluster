@@ -23,6 +23,30 @@ grafana:
     existingSecret: "grafana-admin-credentials"
     userKey: admin-user
     passwordKey: admin-password
+
+  additionalSecrets:
+    - name: grafana-oidc-credentials
+      mountPath: /etc/grafana/secrets
+      readOnly: true
+
+  grafana.ini:
+    server:
+      root_url: https://grafana.monederobox.dev
+    auth:
+      disable_login_form: true
+    auth.generic_oauth:
+      enabled: true
+      name: PocketID
+      icon: signin
+      allow_sign_up: true
+      client_id: ${__file:/etc/grafana/secrets/oidc-client-id}
+      client_secret: ${__file:/etc/grafana/secrets/oidc-client-secret}
+      scopes: openid profile email groups
+      auth_url: https://pocket-id.monederobox.dev/protocol/openid-connect/auth
+      token_url: https://pocket-id.monederobox.dev/protocol/openid-connect/token
+      api_url: https://pocket-id.monederobox.dev/protocol/openid-connect/userinfo
+      role_attribute_path: "contains(groups, 'GrafanaAdmins') && 'Admin' || 'Viewer'"
+
   persistence:
     enabled: true
     type: pvc
