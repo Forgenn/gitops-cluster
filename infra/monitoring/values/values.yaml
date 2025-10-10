@@ -30,9 +30,9 @@ grafana:
       defaultMode: 0440
       mountPath: /etc/grafana/secrets
       readOnly: true
-      grafana:
-        # ... all your other grafana settings ...
 
+  defaultDatasource:
+    enabled: false
   additionalDataSources:
     - name: Prometheus
       type: prometheus
