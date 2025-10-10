@@ -30,7 +30,16 @@ grafana:
       defaultMode: 0440
       mountPath: /etc/grafana/secrets
       readOnly: true
+      grafana:
+        # ... all your other grafana settings ...
 
+  additionalDataSources:
+    - name: Prometheus
+      type: prometheus
+      # This is the correct URL for a service in the 'monitoring' namespace
+      url: http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090
+      access: proxy
+      isDefault: true
   #env:
   #  GF_AUTH_GENERIC_OAUTH_CLIENT_ID:
   #    valueFrom:
