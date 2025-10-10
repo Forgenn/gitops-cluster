@@ -66,6 +66,8 @@ prometheus:
 prometheusOperator:
   admissionWebhooks:
     enabled: false
+    patch:
+      enabled: false
   serviceMonitor:
     selfMonitor: false
   prometheusConfigReloader:
