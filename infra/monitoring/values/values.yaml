@@ -1,0 +1,94 @@
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: longhorn
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 1Gi
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+grafana:
+  enabled: true
+  admin:
+    existingSecret: "grafana-admin-credentials"
+    userKey: admin-user
+    passwordKey: admin-password
+  persistence:
+    enabled: true
+    type: pvc
+    storageClassName: longhorn
+    accessModes:
+      - ReadWriteMany
+    size: 1Gi
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+
+prometheus:
+  enabled: true
+  prometheusSpec:
+    retention: 24h
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: longhorn
+          accessModes: ["ReadWriteMany"]
+          resources:
+            requests:
+              storage: 5Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+prometheusOperator:
+  serviceMonitor:
+    selfMonitor: false
+  prometheusConfigReloader:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+nodeExporter:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
