@@ -24,8 +24,10 @@ grafana:
     userKey: admin-user
     passwordKey: admin-password
 
-  additionalSecrets:
-    - name: grafana-oidc-credentials
+  extraSecretMounts:
+    - name: grafana-oidc-credentials-mount
+      secretName: grafana-oidc-credentials
+      defaultMode: 0440
       mountPath: /etc/grafana/secrets
       readOnly: true
 
