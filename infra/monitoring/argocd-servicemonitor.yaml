@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: argocd-servicemonitor
+  namespace: monitoring # Must be in the same namespace as Prometheus
+  labels:
+    release: prometheus # This label allows Prometheus to find this ServiceMonitor
+spec:
+  # This selector is broad enough to find all Argo CD services, which is what we want.
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: argocd
+  namespaceSelector:
+    matchNames:
+      - argocd
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+    - port: http-metrics
+      interval: 30s
+      path: /metrics

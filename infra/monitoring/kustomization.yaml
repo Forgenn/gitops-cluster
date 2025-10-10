@@ -9,6 +9,7 @@ resources:
   - grafana-admin-externalsecret.yaml
   - grafana-oidc-externalsecret.yaml
   - httproute-internal.yaml
+  - argocd-servicemonitor.yaml
 
 helmCharts:
   - name: kube-prometheus-stack
