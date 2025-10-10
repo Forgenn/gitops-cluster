@@ -64,10 +64,6 @@ prometheus:
         memory: 1Gi
 
 prometheusOperator:
-  admissionWebhooks:
-    enabled: false
-    patch:
-      enabled: false
   serviceMonitor:
     selfMonitor: false
   prometheusConfigReloader:

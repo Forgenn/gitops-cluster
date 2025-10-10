@@ -6,6 +6,8 @@ namespace: argocd
 resources:
   - httproute-internal.yaml
   - externalsecret.yaml
+  - webhook-secret-reader-role.yaml
+  - webhook-secret-reader-rolebinding.yaml
 
 helmCharts:
   - name: argo-cd
