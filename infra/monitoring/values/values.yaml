@@ -24,12 +24,24 @@ grafana:
     userKey: admin-user
     passwordKey: admin-password
 
-  extraSecretMounts:
-    - name: grafana-oidc-credentials-mount
-      secretName: grafana-oidc-credentials
-      defaultMode: 0440
-      mountPath: /etc/grafana/secrets
-      readOnly: true
+  #extraSecretMounts:
+  #  - name: grafana-oidc-credentials-mount
+  #    secretName: grafana-oidc-credentials
+  #    defaultMode: 0440
+  #    mountPath: /etc/grafana/secrets
+  #    readOnly: true
+  #
+  env:
+    GF_AUTH_GENERIC_OAUTH_CLIENT_ID:
+      valueFrom:
+        secretKeyRef:
+          name: grafana-oidc-credentials
+          key: oidc-client-id
+    GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET:
+      valueFrom:
+        secretKeyRef:
+          name: grafana-oidc-credentials
+          key: oidc-client-secret
 
   grafana.ini:
     server:
@@ -41,8 +53,8 @@ grafana:
       name: PocketID
       icon: signin
       allow_sign_up: true
-      client_id: ${__file:/etc/grafana/secrets/oidc-client-id}
-      client_secret: ${__file:/etc/grafana/secrets/oidc-client-secret}
+      client_id: $GF_AUTH_GENERIC_OAUTH_CLIENT_ID
+      client_secret: $GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
       scopes: openid profile email groups
       auth_url: https://pocket-id.monederobox.dev/protocol/openid-connect/auth
       token_url: https://pocket-id.monederobox.dev/protocol/openid-connect/token
