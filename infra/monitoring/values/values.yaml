@@ -56,9 +56,9 @@ grafana:
       client_id: $__file{/etc/grafana/secrets/oidc-client-id}
       client_secret: $__file{/etc/grafana/secrets/oidc-client-secret}
       scopes: openid profile email groups
-      auth_url: https://pocket-id.monederobox.dev/protocol/openid-connect/auth
-      token_url: https://pocket-id.monederobox.dev/protocol/openid-connect/token
-      api_url: https://pocket-id.monederobox.dev/protocol/openid-connect/userinfo
+      auth_url: https://pocket-id.monederobox.dev/authorize
+      token_url: https://pocket-id.monederobox.dev/api/oidc/token
+      api_url: https://pocket-id.monederobox.dev/api/oidc/userinfo
       role_attribute_path: "contains(groups, 'GrafanaAdmins') && 'Admin' || 'Viewer'"
 
   persistence:
