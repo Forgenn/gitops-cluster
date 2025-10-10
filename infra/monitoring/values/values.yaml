@@ -39,7 +39,7 @@ grafana:
       # This is the correct URL for a service in the 'monitoring' namespace
       url: http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090
       access: proxy
-      isDefault: true
+      isDefault: false
   #env:
   #  GF_AUTH_GENERIC_OAUTH_CLIENT_ID:
   #    valueFrom:
