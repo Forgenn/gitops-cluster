@@ -4,7 +4,6 @@ kind: Kustomization
 namespace: monitoring
 
 resources:
-  - namespace.yaml
   - argocd-alerts.yaml
   - argocd-dashboard.yaml
   - grafana-admin-externalsecret.yaml
