@@ -23,18 +23,14 @@ configs:
 
 controller:
   replicas: 1
+  metrics:
+    enabled: true
 
 server:
   replicas: 2
-  metrics:
-    enabled: true
 
 repoServer:
   replicas: 2
-  metrics:
-    enabled: true
 
 applicationSet:
   replicas: 2
-  metrics:
-    enabled: true
