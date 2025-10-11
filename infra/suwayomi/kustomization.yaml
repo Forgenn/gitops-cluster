@@ -7,4 +7,4 @@ resources:
   - pvc.yaml
   - httproute.yaml
   - externalsecret.yaml
-  - backup/kustomization.yaml
+  - replicationsource.yaml
