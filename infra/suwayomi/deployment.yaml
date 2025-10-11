@@ -23,7 +23,7 @@ spec:
             # - name: FLARESOLVERR_URL
             #   value: "http://flaresolverr:8191"
             - name: AUTH_MODE
-              value: "basic_auth"
+              value: "ui_login"
             - name: AUTH_USERNAME
               value: "admin"
             - name: AUTH_PASSWORD
