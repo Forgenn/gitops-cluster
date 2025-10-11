@@ -22,9 +22,3 @@ spec:
         - path:
             type: PathPrefix
             value: /
-      filters:
-        - type: RequestHeaderModifier
-          requestHeaderModifier:
-            add:
-              - name: Authorization
-                value: ""
