@@ -1,0 +1,29 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: restic-config
+  namespace: karakeep
+spec:
+  secretStoreRef:
+    name: infisical-cluster-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: restic-config
+    creationPolicy: Owner
+    template:
+      engineVersion: v2
+      data:
+        RESTIC_REPOSITORY: "s3:https://hel1.your-objectstorage.com/revachol/backups/karakeep-data"
+        RESTIC_PASSWORD: "{{ .restic_password }}"
+        AWS_ACCESS_KEY_ID: "{{ .aws_access_key_id }}"
+        AWS_SECRET_ACCESS_KEY: "{{ .aws_secret_access_key }}"
+  data:
+    - secretKey: restic_password
+      remoteRef:
+        key: /volsync/restic-password
+    - secretKey: aws_access_key_id
+      remoteRef:
+        key: /hetzner/revachol-bucket/ACCESS_KEY
+    - secretKey: aws_secret_access_key
+      remoteRef:
+        key: /hetzner/revachol-bucket/ACCESS_SECRET_KEY

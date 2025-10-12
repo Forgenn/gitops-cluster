@@ -5,7 +5,9 @@ namespace: karakeep
 
 resources:
   - httproute.yaml
-  - externalsecret.yaml
+  - secrets.yaml
+  - restic-config.yaml
+  - backup.yaml
 
 helmCharts:
   - name: karakeep

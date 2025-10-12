@@ -1,0 +1,22 @@
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: karakeep-data-backup
+  namespace: karakeep
+spec:
+  sourcePVC: data-karakeep-0
+  trigger:
+    schedule: "0 8 * * *"
+  restic:
+    copyMethod: Snapshot
+    pruneIntervalDays: 7
+    unlock: unlock
+    repository: restic-config
+    storageClassName: longhorn
+    volumeSnapshotClassName: longhorn
+    cacheCapacity: 2Gi
+    retain:
+      daily: 7
+      weekly: 4
+      monthly: 6
+      yearly: 1
