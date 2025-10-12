@@ -15,4 +15,5 @@ controllers:
               name: karakeep-oidc
 
 ingress:
-  enabled: false
+  karakeep:
+    enabled: false
