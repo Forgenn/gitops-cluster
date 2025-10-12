@@ -4,5 +4,6 @@ Whenever we find another observation about this repos state, and it's not declar
 
 ## Conventions
 
-*   **External Secrets**: Secrets are managed using External Secrets Operator (v1). The `key` in the `ExternalSecret` resource must be the full path to the secret in the secret store (e.g., `/app-name/secret-key`).
+*   **Namespaces**: Namespaces are created with kustomize, not as a manifest.
+*   **External Secrets**: Secrets are managed using External Secrets Operator (v1). The `key` in the `ExternalSecret` resource must be the full path to the secret in the secret store (e.g., `/app-name/secret-key`). When setting an OIDC_CLIENT, its instead `/pocket-id/app-name/secret-key`
 *   **Backups**: PersistentVolumeClaims are backed up using `volsync`.

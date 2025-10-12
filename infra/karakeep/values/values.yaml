@@ -1,0 +1,15 @@
+applicationHost: karakeep.monederobox.dev
+
+controllers:
+  karakeep:
+    containers:
+      karakeep:
+        env:
+          DISABLE_PASSWORD_AUTH: "true"
+          OAUTH_ALLOW_DANGEROUS_EMAIL_ACCOUNT_LINKING: "true"
+          OAUTH_PROVIDER_NAME: OIDC
+          OAUTH_SCOPE: openid email profile groups
+          OAUTH_WELLKNOWN_URL: https://pocket-id.monederobox.dev/.well-known/openid-configuration
+        envFrom:
+          - secretRef:
+              name: karakeep-oidc

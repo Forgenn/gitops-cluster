@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: karakeep
+
+resources:
+  - httproute.yaml
+  - externalsecret.yaml
+
+helmCharts:
+  - name: karakeep
+    repo: https://karakeep-app.github.io/helm-charts
+    releaseName: karakeep
+    version: "0.27.0"
+    namespace: karakeep
+    valuesFile: values/values.yaml
