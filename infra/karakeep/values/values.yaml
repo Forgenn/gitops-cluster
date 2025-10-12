@@ -1,5 +1,6 @@
 applicationProtocol: https
 applicationHost: karakeep.monederobox.dev
+meilisearchMasterKey: vbURkFtR8memoiYDO3UpVKXB9CtHkNKAbUm0DW9C0771P
 
 controllers:
   karakeep:
@@ -11,7 +12,6 @@ controllers:
           OAUTH_PROVIDER_NAME: Pocket-id
           OAUTH_SCOPE: openid email profile groups
           OAUTH_WELLKNOWN_URL: https://pocket-id.monederobox.dev/.well-known/openid-configuration
-          MEILI_MASTER_KEY: vbURkFtR8memoiYDO3UpVKXB9CtHkNKAbUm0DW9C0771P
         envFrom:
           - secretRef:
               name: karakeep-secrets
