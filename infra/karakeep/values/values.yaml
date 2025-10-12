@@ -13,3 +13,6 @@ controllers:
         envFrom:
           - secretRef:
               name: karakeep-oidc
+
+ingress:
+  enabled: false
