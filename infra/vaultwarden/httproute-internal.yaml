@@ -26,24 +26,22 @@ spec:
         absoluteTimeout: 7200s # 2 hours
         cookieConfig:
           lifetimeType: Permanent
-# DIsable, must search for a better way, as chromium and other browsers
-# disrespect local DNS servers
-#---
+---
 # SecurityPolicy as it is internal
-#apiVersion: gateway.envoyproxy.io/v1alpha1
-#kind: SecurityPolicy
-#metadata:
-#  name: internal-vaultwarden-route
-#spec:
-#  targetRefs:
-#    - group: "gateway.networking.k8s.io"
-#      name: vaultwarden-route
-#      kind: HTTPRoute
-#  authorization:
-#    defaultAction: Deny
-#    rules:
-#      - action: Allow
-#        principal:
-#          clientCIDRs:
-#            - 100.64.0.0/10
-#            - 192.168.1.0/24
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: internal-vaultwarden-route
+spec:
+  targetRefs:
+    - group: "gateway.networking.k8s.io"
+      name: vaultwarden-route
+      kind: HTTPRoute
+  authorization:
+    defaultAction: Deny
+    rules:
+      - action: Allow
+        principal:
+          clientCIDRs:
+            - 100.64.0.0/10
+            - 192.168.1.0/24
