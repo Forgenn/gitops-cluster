@@ -41,5 +41,6 @@ webVaultEnabled: "true"
 domain: "https://vault.monederobox.dev"
 
 # Allow signups but require verification
-signupsAllowed: true
+signupsAllowed: false
 signupsVerify: true
+adminRateLimitSeconds: 15
