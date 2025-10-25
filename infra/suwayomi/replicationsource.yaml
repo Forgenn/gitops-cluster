@@ -1,0 +1,15 @@
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: suwayomi-data
+spec:
+  sourcePVC: suwayomi-data
+  trigger:
+    schedule: "0 0 * * *"
+  restic:
+    copyMethod: Snapshot
+    pruneIntervalDays: 7
+    repository: suwayomi-data-restic-config
+    retain:
+      daily: 7
+      within: 3d
