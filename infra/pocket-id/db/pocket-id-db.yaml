@@ -1,7 +1,7 @@
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-  name: pocket-id-cnpg-cluster-restored
+  name: pocket-id-cnpg-cluster
 spec:
   instances: 1
 
