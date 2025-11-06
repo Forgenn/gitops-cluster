@@ -1,28 +1,31 @@
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-  name: pocket-id-cnpg-cluster
+  name: pocket-id-cnpg-cluster-restored
 spec:
   instances: 1
+
+  # Bootstrap from backup
   bootstrap:
     recovery:
-      source: pocket-id-cnpg-cluster-20251106100000
-  backup:
-    barmanObjectStore:
-      # URL to hetzner S3 services
-      endpointURL: "https://hel1.your-objectstorage.com"
-      destinationPath: "s3://revachol/backups/pocket-id-cnpg-db"
-      s3Credentials:
-        accessKeyId:
-          name: hetzner-backup-bucket-credentials
-          key: ACCESS_KEY
-        secretAccessKey:
-          name: hetzner-backup-bucket-credentials
-          key: ACCESS_SECRET_KEY
-      data:
-        compression: gzip
-    retentionPolicy: 60d
+      source: pocket-id-cnpg-cluster
+
+  # Reference to the backup configuration
+  externalClusters:
+    - name: pocket-id-cnpg-cluster
+      barmanObjectStore:
+        endpointURL: "https://hel1.your-objectstorage.com"
+        destinationPath: "s3://revachol/backups/pocket-id-cnpg-db"
+        s3Credentials:
+          accessKeyId:
+            name: hetzner-backup-bucket-credentials
+            key: ACCESS_KEY
+          secretAccessKey:
+            name: hetzner-backup-bucket-credentials
+            key: ACCESS_SECRET_KEY
+        wal:
+          compression: gzip
+
   storage:
-    # Custom democratic-csi storage class
     storageClass: zfs-generic-nfs-csi
     size: 10Gi
