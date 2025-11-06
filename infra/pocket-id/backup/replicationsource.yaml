@@ -1,0 +1,21 @@
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: pocket-id-pvc
+spec:
+  sourcePVC: pocket-id-data
+  trigger:
+    schedule: "0 8 * * *"
+  restic:
+    copyMethod: Snapshot
+    pruneIntervalDays: 14
+    repository: pocket-id-restic-config
+    volumeSnapshotClassName: zfs-generic-nfs-csi
+    storageClassName: zfs-generic-nfs-csi
+    moverSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+    retain:
+      daily: 14
+      within: 3d
