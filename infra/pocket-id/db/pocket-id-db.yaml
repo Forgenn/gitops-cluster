@@ -3,7 +3,10 @@ kind: Cluster
 metadata:
   name: pocket-id-cnpg-cluster
 spec:
-  instances: 1
+  instances: 0
+  bootstrap:
+    recovery:
+      source: pocket-id-cnpg-cluster-20251106100000
   backup:
     barmanObjectStore:
       # URL to hetzner S3 services
