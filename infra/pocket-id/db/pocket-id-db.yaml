@@ -3,7 +3,7 @@ kind: Cluster
 metadata:
   name: pocket-id-cnpg-cluster
 spec:
-  instances: 0
+  instances: 1
   bootstrap:
     recovery:
       source: pocket-id-cnpg-cluster-20251106100000
