@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: suwayomi
-          image: ghcr.io/suwayomi/suwayomi-server:preview
+          image: ghcr.io/suwayomi/suwayomi-server:v2.1.2007
           env:
             - name: TZ
               value: "Etc/UTC"
