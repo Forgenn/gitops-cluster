@@ -24,7 +24,7 @@ app:
     persistentVolumeClaimName:
     ## Alternative set requestedSize to define a size for a dynmaically created PVC
     ## five times (5x) the amount of memory (RAM)
-    requestedSize: 10Gi
+    requestedSize: 20Gi
     ## the storage class name
     className: longhorn
 
