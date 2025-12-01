@@ -11,6 +11,8 @@ app:
       dbuser: "wger"
       existingSecret:
         name: "wger-cnpg-cluster-app"
+        dbnameKey: null
+        dbuserKey: "user"
         dbpwKey: "password"
   # Set the site URL, otherwise you will get errors
   # on password reset emails
