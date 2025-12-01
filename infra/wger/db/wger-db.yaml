@@ -33,8 +33,6 @@ spec:
 
   monitoring:
     enablePodMonitor: true
-    podMonitorLabels:
-      release: monitoring
   postgresql:
     parameters:
       max_connections: "300"
