@@ -1,3 +1,5 @@
+postgres.enabled: false
+
 app:
   django:
     existingDatabase:
@@ -8,9 +10,18 @@ app:
       dbname: "wger"
       dbuser: "wger"
       existingSecret:
-        name: "wger-cnpg-cluster-wger"
+        name: "wger-cnpg-cluster-app"
         dbpwKey: "password"
   # Set the site URL, otherwise you will get errors
   # on password reset emails
   # https://github.com/wger-project/wger/blob/f79e59b348893343843a35390b58558e14c395f7/wger/config/settings/base.py#L393
   hosts: "https://wger.monederobox.dev"
+
+  storage:
+    ##  Set persistentVolumenClaimName to reference an existing PVC
+    persistentVolumeClaimName:
+    ## Alternative set requestedSize to define a size for a dynmaically created PVC
+    ## five times (5x) the amount of memory (RAM)
+    requestedSize: 10Gi
+    ## the storage class name
+    className: longhorn
