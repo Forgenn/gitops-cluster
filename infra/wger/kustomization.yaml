@@ -12,6 +12,6 @@ helmCharts:
   - name: wger
     repo: https://wger-project.github.io/helm-charts
     releaseName: wger
-    version: "0.1.0"
+    version: "0.2.4"
     namespace: wger
     valuesFile: values/values.yaml
