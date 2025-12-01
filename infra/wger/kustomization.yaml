@@ -19,9 +19,9 @@ patches:
           spec:
             containers:
               - name: wger
-              - env:
-                - name: CSRF_TRUSTED_ORIGINS
-                  value: https://wger.monederobox.dev
+                env:
+                  - name: CSRF_TRUSTED_ORIGINS
+                    value: https://wger.monederobox.dev
 
 helmCharts:
   - name: wger
