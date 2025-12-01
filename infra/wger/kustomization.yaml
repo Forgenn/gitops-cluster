@@ -13,7 +13,7 @@ patches:
       apiVersion: apps/v1
       kind: Deployment
       metadata:
-        name: wger-app
+        name: wger
       spec:
         template:
           spec:
