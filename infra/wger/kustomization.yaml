@@ -8,6 +8,23 @@ resources:
   - namespace.yaml
   - db
 
+patches:
+  # Waiting on https://github.com/opencloud-eu/desktop/issues/217
+  # for - name: PROXY_ROLE_ASSIGNMENT_DRIVER
+  #                 value: "oidc"
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: wger-app
+      spec:
+        template:
+          spec:
+            containers:
+              - env:
+                - name: CSRF_TRUSTED_ORIGINS
+                  value: https://wger.monederobox.dev
+
 helmCharts:
   - name: wger
     repo: https://wger-project.github.io/helm-charts
