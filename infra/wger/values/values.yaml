@@ -1,0 +1,16 @@
+app:
+  django:
+    existingDatabase:
+      enabled: true
+      engine: "django.db.backends.postgresql"
+      host: "wger-cnpg-cluster-rw"
+      port: 5432
+      dbname: "wger"
+      dbuser: "wger"
+      existingSecret:
+        name: "wger-cnpg-cluster-wger"
+        dbpwKey: "password"
+  # Set the site URL, otherwise you will get errors
+  # on password reset emails
+  # https://github.com/wger-project/wger/blob/f79e59b348893343843a35390b58558e14c395f7/wger/config/settings/base.py#L393
+  hosts: "https://wger.monederobox.dev"
