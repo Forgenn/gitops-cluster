@@ -9,9 +9,6 @@ resources:
   - db
 
 patches:
-  # Waiting on https://github.com/opencloud-eu/desktop/issues/217
-  # for - name: PROXY_ROLE_ASSIGNMENT_DRIVER
-  #                 value: "oidc"
   - patch: |-
       apiVersion: apps/v1
       kind: Deployment
@@ -21,6 +18,7 @@ patches:
         template:
           spec:
             containers:
+              - name: wger
               - env:
                 - name: CSRF_TRUSTED_ORIGINS
                   value: https://wger.monederobox.dev
