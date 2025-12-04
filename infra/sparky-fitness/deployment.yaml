@@ -17,30 +17,51 @@ spec:
         - name: sparky-fitness-server
           image: codewithcj/sparkyfitness_server:latest
           ports:
-            - containerPort: 8080
+            - containerPort: 3010
           env:
+            - name: SPARKY_FITNESS_SERVER_PORT
+              value: "3010"
+            - name: NODE_ENV
+              value: "production"
+            - name: TZ
+              value: "Etc/UTC"
             - name: SPARKY_FITNESS_LOG_LEVEL
               value: "info"
             - name: SPARKY_FITNESS_DB_USER
-              value: "sparkyfitness"
+              valueFrom:
+                secretKeyRef:
+                  name: sparky-fitness-cnpg-cluster-app
+                  key: username
             - name: SPARKY_FITNESS_DB_HOST
-              value: "sparky-fitness-cnpg-cluster-rw"
+              valueFrom:
+                secretKeyRef:
+                  name: sparky-fitness-cnpg-cluster-app
+                  key: host
             - name: SPARKY_FITNESS_DB_NAME
-              value: "sparkyfitness"
+              valueFrom:
+                secretKeyRef:
+                  name: sparky-fitness-cnpg-cluster-app
+                  key: dbname
             - name: SPARKY_FITNESS_DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: sparky-fitness-cnpg-cluster-sparkyfitness
+                  name: sparky-fitness-cnpg-cluster-app
                   key: password
+            - name: SPARKY_FITNESS_DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: sparky-fitness-cnpg-cluster-app
+                  key: port
             - name: SPARKY_FITNESS_APP_DB_USER
-              value: "sparkyapp"
+              valueFrom:
+                secretKeyRef:
+                  name: sparky-fitness-cnpg-cluster-app
+                  key: username
             - name: SPARKY_FITNESS_APP_DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: sparky-fitness-server-secrets
-                  key: SPARKY_FITNESS_APP_DB_PASSWORD
-            - name: SPARKY_FITNESS_DB_PORT
-              value: "5432"
+                  name: sparky-fitness-cnpg-cluster-app
+                  key: password
             - name: SPARKY_FITNESS_API_ENCRYPTION_KEY
               valueFrom:
                 secretKeyRef:
@@ -63,33 +84,27 @@ spec:
             - name: SPARKY_FITNESS_EMAIL_HOST
               valueFrom:
                 secretKeyRef:
-                  name: sparky-fitness-server-secrets
+                  name: sparky-fitness-smtp
                   key: SPARKY_FITNESS_EMAIL_HOST
             - name: SPARKY_FITNESS_EMAIL_PORT
               valueFrom:
                 secretKeyRef:
-                  name: sparky-fitness-server-secrets
+                  name: sparky-fitness-smtp
                   key: SPARKY_FITNESS_EMAIL_PORT
             - name: SPARKY_FITNESS_EMAIL_SECURE
-              valueFrom:
-                secretKeyRef:
-                  name: sparky-fitness-server-secrets
-                  key: SPARKY_FITNESS_EMAIL_SECURE
+              value: "true"
             - name: SPARKY_FITNESS_EMAIL_USER
               valueFrom:
                 secretKeyRef:
-                  name: sparky-fitness-server-secrets
+                  name: sparky-fitness-smtp
                   key: SPARKY_FITNESS_EMAIL_USER
             - name: SPARKY_FITNESS_EMAIL_PASS
               valueFrom:
                 secretKeyRef:
-                  name: sparky-fitness-server-secrets
+                  name: sparky-fitness-smtp
                   key: SPARKY_FITNESS_EMAIL_PASS
             - name: SPARKY_FITNESS_EMAIL_FROM
-              valueFrom:
-                secretKeyRef:
-                  name: sparky-fitness-server-secrets
-                  key: SPARKY_FITNESS_EMAIL_FROM
+              value: "noreply@sparky.monederobox.dev"
           volumeMounts:
             - name: backup-data
               mountPath: /app/SparkyFitnessServer/backup
