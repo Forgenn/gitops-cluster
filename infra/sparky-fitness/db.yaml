@@ -12,3 +12,5 @@ spec:
     initdb:
       database: sparkyfitness
       owner: sparkyfitness
+    postInitSQL:
+      - "ALTER USER sparkyfitness SUPERUSER;"
