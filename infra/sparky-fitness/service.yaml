@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sparky-fitness-server
+  namespace: sparky-fitness
+spec:
+  selector:
+    app: sparky-fitness-server
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sparky-fitness-frontend
+  namespace: sparky-fitness
+spec:
+  selector:
+    app: sparky-fitness-frontend
+  ports:
+    - port: 80
+      targetPort: 80

@@ -1,0 +1,125 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sparky-fitness-server
+  namespace: sparky-fitness
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sparky-fitness-server
+  template:
+    metadata:
+      labels:
+        app: sparky-fitness-server
+    spec:
+      containers:
+        - name: sparky-fitness-server
+          image: codewithcj/sparkyfitness_server:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPARKY_FITNESS_LOG_LEVEL
+              value: "info"
+            - name: SPARKY_FITNESS_DB_USER
+              value: "sparkyfitness"
+            - name: SPARKY_FITNESS_DB_HOST
+              value: "sparky-fitness-cnpg-cluster-rw"
+            - name: SPARKY_FITNESS_DB_NAME
+              value: "sparkyfitness"
+            - name: SPARKY_FITNESS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sparky-fitness-cnpg-cluster-sparkyfitness
+                  key: password
+            - name: SPARKY_FITNESS_APP_DB_USER
+              value: "sparkyapp"
+            - name: SPARKY_FITNESS_APP_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sparky-fitness-server-secrets
+                  key: SPARKY_FITNESS_APP_DB_PASSWORD
+            - name: SPARKY_FITNESS_DB_PORT
+              value: "5432"
+            - name: SPARKY_FITNESS_API_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sparky-fitness-server-secrets
+                  key: SPARKY_FITNESS_API_ENCRYPTION_KEY
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: sparky-fitness-server-secrets
+                  key: JWT_SECRET
+            - name: SPARKY_FITNESS_FRONTEND_URL
+              value: "https://sparky.monederobox.dev"
+            - name: SPARKY_FITNESS_DISABLE_SIGNUP
+              value: "false"
+            - name: SPARKY_FITNESS_ADMIN_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: sparky-fitness-server-secrets
+                  key: SPARKY_FITNESS_ADMIN_EMAIL
+            - name: SPARKY_FITNESS_EMAIL_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: sparky-fitness-server-secrets
+                  key: SPARKY_FITNESS_EMAIL_HOST
+            - name: SPARKY_FITNESS_EMAIL_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: sparky-fitness-server-secrets
+                  key: SPARKY_FITNESS_EMAIL_PORT
+            - name: SPARKY_FITNESS_EMAIL_SECURE
+              valueFrom:
+                secretKeyRef:
+                  name: sparky-fitness-server-secrets
+                  key: SPARKY_FITNESS_EMAIL_SECURE
+            - name: SPARKY_FITNESS_EMAIL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: sparky-fitness-server-secrets
+                  key: SPARKY_FITNESS_EMAIL_USER
+            - name: SPARKY_FITNESS_EMAIL_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: sparky-fitness-server-secrets
+                  key: SPARKY_FITNESS_EMAIL_PASS
+            - name: SPARKY_FITNESS_EMAIL_FROM
+              valueFrom:
+                secretKeyRef:
+                  name: sparky-fitness-server-secrets
+                  key: SPARKY_FITNESS_EMAIL_FROM
+          volumeMounts:
+            - name: backup-data
+              mountPath: /app/SparkyFitnessServer/backup
+            - name: uploads-data
+              mountPath: /app/SparkyFitnessServer/uploads
+      volumes:
+        - name: backup-data
+          persistentVolumeClaim:
+            claimName: sparky-fitness-server-backup-data
+        - name: uploads-data
+          persistentVolumeClaim:
+            claimName: sparky-fitness-server-uploads-data
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sparky-fitness-frontend
+  namespace: sparky-fitness
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sparky-fitness-frontend
+  template:
+    metadata:
+      labels:
+        app: sparky-fitness-frontend
+    spec:
+      containers:
+        - name: sparky-fitness-frontend
+          image: codewithcj/sparkyfitness:latest
+          ports:
+            - containerPort: 80
