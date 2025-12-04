@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: sparky-fitness-server
-          image: codewithcj/sparkyfitness_server:latest
+          image: codewithcj/sparkyfitness_server:v0.15.9.6
           ports:
             - containerPort: 3010
           env:
@@ -135,6 +135,11 @@ spec:
     spec:
       containers:
         - name: sparky-fitness-frontend
-          image: codewithcj/sparkyfitness:latest
+          image: codewithcj/sparkyfitness:v0.15.9.6
           ports:
             - containerPort: 80
+          env:
+            - name: SPARKY_FITNESS_SERVER_HOST
+              value: "sparky-fitness-server"
+            - name: SPARKY_FITNESS_SERVER_PORT
+              value: "3010"
