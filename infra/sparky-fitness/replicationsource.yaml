@@ -10,6 +10,8 @@ spec:
   restic:
     copyMethod: Snapshot
     pruneIntervalDays: 7
+    volumeSnapshotClassName: zfs-generic-nfs-csi
+    storageClassName: zfs-generic-nfs-csi
     repository: sparky-fitness-server-backup-data-restic-config
     retain:
       daily: 7
@@ -27,6 +29,8 @@ spec:
   restic:
     copyMethod: Snapshot
     pruneIntervalDays: 7
+    volumeSnapshotClassName: zfs-generic-nfs-csi
+    storageClassName: zfs-generic-nfs-csi
     repository: sparky-fitness-server-uploads-data-restic-config
     retain:
       daily: 7
