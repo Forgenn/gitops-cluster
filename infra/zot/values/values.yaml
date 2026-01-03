@@ -19,19 +19,16 @@ service:
   type: ClusterIP
   port: 5000
 
-# Mount secrets for authentication
-mountSecret: true
-secretFiles:
-  # htpasswd for Docker CLI authentication
-  htpasswd:
-    secretRef: zot-htpasswd
-    mountPath: /etc/zot/htpasswd
-    secretKey: htpasswd
-  # OIDC credentials file for PocketID
-  oidc-credentials:
-    secretRef: zot-oidc
-    mountPath: /etc/zot/oidc-credentials.json
-    secretKey: credentials.json
+# Mount external secrets for authentication
+externalSecrets:
+  - secretName: zot-htpasswd
+    mountPath: /secret/htpasswd
+  - secretName: zot-oidc
+    mountPath: /secret/oidc
+
+# Auth header for probes (base64 of admin:admin as placeholder, update after setting real password)
+# Generate with: echo -n 'admin:yourpassword' | base64
+authHeader: ""
 
 # Zot configuration
 configFiles:
@@ -49,13 +46,13 @@ configFiles:
         "externalUrl": "https://registry.monederobox.dev",
         "auth": {
           "htpasswd": {
-            "path": "/etc/zot/htpasswd"
+            "path": "/secret/htpasswd/htpasswd"
           },
           "openid": {
             "providers": {
               "pocketid": {
                 "issuer": "https://pocket-id.monederobox.dev",
-                "credentialsFile": "/etc/zot/oidc-credentials.json",
+                "credentialsFile": "/secret/oidc/credentials.json",
                 "scopes": ["openid", "profile", "email", "groups"]
               }
             }
