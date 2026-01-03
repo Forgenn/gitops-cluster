@@ -1,0 +1,32 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: loomie-db
+  namespace: loomie
+spec:
+  instances: 1
+
+  # Enable pgvector extension for embeddings
+  postgresql:
+    shared_preload_libraries:
+      - vector
+
+  bootstrap:
+    initdb:
+      database: loomie
+      owner: loomie
+      postInitSQL:
+        - CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+        - CREATE EXTENSION IF NOT EXISTS "vector";
+
+  storage:
+    storageClass: longhorn
+    size: 10Gi
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: loomie-backend
+  namespace: loomie
+spec:
+  selector:
+    app: loomie-backend
+  ports:
+    - port: 8080
+      targetPort: 8080
