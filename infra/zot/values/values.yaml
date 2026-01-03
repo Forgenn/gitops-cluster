@@ -1,0 +1,91 @@
+# Zot Container Registry Configuration
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/project-zot/zot
+  tag: v2.1.13
+
+# Persistence for registry storage
+persistence: true
+pvc:
+  create: true
+  storage: 50Gi
+  storageClassName: longhorn
+  accessMode: ReadWriteOnce
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 5000
+
+# Mount secrets for authentication
+mountSecret: true
+secretFiles:
+  # htpasswd for Docker CLI authentication
+  htpasswd:
+    secretRef: zot-htpasswd
+    mountPath: /etc/zot/htpasswd
+    secretKey: htpasswd
+  # OIDC credentials file for PocketID
+  oidc-credentials:
+    secretRef: zot-oidc
+    mountPath: /etc/zot/oidc-credentials.json
+    secretKey: credentials.json
+
+# Zot configuration
+configFiles:
+  config.json: |
+    {
+      "storage": {
+        "rootDirectory": "/var/lib/registry",
+        "gc": true,
+        "gcDelay": "1h",
+        "gcInterval": "24h"
+      },
+      "http": {
+        "address": "0.0.0.0",
+        "port": "5000",
+        "externalUrl": "https://registry.monederobox.dev",
+        "auth": {
+          "htpasswd": {
+            "path": "/etc/zot/htpasswd"
+          },
+          "openid": {
+            "providers": {
+              "pocketid": {
+                "issuer": "https://pocket-id.monederobox.dev",
+                "credentialsFile": "/etc/zot/oidc-credentials.json",
+                "scopes": ["openid", "profile", "email", "groups"]
+              }
+            }
+          }
+        }
+      },
+      "log": {
+        "level": "info"
+      },
+      "extensions": {
+        "search": {
+          "enable": true
+        },
+        "ui": {
+          "enable": true
+        },
+        "metrics": {
+          "enable": true,
+          "prometheus": {
+            "path": "/metrics"
+          }
+        }
+      }
+    }
+
+# Resource limits
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

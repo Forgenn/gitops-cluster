@@ -1,0 +1,25 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: zot
+  namespace: zot
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: envoy-gateway
+      namespace: envoy-gateway
+      sectionName: https
+  hostnames:
+    - "registry.monederobox.dev"
+  rules:
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: zot
+          port: 5000
+          weight: 1
+      matches:
+        - path:
+            type: PathPrefix
+            value: /
