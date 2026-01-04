@@ -43,6 +43,8 @@ spec:
               value: "true"
             - name: KUBE_NAMESPACE
               value: "loomie"
+            - name: KUBE_IMAGE_PREFIX
+              value: "registry.monederobox.dev/loomie/env-"
           resources:
             requests:
               cpu: 100m
