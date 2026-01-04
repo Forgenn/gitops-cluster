@@ -13,6 +13,7 @@ spec:
       labels:
         app: loomie-backend
     spec:
+      serviceAccountName: loomie-backend
       imagePullSecrets:
         - name: registry-credentials
       containers:
@@ -38,6 +39,10 @@ spec:
                 secretKeyRef:
                   name: loomie-secrets
                   key: JWT_SECRET
+            - name: KUBE_ENABLED
+              value: "true"
+            - name: KUBE_NAMESPACE
+              value: "loomie"
           resources:
             requests:
               cpu: 100m
