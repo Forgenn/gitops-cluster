@@ -28,8 +28,11 @@ loomie/
 
 1. Push to `loomie` repo (code)
 2. GitHub Actions builds images → `registry.monederobox.dev`
-3. ArgoCD watches this repo → syncs manifests
-4. K8s pulls new `latest` images
+3. GitHub Actions updates this repo with new image tags (automated via `update-gitops` job)
+4. ArgoCD watches this repo → syncs manifests
+5. K8s pulls new images with specific SHA tags
+
+**Required secret**: `GITOPS_TOKEN` - GitHub PAT with write access to this repo
 
 ## Required Secrets in Infisical
 
