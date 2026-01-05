@@ -45,9 +45,11 @@ spec:
               value: "loomie"
             - name: KUBE_IMAGE_PREFIX
               value: "registry.monederobox.dev/loomie/env-"
+            - name: CORS_ALLOWED_ORIGINS
+              value: "https://loomie.monederobox.dev"
             # OIDC Configuration (Pocket ID)
             - name: AUTH_PASSWORD_ENABLED
-              value: "true"
+              value: "false"
             - name: OIDC_ENABLED
               value: "true"
             - name: OIDC_PROVIDER_URL
