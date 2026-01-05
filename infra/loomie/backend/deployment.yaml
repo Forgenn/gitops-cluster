@@ -18,7 +18,7 @@ spec:
         - name: registry-credentials
       containers:
         - name: backend
-          image: registry.monederobox.dev/loomie/backend:6b1aced
+          image: registry.monederobox.dev/loomie/backend:7b36032
           ports:
             - containerPort: 8080
           env:
@@ -45,6 +45,10 @@ spec:
               value: "loomie"
             - name: KUBE_IMAGE_PREFIX
               value: "registry.monederobox.dev/loomie/env-"
+            - name: KUBE_STORAGE_CLASS
+              value: "longhorn"
+            - name: KUBE_PVC_SIZE
+              value: "10Gi"
             - name: CORS_ALLOWED_ORIGINS
               value: "https://loomie.monederobox.dev"
             # OIDC Configuration (Pocket ID)
