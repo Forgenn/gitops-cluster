@@ -45,6 +45,25 @@ spec:
               value: "loomie"
             - name: KUBE_IMAGE_PREFIX
               value: "registry.monederobox.dev/loomie/env-"
+            # OIDC Configuration (Pocket ID)
+            - name: AUTH_PASSWORD_ENABLED
+              value: "true"
+            - name: OIDC_ENABLED
+              value: "true"
+            - name: OIDC_PROVIDER_URL
+              value: "https://pocket-id.monederobox.dev"
+            - name: OIDC_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: loomie-secrets
+                  key: OIDC_CLIENT_ID
+            - name: OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: loomie-secrets
+                  key: OIDC_CLIENT_SECRET
+            - name: OIDC_REDIRECT_URL
+              value: "https://loomie.monederobox.dev/auth/callback"
           resources:
             requests:
               cpu: 100m
