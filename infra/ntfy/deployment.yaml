@@ -15,57 +15,33 @@ spec:
       labels:
         app: ntfy
     spec:
-      initContainers:
-        # Setup auth user and token before starting server
-        - name: setup-auth
+      containers:
+        - name: ntfy
           image: binwiederhier/ntfy:v2.11.0
           command:
             - /bin/sh
             - -c
             - |
-              set -e
-              export NTFY_AUTH_FILE=/var/cache/ntfy/user.db
-
-              # Create user if auth db doesn't exist yet
-              if [ ! -f /var/cache/ntfy/user.db ]; then
-                echo "Creating auth database and user..."
-                NTFY_PASSWORD=unused ntfy user add --role=admin loomie
-                echo "User created"
-              else
-                echo "Auth database already exists"
-              fi
-
-              # Add/update the token (idempotent)
-              echo "Setting up token..."
-              ntfy token add --user=loomie --token="$NTFY_TOKEN" 2>/dev/null || \
-                echo "Token already exists or was updated"
-
-              # Setup ACL: loomie can write to loomie-* topics, everyone can read
-              echo "Setting up ACL..."
-              ntfy access '*' 'loomie-*' write 2>/dev/null || true
-              ntfy access everyone 'loomie-*' read 2>/dev/null || true
-
-              echo "Auth setup complete"
+              # Build auth-tokens with actual token value
+              export NTFY_AUTH_TOKENS="loomie:${NTFY_TOKEN}:loomie-backend"
+              exec ntfy serve --config=/etc/ntfy/server.yml
+          ports:
+            - containerPort: 80
+              protocol: TCP
           env:
+            # Declarative auth configuration
+            # User loomie with admin role (bcrypt hash of "unused")
+            - name: NTFY_AUTH_USERS
+              value: "loomie:$2a$10$Gq3PReSxSdKLlCRoydKBDO.1TGah7ek8xOsD4oGNvvJgRsJMXLmVS:admin"
+            # Token from secret
             - name: NTFY_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: ntfy-secrets
                   key: NTFY_TOKEN
-          volumeMounts:
-            - name: data
-              mountPath: /var/cache/ntfy
-            - name: config
-              mountPath: /etc/ntfy
-      containers:
-        - name: ntfy
-          image: binwiederhier/ntfy:v2.11.0
-          args:
-            - serve
-            - --config=/etc/ntfy/server.yml
-          ports:
-            - containerPort: 80
-              protocol: TCP
+            # ACL: loomie can write to loomie-*, everyone can read
+            - name: NTFY_AUTH_ACCESS
+              value: "loomie:loomie-*:rw,*:loomie-*:ro"
           volumeMounts:
             - name: data
               mountPath: /var/cache/ntfy
