@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ntfy
+  namespace: ntfy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ntfy
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: ntfy
+    spec:
+      containers:
+        - name: ntfy
+          image: binwiederhier/ntfy:v2.11.0
+          args:
+            - serve
+          ports:
+            - containerPort: 80
+              protocol: TCP
+          env:
+            - name: NTFY_BASE_URL
+              value: "https://ntfy.monederobox.dev"
+            - name: NTFY_CACHE_FILE
+              value: "/var/cache/ntfy/cache.db"
+            - name: NTFY_ATTACHMENT_CACHE_DIR
+              value: "/var/cache/ntfy/attachments"
+            - name: NTFY_BEHIND_PROXY
+              value: "true"
+          volumeMounts:
+            - name: data
+              mountPath: /var/cache/ntfy
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: ntfy-data
