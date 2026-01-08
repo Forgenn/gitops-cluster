@@ -73,6 +73,11 @@ spec:
             # Push notifications
             - name: NTFY_BASE_URL
               value: "https://ntfy.monederobox.dev"
+            - name: NTFY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: loomie-secrets
+                  key: NTFY_TOKEN
             - name: APP_URL
               value: "https://loomie.monederobox.dev"
           resources:

@@ -5,6 +5,8 @@ namespace: ntfy
 
 resources:
   - data-pvc.yaml
+  - configmap.yaml
+  - externalsecret.yaml
   - deployment.yaml
   - service.yaml
   - httproute.yaml

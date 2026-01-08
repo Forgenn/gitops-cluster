@@ -15,26 +15,55 @@ spec:
       labels:
         app: ntfy
     spec:
+      initContainers:
+        # Setup auth user and token before starting server
+        - name: setup-auth
+          image: binwiederhier/ntfy:v2.11.0
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              # Create user.db if auth doesn't exist yet
+              if [ ! -f /var/cache/ntfy/user.db ]; then
+                echo "Creating auth database..."
+                ntfy user add --config=/etc/ntfy/server.yml --role=admin loomie
+                # Add the token from secret
+                ntfy token add --config=/etc/ntfy/server.yml --user=loomie --token="$NTFY_TOKEN"
+                echo "Auth setup complete"
+              else
+                echo "Auth database already exists, checking token..."
+                # Ensure token exists (idempotent)
+                ntfy token add --config=/etc/ntfy/server.yml --user=loomie --token="$NTFY_TOKEN" 2>/dev/null || true
+              fi
+              # Setup default ACL: deny write by default, allow loomie user
+              ntfy access --config=/etc/ntfy/server.yml '*' 'loomie-*' write 2>/dev/null || true
+              ntfy access --config=/etc/ntfy/server.yml everyone 'loomie-*' read 2>/dev/null || true
+          env:
+            - name: NTFY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ntfy-secrets
+                  key: NTFY_TOKEN
+          volumeMounts:
+            - name: data
+              mountPath: /var/cache/ntfy
+            - name: config
+              mountPath: /etc/ntfy
       containers:
         - name: ntfy
           image: binwiederhier/ntfy:v2.11.0
           args:
             - serve
+            - --config=/etc/ntfy/server.yml
           ports:
             - containerPort: 80
               protocol: TCP
-          env:
-            - name: NTFY_BASE_URL
-              value: "https://ntfy.monederobox.dev"
-            - name: NTFY_CACHE_FILE
-              value: "/var/cache/ntfy/cache.db"
-            - name: NTFY_ATTACHMENT_CACHE_DIR
-              value: "/var/cache/ntfy/attachments"
-            - name: NTFY_BEHIND_PROXY
-              value: "true"
           volumeMounts:
             - name: data
               mountPath: /var/cache/ntfy
+            - name: config
+              mountPath: /etc/ntfy
           resources:
             requests:
               cpu: 50m
@@ -46,3 +75,6 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: ntfy-data
+        - name: config
+          configMap:
+            name: ntfy-config

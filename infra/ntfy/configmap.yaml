@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ntfy-config
+  namespace: ntfy
+data:
+  server.yml: |
+    # Base configuration
+    base-url: https://ntfy.monederobox.dev
+    behind-proxy: true
+
+    # Cache configuration
+    cache-file: /var/cache/ntfy/cache.db
+    attachment-cache-dir: /var/cache/ntfy/attachments
+
+    # Auth configuration
+    auth-file: /var/cache/ntfy/user.db
+    auth-default-access: deny-all
