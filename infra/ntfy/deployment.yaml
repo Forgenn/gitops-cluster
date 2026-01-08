@@ -24,21 +24,28 @@ spec:
             - -c
             - |
               set -e
-              # Create user.db if auth doesn't exist yet
+              export NTFY_AUTH_FILE=/var/cache/ntfy/user.db
+
+              # Create user if auth db doesn't exist yet
               if [ ! -f /var/cache/ntfy/user.db ]; then
-                echo "Creating auth database..."
-                ntfy user add --config=/etc/ntfy/server.yml --role=admin loomie
-                # Add the token from secret
-                ntfy token add --config=/etc/ntfy/server.yml --user=loomie --token="$NTFY_TOKEN"
-                echo "Auth setup complete"
+                echo "Creating auth database and user..."
+                NTFY_PASSWORD=unused ntfy user add --role=admin loomie
+                echo "User created"
               else
-                echo "Auth database already exists, checking token..."
-                # Ensure token exists (idempotent)
-                ntfy token add --config=/etc/ntfy/server.yml --user=loomie --token="$NTFY_TOKEN" 2>/dev/null || true
+                echo "Auth database already exists"
               fi
-              # Setup default ACL: deny write by default, allow loomie user
-              ntfy access --config=/etc/ntfy/server.yml '*' 'loomie-*' write 2>/dev/null || true
-              ntfy access --config=/etc/ntfy/server.yml everyone 'loomie-*' read 2>/dev/null || true
+
+              # Add/update the token (idempotent)
+              echo "Setting up token..."
+              ntfy token add --user=loomie --token="$NTFY_TOKEN" 2>/dev/null || \
+                echo "Token already exists or was updated"
+
+              # Setup ACL: loomie can write to loomie-* topics, everyone can read
+              echo "Setting up ACL..."
+              ntfy access '*' 'loomie-*' write 2>/dev/null || true
+              ntfy access everyone 'loomie-*' read 2>/dev/null || true
+
+              echo "Auth setup complete"
           env:
             - name: NTFY_TOKEN
               valueFrom:
