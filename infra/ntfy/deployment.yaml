@@ -16,38 +16,46 @@ spec:
         app: ntfy
     spec:
       initContainers:
-        - name: setup-config
-          image: busybox:1.36
+        - name: setup-auth
+          image: binwiederhier/ntfy:v2.11.0
           command:
             - /bin/sh
             - -c
             - |
-              # Remove old auth database to use declarative config
-              rm -f /var/cache/ntfy/user.db
-              cat > /etc/ntfy-runtime/server.yml << EOF
-              # Base configuration
+              set -e
+
+              # Create config file
+              cat > /etc/ntfy-runtime/server.yml << 'CONFIGEOF'
               base-url: https://ntfy.monederobox.dev
               behind-proxy: true
-
-              # Cache configuration
               cache-file: /var/cache/ntfy/cache.db
               attachment-cache-dir: /var/cache/ntfy/attachments
-
-              # Auth configuration
               auth-file: /var/cache/ntfy/user.db
-              auth-default-access: deny-all
+              auth-default-access: read-only
+              CONFIGEOF
 
-              # Declarative auth (from secrets)
-              auth-users:
-                - "loomie:\$2a\$10\$Gq3PReSxSdKLlCRoydKBDO.1TGah7ek8xOsD4oGNvvJgRsJMXLmVS:admin"
-              auth-tokens:
-                - "loomie:${NTFY_TOKEN}:loomie-backend"
-              auth-access:
-                - "loomie:loomie-*:rw"
-                - "*:loomie-*:ro"
-              EOF
-              echo "Config file created:"
-              cat /etc/ntfy-runtime/server.yml
+              echo "Config created. Setting up auth..."
+
+              # Start ntfy briefly to create auth-file
+              timeout 3 ntfy serve --config=/etc/ntfy-runtime/server.yml || true
+
+              # Now add user and token
+              export NTFY_AUTH_FILE=/var/cache/ntfy/user.db
+
+              if ! ntfy user list 2>/dev/null | grep -q "^user loomie"; then
+                echo "Creating user loomie..."
+                NTFY_PASSWORD=notused ntfy user add --role=admin loomie
+              fi
+
+              echo "Adding token..."
+              ntfy token add --user=loomie --token="${NTFY_TOKEN}" 2>/dev/null || echo "Token may already exist"
+
+              echo "Setting up ACL..."
+              ntfy access loomie 'loomie-*' rw 2>/dev/null || true
+              ntfy access everyone 'loomie-*' ro 2>/dev/null || true
+
+              echo "Auth setup complete. Users:"
+              ntfy user list
           env:
             - name: NTFY_TOKEN
               valueFrom:
