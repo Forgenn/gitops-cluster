@@ -70,6 +70,11 @@ spec:
                   key: OIDC_CLIENT_SECRET
             - name: OIDC_REDIRECT_URL
               value: "https://loomie.monederobox.dev/auth/callback"
+            # Push notifications
+            - name: NTFY_BASE_URL
+              value: "https://ntfy.monederobox.dev"
+            - name: APP_URL
+              value: "https://loomie.monederobox.dev"
           resources:
             requests:
               cpu: 100m
