@@ -32,6 +32,8 @@ spec:
               attachment-cache-dir: /var/cache/ntfy/attachments
               auth-file: /var/cache/ntfy/user.db
               auth-default-access: read-only
+              enable-signup: false
+              web-root: disable
               CONFIGEOF
 
               echo "Config created. Setting up auth..."
