@@ -42,12 +42,13 @@ spec:
               # Now add user and token
               export NTFY_AUTH_FILE=/var/cache/ntfy/user.db
 
-              if ! ntfy user list 2>/dev/null | grep -q "^user loomie"; then
+              # Check if user exists and create/update accordingly
+              if ntfy user list 2>/dev/null | grep -q "user loomie"; then
+                echo "User exists, updating password..."
+                NTFY_PASSWORD="${NTFY_TOKEN}" ntfy user change-pass loomie || true
+              else
                 echo "Creating user loomie..."
                 NTFY_PASSWORD="${NTFY_TOKEN}" ntfy user add --role=admin loomie
-              else
-                echo "User exists, updating password..."
-                NTFY_PASSWORD="${NTFY_TOKEN}" ntfy user change-pass loomie
               fi
 
               echo "Setting up ACL..."
