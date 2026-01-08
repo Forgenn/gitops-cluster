@@ -37,19 +37,21 @@ spec:
               echo "Config created. Setting up auth..."
 
               # Start ntfy briefly to create auth-file
-              timeout 3 ntfy serve --config=/etc/ntfy-runtime/server.yml || true
+              timeout 5 ntfy serve --config=/etc/ntfy-runtime/server.yml &
+              sleep 3
+              kill %1 2>/dev/null || true
+              wait
 
               # Now add user and token
               export NTFY_AUTH_FILE=/var/cache/ntfy/user.db
 
-              # Check if user exists and create/update accordingly
-              if ntfy user list 2>/dev/null | grep -q "user loomie"; then
-                echo "User exists, updating password..."
-                NTFY_PASSWORD="${NTFY_TOKEN}" ntfy user change-pass loomie || true
-              else
-                echo "Creating user loomie..."
-                NTFY_PASSWORD="${NTFY_TOKEN}" ntfy user add --role=admin loomie
-              fi
+              echo "Current users:"
+              ntfy user list || echo "No users yet"
+
+              # Try to add user, ignore if exists
+              echo "Adding/updating user loomie..."
+              NTFY_PASSWORD="${NTFY_TOKEN}" ntfy user add --role=admin loomie 2>&1 || \
+                NTFY_PASSWORD="${NTFY_TOKEN}" ntfy user change-pass loomie 2>&1 || true
 
               echo "Setting up ACL..."
               ntfy access loomie 'loomie-*' rw 2>/dev/null || true
