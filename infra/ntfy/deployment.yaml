@@ -15,38 +15,64 @@ spec:
       labels:
         app: ntfy
     spec:
-      containers:
-        - name: ntfy
-          image: binwiederhier/ntfy:v2.11.0
+      initContainers:
+        - name: setup-config
+          image: busybox:1.36
           command:
             - /bin/sh
             - -c
             - |
-              # Build auth-tokens with actual token value
-              export NTFY_AUTH_TOKENS="loomie:${NTFY_TOKEN}:loomie-backend"
-              exec ntfy serve --config=/etc/ntfy/server.yml
-          ports:
-            - containerPort: 80
-              protocol: TCP
+              # Remove old auth database to use declarative config
+              rm -f /var/cache/ntfy/user.db
+              cat > /etc/ntfy-runtime/server.yml << EOF
+              # Base configuration
+              base-url: https://ntfy.monederobox.dev
+              behind-proxy: true
+
+              # Cache configuration
+              cache-file: /var/cache/ntfy/cache.db
+              attachment-cache-dir: /var/cache/ntfy/attachments
+
+              # Auth configuration
+              auth-file: /var/cache/ntfy/user.db
+              auth-default-access: deny-all
+
+              # Declarative auth (from secrets)
+              auth-users:
+                - "loomie:\$2a\$10\$Gq3PReSxSdKLlCRoydKBDO.1TGah7ek8xOsD4oGNvvJgRsJMXLmVS:admin"
+              auth-tokens:
+                - "loomie:${NTFY_TOKEN}:loomie-backend"
+              auth-access:
+                - "loomie:loomie-*:rw"
+                - "*:loomie-*:ro"
+              EOF
+              echo "Config file created:"
+              cat /etc/ntfy-runtime/server.yml
           env:
-            # Declarative auth configuration
-            # User loomie with admin role (bcrypt hash of "unused")
-            - name: NTFY_AUTH_USERS
-              value: "loomie:$2a$10$Gq3PReSxSdKLlCRoydKBDO.1TGah7ek8xOsD4oGNvvJgRsJMXLmVS:admin"
-            # Token from secret
             - name: NTFY_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: ntfy-secrets
                   key: NTFY_TOKEN
-            # ACL: loomie can write to loomie-*, everyone can read
-            - name: NTFY_AUTH_ACCESS
-              value: "loomie:loomie-*:rw,*:loomie-*:ro"
+          volumeMounts:
+            - name: config-runtime
+              mountPath: /etc/ntfy-runtime
+            - name: data
+              mountPath: /var/cache/ntfy
+      containers:
+        - name: ntfy
+          image: binwiederhier/ntfy:v2.11.0
+          args:
+            - serve
+            - --config=/etc/ntfy-runtime/server.yml
+          ports:
+            - containerPort: 80
+              protocol: TCP
           volumeMounts:
             - name: data
               mountPath: /var/cache/ntfy
-            - name: config
-              mountPath: /etc/ntfy
+            - name: config-runtime
+              mountPath: /etc/ntfy-runtime
           resources:
             requests:
               cpu: 50m
@@ -58,6 +84,5 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: ntfy-data
-        - name: config
-          configMap:
-            name: ntfy-config
+        - name: config-runtime
+          emptyDir: {}
