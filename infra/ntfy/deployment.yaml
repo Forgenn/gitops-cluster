@@ -44,11 +44,11 @@ spec:
 
               if ! ntfy user list 2>/dev/null | grep -q "^user loomie"; then
                 echo "Creating user loomie..."
-                NTFY_PASSWORD=notused ntfy user add --role=admin loomie
+                NTFY_PASSWORD="${NTFY_TOKEN}" ntfy user add --role=admin loomie
+              else
+                echo "User exists, updating password..."
+                NTFY_PASSWORD="${NTFY_TOKEN}" ntfy user change-pass loomie
               fi
-
-              echo "Adding token..."
-              ntfy token add --user=loomie --token="${NTFY_TOKEN}" 2>/dev/null || echo "Token may already exist"
 
               echo "Setting up ACL..."
               ntfy access loomie 'loomie-*' rw 2>/dev/null || true
