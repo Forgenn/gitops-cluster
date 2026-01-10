@@ -18,7 +18,7 @@ spec:
         - name: registry-credentials
       containers:
         - name: backend
-          image: registry.monederobox.dev/loomie/backend:9e7752f
+          image: registry.monederobox.dev/loomie/backend:71cf981
           ports:
             - containerPort: 8080
           env:
