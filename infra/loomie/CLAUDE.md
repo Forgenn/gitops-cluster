@@ -19,8 +19,7 @@ loomie/
   database/
     cluster.yaml          # CNPG PostgreSQL cluster
   secrets/
-    externalsecret.yaml   # ANTHROPIC_API_KEY, JWT_SECRET
-    claude-auth-externalsecret.yaml  # Claude CLI credentials
+    externalsecret.yaml   # ANTHROPIC_API_KEY, JWT_SECRET, OIDC, NTFY
     registry-secret.yaml  # Docker registry auth
 ```
 
@@ -42,32 +41,18 @@ Project: `revachol-cluster-a82f`, Environment: `prod`
 |------|-------------|
 | `/loomie/ANTHROPIC_API_KEY` | Anthropic API key |
 | `/loomie/JWT_SECRET` | JWT signing secret |
-| `/loomie/CLAUDE_CREDENTIALS_JSON` | `~/.claude/credentials.json` content |
-| `/loomie/CLAUDE_SETTINGS_JSON` | `~/.claude/settings.json` content |
+| `/loomie/OIDC_CLIENT_ID` | Pocket ID OAuth client ID |
+| `/loomie/OIDC_CLIENT_SECRET` | Pocket ID OAuth client secret |
+| `/loomie/NTFY_TOKEN` | ntfy.sh push notification token |
 
-## Claude Code Integration
-
-Backend creates ephemeral K8s pods running Claude CLI headlessly.
-
-### Requirements
-
-1. **Backend env vars**: `KUBE_ENABLED=true`, `KUBE_NAMESPACE=loomie`
-2. **RBAC**: ServiceAccount `loomie-backend` with pod create/exec permissions
-3. **Secret**: `claude-auth` mounted into pods at `/home/dev/.claude`
-4. **Images**: `loomie/env-node-20` etc. with Claude CLI installed
-
-### Troubleshooting
+## Troubleshooting
 
 ```bash
 # Check backend logs
-kubectl logs -n loomie deployment/loomie-backend | grep -i claude
+kubectl logs -n loomie deployment/loomie-backend
 
 # Check secrets
-kubectl get secret claude-auth -n loomie
 kubectl get externalsecret -n loomie
-
-# Check RBAC
-kubectl auth can-i create pods --as=system:serviceaccount:loomie:loomie-backend -n loomie
 
 # Force restart
 kubectl rollout restart deployment loomie-backend -n loomie
