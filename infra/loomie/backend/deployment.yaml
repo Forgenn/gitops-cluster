@@ -34,6 +34,14 @@ spec:
                 secretKeyRef:
                   name: loomie-secrets
                   key: ANTHROPIC_API_KEY
+            # GLM (Zhipu AI) provider
+            - name: GLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: loomie-secrets
+                  key: GLM_API_KEY
+            - name: GLM_USE_CODING
+              value: "true"
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
