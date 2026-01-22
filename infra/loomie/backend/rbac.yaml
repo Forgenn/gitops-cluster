@@ -10,7 +10,7 @@ metadata:
   name: loomie-env-manager
   namespace: loomie
 rules:
-  # Pod management for ephemeral environments
+  # Pod management for environments
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["create", "delete", "get", "list", "watch"]
@@ -22,6 +22,18 @@ rules:
   - apiGroups: [""]
     resources: ["pods/log"]
     verbs: ["get"]
+  # StatefulSet management for persistent environments
+  - apiGroups: ["apps"]
+    resources: ["statefulsets"]
+    verbs: ["create", "delete", "get", "list", "watch", "update", "patch"]
+  # Services for StatefulSet headless services
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["create", "delete", "get", "list", "watch"]
+  # PVC management for persistent storage cleanup
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["create", "delete", "get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
