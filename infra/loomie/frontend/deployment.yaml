@@ -17,7 +17,7 @@ spec:
         - name: registry-credentials
       containers:
         - name: frontend
-          image: registry.monederobox.dev/loomie/frontend:d504c1f
+          image: registry.monederobox.dev/loomie/frontend:d785841
           ports:
             - containerPort: 3000
           env:
