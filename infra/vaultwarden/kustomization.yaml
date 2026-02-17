@@ -11,6 +11,6 @@ resources:
 helmCharts:
   - name: vaultwarden
     repo: https://guerzon.github.io/vaultwarden
-    version: 0.34.4
+    version: 0.34.6
     releaseName: vaultwarden
     valuesFile: values/values.yaml
