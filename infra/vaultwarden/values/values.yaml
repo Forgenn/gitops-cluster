@@ -12,10 +12,11 @@ replicas: 3
 #    clientIP:
 #      timeoutSeconds: 10800
 
-data:
-  name: "vaultwarden-data"
-  size: "5Gi"
-  class: "longhorn"
+storage:
+  data:
+    name: "vaultwarden-data"
+    size: "5Gi"
+    class: "longhorn"
 
 adminToken:
   existingSecret: "vaultwarden"
