@@ -3,7 +3,7 @@ kind: ReplicationSource
 metadata:
   name: pocket-id-pvc
 spec:
-  sourcePVC: pocket-id-data
+  sourcePVC: pocket-id-data-pocket-id-0
   trigger:
     schedule: "0 8 * * *"
   restic:
