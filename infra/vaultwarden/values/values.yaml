@@ -3,20 +3,14 @@ database:
   existingSecret: "vaultwarden-cnpg-cluster-app"
   existingSecretKey: "uri"
 
-# Expiration problems with multiple replicas
-# probably bad session affinity
-replicas: 3
-#service:
-#  sessionAffinity: ClientIP
-#  sessionAffinityConfig:
-#    clientIP:
-#      timeoutSeconds: 10800
+replicas: 1
 
 storage:
   data:
     name: "vaultwarden-data"
     size: "5Gi"
     class: "longhorn"
+    accessMode: "ReadWriteOnce"
 
 adminToken:
   existingSecret: "vaultwarden"
