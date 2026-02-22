@@ -23,16 +23,6 @@ spec:
           kind: Service
           name: loomie-backend
           port: 8080
-    # ConnectRPC routes to backend (all services use /loomie.* paths)
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /loomie.
-      backendRefs:
-        - group: ""
-          kind: Service
-          name: loomie-backend
-          port: 8080
     # All other routes to frontend
     - matches:
         - path:
