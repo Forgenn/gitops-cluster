@@ -1,0 +1,45 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: immich-db
+  namespace: immich
+spec:
+  instances: 1
+  imageName: ghcr.io/tensorchord/cloudnative-vectorchord:16-0.3.0
+  postgresql:
+    shared_preload_libraries:
+      - vchord.so
+  bootstrap:
+    initdb:
+      database: immich
+      owner: immich
+      postInitSQL:
+        - CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+        - CREATE EXTENSION IF NOT EXISTS "vector";
+        - CREATE EXTENSION IF NOT EXISTS "vchord";
+        - CREATE EXTENSION IF NOT EXISTS "cube";
+        - CREATE EXTENSION IF NOT EXISTS "earthdistance" CASCADE;
+  backup:
+    barmanObjectStore:
+      endpointURL: "https://hel1.your-objectstorage.com"
+      destinationPath: "s3://revachol/backups/immich-cnpg-db"
+      s3Credentials:
+        accessKeyId:
+          name: hetzner-backup-bucket-credentials
+          key: ACCESS_KEY
+        secretAccessKey:
+          name: hetzner-backup-bucket-credentials
+          key: ACCESS_SECRET_KEY
+      data:
+        compression: gzip
+    retentionPolicy: 60d
+  storage:
+    storageClass: longhorn
+    size: 10Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi

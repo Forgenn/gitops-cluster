@@ -1,0 +1,99 @@
+controllers:
+  main:
+    containers:
+      main:
+        image:
+          tag: v2.0.0
+        env:
+          REDIS_HOSTNAME: '{{ printf "%s-valkey" .Release.Name }}'
+          IMMICH_MACHINE_LEARNING_URL: '{{ printf "http://%s-machine-learning:3003" .Release.Name }}'
+          # CNPG creates the immich-db-app secret with host, port, username, password, dbname
+          DB_HOSTNAME: immich-db-rw.immich.svc.cluster.local
+          DB_PORT: "5432"
+          DB_USERNAME:
+            valueFrom:
+              secretKeyRef:
+                name: immich-db-app
+                key: username
+          DB_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: immich-db-app
+                key: password
+          DB_DATABASE_NAME: immich
+
+immich:
+  persistence:
+    library:
+      existingClaim: immich-library
+  configuration: {}
+  configurationKind: ConfigMap
+
+# Use built-in Valkey for Redis
+valkey:
+  enabled: true
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            repository: docker.io/valkey/valkey
+            tag: 9.0-alpine
+            pullPolicy: IfNotPresent
+  persistence:
+    data:
+      enabled: true
+      size: 1Gi
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      storageClass: longhorn
+
+# Immich server
+server:
+  enabled: true
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            repository: ghcr.io/immich-app/immich-server
+            pullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+  ingress:
+    main:
+      enabled: false
+
+# Machine learning for face detection, search, etc.
+machine-learning:
+  enabled: true
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            repository: ghcr.io/immich-app/immich-machine-learning
+            pullPolicy: IfNotPresent
+          env:
+            TRANSFORMERS_CACHE: /cache
+            HF_XET_CACHE: /cache/huggingface-xet
+            MPLCONFIGDIR: /cache/matplotlib-config
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+  persistence:
+    cache:
+      enabled: true
+      size: 10Gi
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      storageClass: longhorn
