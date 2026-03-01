@@ -7,10 +7,8 @@ spec:
   trigger:
     schedule: "0 0 * * *"
   restic:
-    copyMethod: Snapshot
+    copyMethod: Direct
     pruneIntervalDays: 7
-    volumeSnapshotClassName: zfs-generic-nfs-csi
-    storageClassName: zfs-generic-nfs-csi
     repository: suwayomi-data-restic-config
     retain:
       daily: 7

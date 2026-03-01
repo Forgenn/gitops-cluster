@@ -7,11 +7,9 @@ spec:
   trigger:
     schedule: "0 8 * * *"
   restic:
-    copyMethod: Snapshot
+    copyMethod: Direct
     pruneIntervalDays: 14
     repository: pocket-id-restic-config
-    volumeSnapshotClassName: zfs-generic-nfs-csi
-    storageClassName: zfs-generic-nfs-csi
     moverSecurityContext:
       runAsUser: 1000
       runAsGroup: 1000
