@@ -8,12 +8,10 @@ spec:
   trigger:
     schedule: "0 8 * * *"
   restic:
-    copyMethod: Snapshot
+    copyMethod: Direct
     pruneIntervalDays: 7
     unlock: unlock
     repository: restic-config
-    storageClassName: longhorn
-    volumeSnapshotClassName: longhorn
     cacheCapacity: 2Gi
     retain:
       daily: 7
