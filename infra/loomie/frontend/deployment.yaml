@@ -41,6 +41,8 @@ spec:
               value: "66488413464"
             - name: PUBLIC_FIREBASE_APP_ID
               value: "1:66488413464:web:7782f0531ee876b3ac426d"
+            - name: PUBLIC_FIREBASE_VAPID_KEY
+              value: "BFchEKnxcVoK9lecKtqdYPMtvghMsIK1calKMie_d1AdfoGMjtUu6JDsYKtak0EfWFlWhIf6sq6gG0WatGKNH_U"
           resources:
             requests:
               cpu: 50m
