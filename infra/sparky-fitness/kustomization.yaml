@@ -10,4 +10,5 @@ resources:
   - httproute.yaml
   - externalsecret.yaml
   - smtp-externalsecret.yaml
+  - restic-config-backup.yaml
   - replicationsource.yaml

@@ -1,18 +1,18 @@
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
-  name: pocket-id-restic-config
+  name: suwayomi-data-restic-config
 spec:
   secretStoreRef:
     name: infisical-cluster-secret-store
     kind: ClusterSecretStore
   target:
-    name: pocket-id-restic-config
+    name: suwayomi-data-restic-config
     creationPolicy: Owner
     template:
       engineVersion: v2
       data:
-        RESTIC_REPOSITORY: "s3:https://hel1.your-objectstorage.com/revachol/backups/pocket-id-pvc"
+        RESTIC_REPOSITORY: "s3:https://hel1.your-objectstorage.com/revachol/backups/suwayomi-data"
         RESTIC_PASSWORD: "{{ .restic_password }}"
         AWS_ACCESS_KEY_ID: "{{ .aws_access_key_id }}"
         AWS_SECRET_ACCESS_KEY: "{{ .aws_secret_access_key }}"
