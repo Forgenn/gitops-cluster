@@ -29,6 +29,18 @@ spec:
               value: "https://loomie.monederobox.dev"
             - name: PUBLIC_WS_URL
               value: "wss://loomie.monederobox.dev"
+            - name: PUBLIC_FIREBASE_API_KEY
+              value: "AIzaSyDgrHeUiBUxpz3KM9ht7PPPlp9f5CPBfXE"
+            - name: PUBLIC_FIREBASE_AUTH_DOMAIN
+              value: "loomie-ai.firebaseapp.com"
+            - name: PUBLIC_FIREBASE_PROJECT_ID
+              value: "loomie-ai"
+            - name: PUBLIC_FIREBASE_STORAGE_BUCKET
+              value: "loomie-ai.firebasestorage.app"
+            - name: PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+              value: "66488413464"
+            - name: PUBLIC_FIREBASE_APP_ID
+              value: "1:66488413464:web:7782f0531ee876b3ac426d"
           resources:
             requests:
               cpu: 50m
