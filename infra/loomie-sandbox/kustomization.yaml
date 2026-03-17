@@ -4,6 +4,7 @@ kind: Kustomization
 namespace: loomie-sandbox
 
 resources:
+  - namespace.yaml
   - network-policy.yaml
   - resource-quota.yaml
   - rbac.yaml
