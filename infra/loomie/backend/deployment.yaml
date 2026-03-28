@@ -86,6 +86,9 @@ spec:
                   key: FCM_SA_KEY
             - name: APP_URL
               value: "https://loomie.monederobox.dev"
+            # Pi sidecar for AI agent loop
+            - name: PI_SIDECAR_URL
+              value: "http://loomie-pi-sidecar:50051"
             # MCP init container image for Claude Code tool access
             - name: MCP_IMAGE
               value: "registry.monederobox.dev/loomie/mcp:640ccb2"

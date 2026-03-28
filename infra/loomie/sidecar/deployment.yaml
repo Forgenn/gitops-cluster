@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loomie-pi-sidecar
+  namespace: loomie
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: loomie-pi-sidecar
+  template:
+    metadata:
+      labels:
+        app: loomie-pi-sidecar
+    spec:
+      imagePullSecrets:
+        - name: registry-credentials
+      initContainers:
+        - name: setup-auth
+          image: registry.monederobox.dev/loomie/pi-sidecar:latest
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /home/node/.pi/agent
+              echo "{\"anthropic\":{\"oauth_token\":\"$CLAUDE_CODE_OAUTH_TOKEN\"}}" > /home/node/.pi/agent/auth.json
+          env:
+            - name: CLAUDE_CODE_OAUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: loomie-secrets
+                  key: CLAUDE_CODE_OAUTH_TOKEN
+          volumeMounts:
+            - name: pi-auth
+              mountPath: /home/node/.pi/agent
+      containers:
+        - name: pi-sidecar
+          image: registry.monederobox.dev/loomie/pi-sidecar:latest
+          ports:
+            - containerPort: 50051
+          env:
+            - name: LOOMIE_API_URL
+              value: "http://loomie-backend:8080"
+            - name: LOOMIE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: loomie-secrets
+                  key: PI_SIDECAR_TOKEN
+            - name: ZAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: loomie-secrets
+                  key: GLM_API_KEY
+            - name: PORT
+              value: "50051"
+          volumeMounts:
+            - name: pi-auth
+              mountPath: /home/node/.pi/agent
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 50051
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 50051
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: pi-auth
+          emptyDir: {}

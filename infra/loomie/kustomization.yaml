@@ -9,4 +9,5 @@ resources:
   - database/
   - backend/
   - frontend/
+  - sidecar/
   - httproute.yaml
