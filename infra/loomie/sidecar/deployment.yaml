@@ -53,6 +53,8 @@ spec:
                   key: GLM_API_KEY
             - name: PORT
               value: "50051"
+            - name: SEARXNG_URL
+              value: "http://loomie-searxng:8080"
           volumeMounts:
             - name: pi-auth
               mountPath: /home/node/.pi/agent

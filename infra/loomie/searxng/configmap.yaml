@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: searxng-config
+  namespace: loomie
+data:
+  settings.yml: |
+    use_default_settings: true
+
+    general:
+      instance_name: "loomie-searxng"
+      debug: false
+
+    search:
+      safe_search: 0
+      default_lang: "en"
+      formats:
+        - html
+        - json
+
+    server:
+      secret_key: "loomie-searxng-internal"
+      bind_address: "0.0.0.0"
+      port: 8080
+      limiter: false
+      public_instance: false
+
+    engines:
+      - name: google
+        engine: google
+        shortcut: g
+        disabled: false
+      - name: duckduckgo
+        engine: duckduckgo
+        shortcut: ddg
+        disabled: false
+      - name: bing
+        engine: bing
+        shortcut: b
+        disabled: false
+      - name: wikipedia
+        engine: wikipedia
+        shortcut: wp
+        disabled: false
+
+    outgoing:
+      request_timeout: 10
+      useragent_suffix: "loomie-internal"
+
+  limiter.toml: |
+    # Limiter disabled for internal use
+    [botdetection.ip_limit]
+    link_token = false
+
+    [botdetection.ip_lists]
+    pass_searxng_org = false
