@@ -17,7 +17,7 @@ spec:
         - name: registry-credentials
       initContainers:
         - name: setup-auth
-          image: registry.monederobox.dev/loomie/pi-sidecar:7189145
+          image: registry.monederobox.dev/loomie/pi-sidecar:6451eaf
           command:
             - sh
             - -c
@@ -35,7 +35,7 @@ spec:
               mountPath: /home/node/.pi/agent
       containers:
         - name: pi-sidecar
-          image: registry.monederobox.dev/loomie/pi-sidecar:7189145
+          image: registry.monederobox.dev/loomie/pi-sidecar:6451eaf
           ports:
             - containerPort: 50051
           env:
