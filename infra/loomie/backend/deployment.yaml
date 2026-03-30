@@ -18,7 +18,7 @@ spec:
         - name: registry-credentials
       containers:
         - name: backend
-          image: registry.monederobox.dev/loomie/backend:2763a8c
+          image: registry.monederobox.dev/loomie/backend:8f1dbbd
           ports:
             - containerPort: 8080
           env:
@@ -91,7 +91,7 @@ spec:
               value: "http://loomie-pi-sidecar:50051"
             # MCP init container image for Claude Code tool access
             - name: MCP_IMAGE
-              value: "registry.monederobox.dev/loomie/mcp:2763a8c"
+              value: "registry.monederobox.dev/loomie/mcp:8f1dbbd"
           resources:
             requests:
               cpu: 100m
