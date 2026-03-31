@@ -37,6 +37,8 @@ spec:
               value: /app
             - name: SLSKD_DOWNLOADS_DIR
               value: /downloads
+            - name: SLSKD_SHARED_DIR
+              value: ""
             - name: SLSKD_REMOTE_CONFIGURATION
               value: "true"
           ports:
