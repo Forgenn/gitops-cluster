@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: slskd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: slskd
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: slskd
+    spec:
+      containers:
+        - name: slskd
+          image: slskd/slskd:0.21.4
+          env:
+            - name: SLSKD_SLSK_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: slskd-secrets
+                  key: SLSK_USERNAME
+            - name: SLSKD_SLSK_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: slskd-secrets
+                  key: SLSK_PASSWORD
+            - name: SLSKD_JWT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: slskd-secrets
+                  key: JWT_KEY
+            - name: SLSKD_APP_DIR
+              value: /app
+            - name: SLSKD_DOWNLOADS_DIR
+              value: /downloads
+            - name: SLSKD_SHARED_DIR
+              value: /music
+            - name: SLSKD_REMOTE_CONFIGURATION
+              value: "true"
+          ports:
+            - containerPort: 5030
+              protocol: TCP
+          volumeMounts:
+            - name: app
+              mountPath: /app
+            - name: downloads
+              mountPath: /downloads
+            - name: music
+              mountPath: /music
+              readOnly: true
+      volumes:
+        - name: app
+          persistentVolumeClaim:
+            claimName: slskd-app
+        - name: downloads
+          nfs:
+            server: dolores.home
+            path: /revachol-pool/media/downloads
+        - name: music
+          nfs:
+            server: dolores.home
+            path: /revachol-pool/k8s-data/main/pvc-a2248f1d-c3a0-4d9a-89f1-e0d42103f27d
+            readOnly: true

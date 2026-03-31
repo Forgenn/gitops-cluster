@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: slskd
+spec:
+  selector:
+    app: slskd
+  ports:
+    - name: http
+      port: 5030
+      targetPort: 5030
+      protocol: TCP
