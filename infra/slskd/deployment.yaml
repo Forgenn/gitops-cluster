@@ -37,8 +37,6 @@ spec:
               value: /app
             - name: SLSKD_DOWNLOADS_DIR
               value: /downloads
-            - name: SLSKD_SHARED_DIR
-              value: /music
             - name: SLSKD_REMOTE_CONFIGURATION
               value: "true"
           ports:
@@ -49,9 +47,6 @@ spec:
               mountPath: /app
             - name: downloads
               mountPath: /downloads
-            - name: music
-              mountPath: /music
-              readOnly: true
       volumes:
         - name: app
           persistentVolumeClaim:
@@ -60,8 +55,4 @@ spec:
           nfs:
             server: dolores.home
             path: /revachol-pool/media/downloads
-        - name: music
-          nfs:
-            server: dolores.home
-            path: /revachol-pool/k8s-data/main/pvc-a2248f1d-c3a0-4d9a-89f1-e0d42103f27d
-            readOnly: true
+
