@@ -1,0 +1,15 @@
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: qbittorrent-config
+spec:
+  sourcePVC: qbittorrent-config
+  trigger:
+    schedule: "0 2 * * *"
+  restic:
+    copyMethod: Direct
+    pruneIntervalDays: 7
+    repository: qbittorrent-config-restic-config
+    retain:
+      daily: 7
+      within: 3d

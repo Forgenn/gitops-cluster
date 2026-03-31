@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: readarr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: readarr
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: readarr
+    spec:
+      containers:
+        - name: readarr
+          image: lscr.io/linuxserver/readarr:0.4.10-develop
+          env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: TZ
+              value: "Europe/Madrid"
+          ports:
+            - containerPort: 8787
+              protocol: TCP
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: books
+              mountPath: /books
+            - name: downloads
+              mountPath: /downloads
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: readarr-config
+        - name: books
+          nfs:
+            server: dolores.home
+            path: /revachol-pool/media/books
+        - name: downloads
+          nfs:
+            server: dolores.home
+            path: /revachol-pool/media/downloads

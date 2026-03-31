@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lidarr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lidarr
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: lidarr
+    spec:
+      containers:
+        - name: lidarr
+          image: lscr.io/linuxserver/lidarr:2.9.6
+          env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: TZ
+              value: "Europe/Madrid"
+          ports:
+            - containerPort: 8686
+              protocol: TCP
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: music
+              mountPath: /music
+            - name: downloads
+              mountPath: /downloads
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: lidarr-config
+        - name: music
+          nfs:
+            server: dolores.home
+            path: /revachol-pool/k8s-data/main/pvc-a2248f1d-c3a0-4d9a-89f1-e0d42103f27d
+        - name: downloads
+          nfs:
+            server: dolores.home
+            path: /revachol-pool/media/downloads

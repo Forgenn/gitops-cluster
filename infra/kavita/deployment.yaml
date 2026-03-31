@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kavita
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kavita
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: kavita
+    spec:
+      containers:
+        - name: kavita
+          image: ghcr.io/kareadita/kavita:0.8.4
+          env:
+            - name: TZ
+              value: "Europe/Madrid"
+          ports:
+            - containerPort: 5000
+              protocol: TCP
+          volumeMounts:
+            - name: config
+              mountPath: /kavita/config
+            - name: books
+              mountPath: /books
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: kavita-config
+        - name: books
+          nfs:
+            server: dolores.home
+            path: /revachol-pool/media/books
