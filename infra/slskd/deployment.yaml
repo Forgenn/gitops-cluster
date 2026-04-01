@@ -39,6 +39,11 @@ spec:
               value: /downloads
             - name: SLSKD_SHARED_DIR
               value: "/nonexistent"
+            - name: SLSKD_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: slskd-secrets
+                  key: API_KEY
             - name: SLSKD_WEB_AUTHENTICATION_DISABLED
               value: "true"
             - name: SLSKD_REMOTE_CONFIGURATION
