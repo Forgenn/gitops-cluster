@@ -7,5 +7,6 @@ resources:
   - service.yaml
   - pvc.yaml
   - httproute.yaml
+  - oidc-secret.yaml
   - restic-config.yaml
   - replicationsource.yaml

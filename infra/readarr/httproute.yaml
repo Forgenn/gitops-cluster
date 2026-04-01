@@ -26,12 +26,24 @@ spec:
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
-  name: internal-readarr-route
+  name: oidc-readarr
 spec:
   targetRefs:
-    - group: "gateway.networking.k8s.io"
-      name: readarr
+    - group: gateway.networking.k8s.io
       kind: HTTPRoute
+      name: readarr
+  oidc:
+    provider:
+      issuer: "https://pocket-id.monederobox.dev"
+    clientID: "32120481-da0c-4549-b492-52e91878f2f1"
+    clientSecret:
+      name: internal-tools-oidc-secret
+      namespace: readarr
+    redirectURL: "https://readarr.monederobox.dev/oauth2/callback"
+    scopes:
+      - openid
+      - profile
+      - email
   authorization:
     defaultAction: Deny
     rules:

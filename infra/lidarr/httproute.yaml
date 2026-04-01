@@ -26,12 +26,24 @@ spec:
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
-  name: internal-lidarr-route
+  name: oidc-lidarr
 spec:
   targetRefs:
-    - group: "gateway.networking.k8s.io"
-      name: lidarr
+    - group: gateway.networking.k8s.io
       kind: HTTPRoute
+      name: lidarr
+  oidc:
+    provider:
+      issuer: "https://pocket-id.monederobox.dev"
+    clientID: "32120481-da0c-4549-b492-52e91878f2f1"
+    clientSecret:
+      name: internal-tools-oidc-secret
+      namespace: lidarr
+    redirectURL: "https://lidarr.monederobox.dev/oauth2/callback"
+    scopes:
+      - openid
+      - profile
+      - email
   authorization:
     defaultAction: Deny
     rules:
