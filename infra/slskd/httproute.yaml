@@ -26,17 +26,21 @@ spec:
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
-  name: internal-slskd-route
+  name: oidc-slskd
 spec:
   targetRefs:
-    - group: "gateway.networking.k8s.io"
-      name: slskd
+    - group: gateway.networking.k8s.io
       kind: HTTPRoute
-  authorization:
-    defaultAction: Deny
-    rules:
-      - action: Allow
-        principal:
-          clientCIDRs:
-            - 100.64.0.0/10
-            - 192.168.1.0/24
+      name: slskd
+  oidc:
+    provider:
+      issuer: "https://pocket-id.monederobox.dev"
+    clientID: "251067da-6ff7-4e12-b671-77a69ce48992"
+    clientSecret:
+      name: slskd-oidc-secret
+      namespace: slskd
+    redirectURL: "https://slskd.monederobox.dev/oauth2/callback"
+    scopes:
+      - openid
+      - profile
+      - email
