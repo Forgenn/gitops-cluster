@@ -9,5 +9,6 @@ resources:
   - httproute.yaml
   - oidc-secret.yaml
   - externalsecret.yaml
+  - config-secret.yaml
   - restic-config.yaml
   - replicationsource.yaml

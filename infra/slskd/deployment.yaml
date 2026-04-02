@@ -39,13 +39,6 @@ spec:
               value: /downloads
             - name: SLSKD_SHARED_DIR
               value: "/nonexistent"
-            - name: SLSKD_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: slskd-secrets
-                  key: API_KEY
-            - name: SLSKD_WEB_AUTHENTICATION_DISABLED
-              value: "true"
             - name: SLSKD_REMOTE_CONFIGURATION
               value: "true"
           ports:
@@ -56,6 +49,9 @@ spec:
               mountPath: /app
             - name: downloads
               mountPath: /downloads
+            - name: config-yaml
+              mountPath: /app/slskd.yml
+              subPath: slskd.yml
       volumes:
         - name: app
           persistentVolumeClaim:
@@ -64,4 +60,7 @@ spec:
           nfs:
             server: dolores.home
             path: /revachol-pool/media/downloads
+        - name: config-yaml
+          secret:
+            secretName: slskd-config
 
