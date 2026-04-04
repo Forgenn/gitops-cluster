@@ -18,7 +18,9 @@ spec:
             type: PathPrefix
             value: /
       backendRefs:
-        - name: vaultwarden
+        - group: ""
+          kind: Service
+          name: vaultwarden
           port: 80
           weight: 1
       sessionPersistence:
