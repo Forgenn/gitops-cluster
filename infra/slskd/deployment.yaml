@@ -44,6 +44,24 @@ spec:
           ports:
             - containerPort: 5030
               protocol: TCP
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5030
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5030
+            initialDelaySeconds: 30
+            periodSeconds: 30
           volumeMounts:
             - name: app
               mountPath: /app

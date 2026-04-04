@@ -47,6 +47,24 @@ spec:
           envFrom:
             - secretRef:
                 name: navidrome-secrets
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: 4533
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: 4533
+            initialDelaySeconds: 15
+            periodSeconds: 30
           securityContext:
             runAsUser: 1000
             runAsGroup: 1000

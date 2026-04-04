@@ -16,16 +16,27 @@ spec:
         RESTIC_PASSWORD: "{{ .restic_password }}"
         AWS_ACCESS_KEY_ID: "{{ .aws_access_key_id }}"
         AWS_SECRET_ACCESS_KEY: "{{ .aws_secret_access_key }}"
+    deletionPolicy: Retain
   data:
     - secretKey: restic_password
       remoteRef:
         key: /volsync/restic-password
+        conversionStrategy: Default
+        decodingStrategy: None
+        metadataPolicy: None
     - secretKey: aws_access_key_id
       remoteRef:
         key: /hetzner/revachol-bucket/ACCESS_KEY
+        conversionStrategy: Default
+        decodingStrategy: None
+        metadataPolicy: None
     - secretKey: aws_secret_access_key
       remoteRef:
         key: /hetzner/revachol-bucket/ACCESS_SECRET_KEY
+        conversionStrategy: Default
+        decodingStrategy: None
+        metadataPolicy: None
+  refreshInterval: 1h
 ---
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
@@ -45,13 +56,24 @@ spec:
         RESTIC_PASSWORD: "{{ .restic_password }}"
         AWS_ACCESS_KEY_ID: "{{ .aws_access_key_id }}"
         AWS_SECRET_ACCESS_KEY: "{{ .aws_secret_access_key }}"
+    deletionPolicy: Retain
   data:
     - secretKey: restic_password
       remoteRef:
         key: /volsync/restic-password
+        conversionStrategy: Default
+        decodingStrategy: None
+        metadataPolicy: None
     - secretKey: aws_access_key_id
       remoteRef:
         key: /hetzner/revachol-bucket/ACCESS_KEY
+        conversionStrategy: Default
+        decodingStrategy: None
+        metadataPolicy: None
     - secretKey: aws_secret_access_key
       remoteRef:
         key: /hetzner/revachol-bucket/ACCESS_SECRET_KEY
+        conversionStrategy: Default
+        decodingStrategy: None
+        metadataPolicy: None
+  refreshInterval: 1h

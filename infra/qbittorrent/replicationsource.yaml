@@ -8,6 +8,9 @@ spec:
     schedule: "0 2 * * *"
   restic:
     copyMethod: Direct
+    moverSecurityContext:
+      runAsUser: 0
+      runAsGroup: 0
     pruneIntervalDays: 7
     repository: qbittorrent-config-restic-config
     retain:
