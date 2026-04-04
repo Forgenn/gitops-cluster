@@ -23,6 +23,7 @@ spec:
           kind: Service
           name: loomie-backend
           port: 8080
+          weight: 1
     # All other routes to frontend
     - matches:
         - path:
@@ -33,6 +34,7 @@ spec:
           kind: Service
           name: loomie-frontend
           port: 3000
+          weight: 1
 ---
 # SecurityPolicy - VPN/internal access only
 apiVersion: gateway.envoyproxy.io/v1alpha1

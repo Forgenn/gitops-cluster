@@ -20,6 +20,7 @@ spec:
       backendRefs:
         - name: vaultwarden
           port: 80
+          weight: 1
       sessionPersistence:
         sessionName: vaultwarden-session
         type: Cookie

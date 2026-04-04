@@ -21,6 +21,7 @@ spec:
         - kind: Service
           name: loomie-searxng
           port: 8080
+          weight: 1
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
