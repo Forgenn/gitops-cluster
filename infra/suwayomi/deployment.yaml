@@ -39,17 +39,21 @@ spec:
               memory: 1Gi
             limits:
               memory: 2Gi
+          startupProbe:
+            httpGet:
+              path: /api/v1/settings/about
+              port: 4567
+            failureThreshold: 30
+            periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /api/v1/settings/about
               port: 4567
-            initialDelaySeconds: 15
             periodSeconds: 15
           livenessProbe:
             httpGet:
               path: /api/v1/settings/about
               port: 4567
-            initialDelaySeconds: 30
             periodSeconds: 30
             failureThreshold: 5
           volumeMounts:
