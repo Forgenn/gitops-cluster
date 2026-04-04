@@ -1,5 +1,5 @@
 redis-ha:
-  enabled: true
+  enabled: false
 
 # We terminate TLS at the gateway
 configs:
@@ -27,10 +27,10 @@ controller:
     enabled: true
 
 server:
-  replicas: 2
+  replicas: 1
 
 repoServer:
-  replicas: 2
+  replicas: 1
 
 applicationSet:
-  replicas: 2
+  replicas: 1

@@ -33,6 +33,25 @@ spec:
                   key: AUTH_PASSWORD
           ports:
             - containerPort: 4567
+          resources:
+            requests:
+              cpu: 50m
+              memory: 1Gi
+            limits:
+              memory: 2Gi
+          readinessProbe:
+            httpGet:
+              path: /api/v1/settings/about
+              port: 4567
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /api/v1/settings/about
+              port: 4567
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 5
           volumeMounts:
             - name: data
               mountPath: /home/suwayomi/.local/share/Tachidesk
