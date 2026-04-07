@@ -16,9 +16,14 @@
   "reviewers": ["Forgenn"],
   "commitMessagePrefix": "chore(deps):",
 
+  // No CI pipelines - automerge via branch (direct push), not via PR status checks
+  "automergeType": "branch",
+
   "vulnerabilityAlerts": {
     "enabled": true,
-    "labels": ["security"]
+    "labels": ["security"],
+    "automerge": true,
+    "automergeType": "branch"
   },
 
   "packageRules": [
@@ -40,9 +45,9 @@
       "enabled": false
     },
 
-    // --- Core infra: never automerge, require manual approval ---
+    // --- Core infra: never automerge, require manual PR approval ---
     {
-      "description": "Core infrastructure helm charts require manual review",
+      "description": "Core infrastructure requires manual review",
       "matchPackageNames": [
         "argo-cd",
         "cert-manager",
@@ -56,6 +61,7 @@
         "volsync"
       ],
       "automerge": false,
+      "automergeType": "pr",
       "labels": ["renovate", "core-infra"],
       "minimumReleaseAge": "3 days"
     },
@@ -63,42 +69,56 @@
     // --- Helm charts: automerge patch, PR for minor/major ---
     {
       "description": "Automerge helm chart patch updates",
-      "matchManagers": ["helmv3"],
+      "matchManagers": ["kustomize"],
       "matchUpdateTypes": ["patch"],
-      "automerge": true,
-      "automergeType": "pr",
-      "automergeStrategy": "squash"
+      "automerge": true
     },
     {
-      "description": "Label minor helm chart updates",
-      "matchManagers": ["helmv3"],
+      "description": "PR for helm chart minor updates",
+      "matchManagers": ["kustomize"],
       "matchUpdateTypes": ["minor"],
       "automerge": false,
+      "automergeType": "pr",
       "labels": ["renovate", "helm-minor"]
     },
     {
-      "description": "Label major helm chart updates, low priority",
-      "matchManagers": ["helmv3"],
+      "description": "PR for helm chart major updates, low priority",
+      "matchManagers": ["kustomize"],
       "matchUpdateTypes": ["major"],
       "automerge": false,
+      "automergeType": "pr",
       "labels": ["renovate", "helm-major"],
       "prPriority": -1
     },
 
-    // --- Docker images: automerge patch, PR for minor/major ---
+    // --- Docker images in values files: automerge patch, PR for minor/major ---
     {
-      "description": "Automerge Docker image patch updates",
-      "matchManagers": ["dockerfile", "regex"],
+      "description": "Automerge Docker image patch updates in values files",
+      "matchManagers": ["helm-values"],
       "matchUpdateTypes": ["patch"],
-      "automerge": true,
-      "automergeType": "pr",
-      "automergeStrategy": "squash"
+      "automerge": true
     },
     {
-      "description": "Require review for Docker image minor/major updates",
-      "matchManagers": ["dockerfile", "regex"],
+      "description": "PR for Docker image minor/major updates",
+      "matchManagers": ["helm-values"],
       "matchUpdateTypes": ["minor", "major"],
-      "automerge": false
+      "automerge": false,
+      "automergeType": "pr"
+    },
+
+    // --- Docker images in raw deployment YAMLs ---
+    {
+      "description": "Automerge raw deployment image patch updates",
+      "matchManagers": ["regex"],
+      "matchUpdateTypes": ["patch"],
+      "automerge": true
+    },
+    {
+      "description": "PR for raw deployment image minor/major updates",
+      "matchManagers": ["regex"],
+      "matchUpdateTypes": ["minor", "major"],
+      "automerge": false,
+      "automergeType": "pr"
     },
 
     // --- Group the *arr suite into a single PR ---
@@ -108,7 +128,9 @@
         "lscr.io/linuxserver/prowlarr",
         "lscr.io/linuxserver/qbittorrent"
       ],
-      "groupName": "arr-suite"
+      "groupName": "arr-suite",
+      "automerge": false,
+      "automergeType": "pr"
     },
 
     // --- Group media apps ---
@@ -119,7 +141,9 @@
         "ghcr.io/suwayomi/suwayomi-server",
         "ghcr.io/kareadita/kavita"
       ],
-      "groupName": "media-apps"
+      "groupName": "media-apps",
+      "automerge": false,
+      "automergeType": "pr"
     },
 
     // --- Stabilisation: wait before raising a PR ---
@@ -130,16 +154,12 @@
     }
   ],
 
-  // --- Manager configuration ---
+  // helm-values manager: pick up image: tags in chart values files
   "helm-values": {
     "fileMatch": ["infra/.+/values/.+\\.yaml$"]
   },
 
-  "helmv3": {
-    "fileMatch": ["infra/.+/kustomization\\.yaml$"]
-  },
-
-  // Regex manager picks up image: fields in raw Deployment YAMLs
+  // Regex manager: raw Deployment manifests and CNPG imageName fields
   "regexManagers": [
     {
       "description": "Docker image tags in raw Deployment manifests",
@@ -164,8 +184,11 @@
     }
   ],
 
-  // --- Paths to ignore ---
+  // Paths to ignore entirely
   "ignorePaths": [
+    // Bundled upstream chart files (contain non-ASCII in CRD templates)
+    "infra/cert-manager/charts/**",
+    // Internal/generated
     "**/loomie-sandbox/**",
     "**/scripts/**",
     "**/docs/**",
