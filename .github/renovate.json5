@@ -1,199 +1,223 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended",
-    ":dependencyDashboard",
-    ":separatePatchReleases",
-    ":semanticCommits"
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: [
+    'config:recommended',
+    ':dependencyDashboard',
+    ':separatePatchReleases',
+    ':semanticCommits',
   ],
-
-  "timezone": "Europe/Madrid",
-
-  // Run once a week in the early hours to avoid disrupting services
-  "schedule": ["after 3am and before 6am on monday"],
-
-  "labels": ["renovate"],
-  "reviewers": ["Forgenn"],
-  "commitMessagePrefix": "chore(deps):",
-
-  // No CI pipelines - automerge via branch (direct push), not via PR status checks
-  "automergeType": "branch",
-
-  "vulnerabilityAlerts": {
-    "enabled": true,
-    "labels": ["security"],
-    "automerge": true,
-    "automergeType": "branch"
+  timezone: 'Europe/Madrid',
+  schedule: [
+    'after 3am and before 6am on monday',
+  ],
+  labels: [
+    'renovate',
+  ],
+  reviewers: [
+    'Forgenn',
+  ],
+  commitMessagePrefix: 'chore(deps):',
+  automergeType: 'branch',
+  vulnerabilityAlerts: {
+    enabled: true,
+    labels: [
+      'security',
+    ],
+    automerge: true,
+    automergeType: 'branch',
   },
-
-  "packageRules": [
-
-    // --- Internal registry: never touch ---
+  packageRules: [
     {
-      "description": "Ignore internal loomie images (managed by CI, not Renovate)",
-      "matchPackagePatterns": ["^registry\\.monederobox\\.dev/"],
-      "enabled": false
-    },
-
-    // --- Intentionally mutable tracking-branch images ---
-    {
-      "description": "Lidarr nightly and Readarr develop are intentional floating tags",
-      "matchPackageNames": [
-        "lscr.io/linuxserver/lidarr",
-        "lscr.io/linuxserver/readarr"
+      description: 'Ignore internal loomie images (managed by CI, not Renovate)',
+      enabled: false,
+      matchPackageNames: [
+        '/^registry\\.monederobox\\.dev//',
       ],
-      "enabled": false
     },
-
-    // --- Core infra: never automerge, require manual PR approval ---
     {
-      "description": "Core infrastructure requires manual review",
-      "matchPackageNames": [
-        "argo-cd",
-        "cert-manager",
-        "external-secrets",
-        "longhorn",
-        "cloudnative-pg",
-        "kube-prometheus-stack",
-        "democratic-csi",
-        "snapshot-controller",
-        "gateway-helm",
-        "volsync"
+      description: 'Lidarr nightly and Readarr develop are intentional floating tags',
+      matchPackageNames: [
+        'lscr.io/linuxserver/lidarr',
+        'lscr.io/linuxserver/readarr',
       ],
-      "automerge": false,
-      "automergeType": "pr",
-      "labels": ["renovate", "core-infra"],
-      "minimumReleaseAge": "3 days"
-    },
-
-    // --- Helm charts: automerge patch, PR for minor/major ---
-    {
-      "description": "Automerge helm chart patch updates",
-      "matchManagers": ["kustomize"],
-      "matchUpdateTypes": ["patch"],
-      "automerge": true
+      enabled: false,
     },
     {
-      "description": "PR for helm chart minor updates",
-      "matchManagers": ["kustomize"],
-      "matchUpdateTypes": ["minor"],
-      "automerge": false,
-      "automergeType": "pr",
-      "labels": ["renovate", "helm-minor"]
-    },
-    {
-      "description": "PR for helm chart major updates, low priority",
-      "matchManagers": ["kustomize"],
-      "matchUpdateTypes": ["major"],
-      "automerge": false,
-      "automergeType": "pr",
-      "labels": ["renovate", "helm-major"],
-      "prPriority": -1
-    },
-
-    // --- Docker images in values files: automerge patch, PR for minor/major ---
-    {
-      "description": "Automerge Docker image patch updates in values files",
-      "matchManagers": ["helm-values"],
-      "matchUpdateTypes": ["patch"],
-      "automerge": true
-    },
-    {
-      "description": "PR for Docker image minor/major updates",
-      "matchManagers": ["helm-values"],
-      "matchUpdateTypes": ["minor", "major"],
-      "automerge": false,
-      "automergeType": "pr"
-    },
-
-    // --- Docker images in raw deployment YAMLs ---
-    {
-      "description": "Automerge raw deployment image patch updates",
-      "matchManagers": ["regex"],
-      "matchUpdateTypes": ["patch"],
-      "automerge": true
-    },
-    {
-      "description": "PR for raw deployment image minor/major updates",
-      "matchManagers": ["regex"],
-      "matchUpdateTypes": ["minor", "major"],
-      "automerge": false,
-      "automergeType": "pr"
-    },
-
-    // --- Group the *arr suite into a single PR ---
-    {
-      "description": "Group *arr suite updates into one PR",
-      "matchPackageNames": [
-        "lscr.io/linuxserver/prowlarr",
-        "lscr.io/linuxserver/qbittorrent"
+      description: 'Core infrastructure requires manual review',
+      matchPackageNames: [
+        'argo-cd',
+        'cert-manager',
+        'external-secrets',
+        'longhorn',
+        'cloudnative-pg',
+        'kube-prometheus-stack',
+        'democratic-csi',
+        'snapshot-controller',
+        'gateway-helm',
+        'volsync',
       ],
-      "groupName": "arr-suite",
-      "automerge": false,
-      "automergeType": "pr"
-    },
-
-    // --- Group media apps ---
-    {
-      "description": "Group media app image updates",
-      "matchPackageNames": [
-        "deluan/navidrome",
-        "ghcr.io/suwayomi/suwayomi-server",
-        "ghcr.io/kareadita/kavita"
+      automerge: false,
+      automergeType: 'pr',
+      labels: [
+        'renovate',
+        'core-infra',
       ],
-      "groupName": "media-apps",
-      "automerge": false,
-      "automergeType": "pr"
+      minimumReleaseAge: '3 days',
     },
-
-    // --- Stabilisation: wait before raising a PR ---
     {
-      "description": "Wait 2 days after release before raising a PR",
-      "matchUpdateTypes": ["minor", "patch"],
-      "minimumReleaseAge": "2 days"
-    }
+      description: 'Automerge helm chart patch updates',
+      matchManagers: [
+        'kustomize',
+      ],
+      matchUpdateTypes: [
+        'patch',
+      ],
+      automerge: true,
+    },
+    {
+      description: 'PR for helm chart minor updates',
+      matchManagers: [
+        'kustomize',
+      ],
+      matchUpdateTypes: [
+        'minor',
+      ],
+      automerge: false,
+      automergeType: 'pr',
+      labels: [
+        'renovate',
+        'helm-minor',
+      ],
+    },
+    {
+      description: 'PR for helm chart major updates, low priority',
+      matchManagers: [
+        'kustomize',
+      ],
+      matchUpdateTypes: [
+        'major',
+      ],
+      automerge: false,
+      automergeType: 'pr',
+      labels: [
+        'renovate',
+        'helm-major',
+      ],
+      prPriority: -1,
+    },
+    {
+      description: 'Automerge Docker image patch updates in values files',
+      matchManagers: [
+        'helm-values',
+      ],
+      matchUpdateTypes: [
+        'patch',
+      ],
+      automerge: true,
+    },
+    {
+      description: 'PR for Docker image minor/major updates',
+      matchManagers: [
+        'helm-values',
+      ],
+      matchUpdateTypes: [
+        'minor',
+        'major',
+      ],
+      automerge: false,
+      automergeType: 'pr',
+    },
+    {
+      description: 'Automerge raw deployment image patch updates',
+      matchManagers: [
+        'custom.regex',
+      ],
+      matchUpdateTypes: [
+        'patch',
+      ],
+      automerge: true,
+    },
+    {
+      description: 'PR for raw deployment image minor/major updates',
+      matchManagers: [
+        'custom.regex',
+      ],
+      matchUpdateTypes: [
+        'minor',
+        'major',
+      ],
+      automerge: false,
+      automergeType: 'pr',
+    },
+    {
+      description: 'Group *arr suite updates into one PR',
+      matchPackageNames: [
+        'lscr.io/linuxserver/prowlarr',
+        'lscr.io/linuxserver/qbittorrent',
+      ],
+      groupName: 'arr-suite',
+      automerge: false,
+      automergeType: 'pr',
+    },
+    {
+      description: 'Group media app image updates',
+      matchPackageNames: [
+        'deluan/navidrome',
+        'ghcr.io/suwayomi/suwayomi-server',
+        'ghcr.io/kareadita/kavita',
+      ],
+      groupName: 'media-apps',
+      automerge: false,
+      automergeType: 'pr',
+    },
+    {
+      description: 'Wait 2 days after release before raising a PR',
+      matchUpdateTypes: [
+        'minor',
+        'patch',
+      ],
+      minimumReleaseAge: '2 days',
+    },
   ],
-
-  // helm-values manager: pick up image: tags in chart values files
-  "helm-values": {
-    "fileMatch": ["infra/.+/values/.+\\.yaml$"]
+  'helm-values': {
+    managerFilePatterns: [
+      '/infra/.+/values/.+\\.yaml$/',
+    ],
   },
-
-  // Regex manager: raw Deployment manifests and CNPG imageName fields
-  "regexManagers": [
+  customManagers: [
     {
-      "description": "Docker image tags in raw Deployment manifests",
-      "fileMatch": [
-        "infra/.+/deployment\\.yaml$",
-        "infra/.+/navidrome-deployment\\.yaml$"
+      customType: 'regex',
+      description: 'Docker image tags in raw Deployment manifests',
+      managerFilePatterns: [
+        '/infra/.+/deployment\\.yaml$/',
+        '/infra/.+/navidrome-deployment\\.yaml$/',
       ],
-      "matchStrings": [
-        "image:\\s+(?<depName>[a-z0-9._\\-/]+):(?<currentValue>[a-zA-Z0-9._\\-]+)"
+      matchStrings: [
+        'image:\\s+(?<depName>[a-z0-9._\\-/]+):(?<currentValue>[a-zA-Z0-9._\\-]+)',
       ],
-      "datasourceTemplate": "docker",
-      "versioningTemplate": "docker"
+      datasourceTemplate: 'docker',
+      versioningTemplate: 'docker',
     },
     {
-      "description": "CNPG postgresql image versions in cluster YAML files",
-      "fileMatch": ["infra/.+\\.yaml$"],
-      "matchStrings": [
-        "imageName:\\s+(?<depName>ghcr\\.io/cloudnative-pg/postgresql):(?<currentValue>[a-zA-Z0-9._\\-]+)"
+      customType: 'regex',
+      description: 'CNPG postgresql image versions in cluster YAML files',
+      managerFilePatterns: [
+        '/infra/.+\\.yaml$/',
       ],
-      "datasourceTemplate": "docker",
-      "versioningTemplate": "docker"
-    }
+      matchStrings: [
+        'imageName:\\s+(?<depName>ghcr\\.io/cloudnative-pg/postgresql):(?<currentValue>[a-zA-Z0-9._\\-]+)',
+      ],
+      datasourceTemplate: 'docker',
+      versioningTemplate: 'docker',
+    },
   ],
-
-  // Paths to ignore entirely
-  "ignorePaths": [
-    // Bundled upstream chart files (contain non-ASCII in CRD templates)
-    "infra/cert-manager/charts/**",
-    // Internal/generated
-    "**/loomie-sandbox/**",
-    "**/scripts/**",
-    "**/docs/**",
-    "infra/loomie/backend/**",
-    "infra/loomie/frontend/**",
-    "infra/loomie/sidecar/**"
-  ]
+  ignorePaths: [
+    'infra/cert-manager/charts/**',
+    '**/loomie-sandbox/**',
+    '**/scripts/**',
+    '**/docs/**',
+    'infra/loomie/backend/**',
+    'infra/loomie/frontend/**',
+    'infra/loomie/sidecar/**',
+  ],
 }
