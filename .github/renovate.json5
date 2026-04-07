@@ -212,10 +212,16 @@
     },
   ],
   ignorePaths: [
+    // Bundled upstream chart files (contain non-ASCII in CRD templates / READMEs)
     'infra/cert-manager/charts/**',
+    'infra/opencloud/charts/**',
+    // Markdown docs with Unicode arrows/em-dashes - not dependency files
+    '**/CLAUDE.md',
+    '**/README.md',
+    '**/docs/**',
+    // Internal/generated paths
     '**/loomie-sandbox/**',
     '**/scripts/**',
-    '**/docs/**',
     'infra/loomie/backend/**',
     'infra/loomie/frontend/**',
     'infra/loomie/sidecar/**',
