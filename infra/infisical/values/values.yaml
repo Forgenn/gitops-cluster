@@ -8,6 +8,8 @@ infisical:
 redis:
   enabled: true
   usePassword: false
+  auth:
+    password: ""
   master:
     resources:
       requests:
@@ -18,7 +20,7 @@ redis:
         memory: 512Mi
     extraInitContainers:
       - name: fix-aof
-        image: redis:7.2.4
+        image: redis:7
         command:
           - sh
           - -c
