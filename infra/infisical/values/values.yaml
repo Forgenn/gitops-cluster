@@ -8,6 +8,29 @@ infisical:
 redis:
   enabled: true
   usePassword: false
+  master:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    extraInitContainers:
+      - name: fix-aof
+        image: redis:7.2.4
+        command:
+          - sh
+          - -c
+          - |
+            for f in /data/appendonly.aof.*.incr.aof; do
+              [ -f "$f" ] || continue
+              echo "[fix-aof] checking $f"
+              yes | redis-check-aof --fix "$f" || true
+            done
+        volumeMounts:
+          - name: redis-data
+            mountPath: /data
 
 ingress:
   enabled: false
