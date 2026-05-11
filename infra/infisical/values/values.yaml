@@ -7,9 +7,8 @@ infisical:
 
 redis:
   enabled: true
-  usePassword: false
   auth:
-    password: ""
+    password: "niuZi5UElW"
   master:
     resources:
       requests:
