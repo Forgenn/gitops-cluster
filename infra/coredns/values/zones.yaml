@@ -26,8 +26,9 @@ servers:
       #    ttl 30
 
       # If nothing above has handled the request, forward it to an upstream resolver.
+      # Using Cloudflare + Google DNS to bypass ISP-level DNS blocking.
       - name: forward
-        parameters: . /etc/resolv.conf
+        parameters: . 1.1.1.1 8.8.8.8
 
       # --- Other utility plugins ---
       - name: cache
