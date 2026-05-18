@@ -58,7 +58,7 @@ spec:
               cpu: 50m
               memory: 64Mi
             limits:
-              memory: 512Mi
+              memory: 1Gi
           readinessProbe:
             httpGet:
               path: /ping
