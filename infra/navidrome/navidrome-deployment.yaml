@@ -15,6 +15,8 @@ spec:
       labels:
         app: navidrome
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: cuno
       containers:
         - name: navidrome
           image: deluan/navidrome:0.58.5
@@ -29,7 +31,7 @@ spec:
             - name: ND_BASEURL
               value: "https://navidrome.monederobox.dev"
             - name: ND_COVERARTPRIORITY
-              value: "cover.*, folder.*, front.*, external, embedded"
+              value: "cover.*, folder.*, front.*, embedded, external"
             - name: ND_LASTFM_ENABLED
               value: "true"
             - name: ND_LOGLEVEL
@@ -44,6 +46,10 @@ spec:
               value: "24h"
             - name: ND_UILOGINBACKGROUNDURL
               value: "https://nextcloud.monederobox.xyz/s/84LgB8rNA2z4xza/download/20231212_174559.jpg"
+            - name: ND_DEFAULTDOWNSAMPLINGFORMAT
+              value: "opus"
+            - name: ND_MAXBITRATE
+              value: "192"
           envFrom:
             - secretRef:
                 name: navidrome-secrets
@@ -52,7 +58,7 @@ spec:
               cpu: 50m
               memory: 64Mi
             limits:
-              memory: 256Mi
+              memory: 512Mi
           readinessProbe:
             httpGet:
               path: /ping
