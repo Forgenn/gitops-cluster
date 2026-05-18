@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: readarr
-          image: lscr.io/linuxserver/readarr:0.4.10-develop
+          image: ghcr.io/pennydreadful/bookshelf:softcover
           env:
             - name: PUID
               value: "1000"
