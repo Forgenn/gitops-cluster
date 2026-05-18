@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: readarr
-          image: ghcr.io/pennydreadful/bookshelf:softcover
+          image: ghcr.io/pennydreadful/bookshelf:hardcover
           env:
             - name: PUID
               value: "1000"
