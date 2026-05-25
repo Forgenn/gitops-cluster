@@ -12,3 +12,4 @@ resources:
   - sidecar/
   - searxng/
   - httproute.yaml
+  - network-policies.yaml
