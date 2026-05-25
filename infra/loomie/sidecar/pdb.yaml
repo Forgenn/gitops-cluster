@@ -1,0 +1,11 @@
+# F4 / P-05: see backend/pdb.yaml for rationale.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: loomie-pi-sidecar
+  namespace: loomie
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: loomie-pi-sidecar

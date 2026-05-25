@@ -1,0 +1,15 @@
+# F4 / P-05: PodDisruptionBudget. minAvailable: 1 protects the backend
+# against voluntary disruption (node drains, evictions) once HPA (F7)
+# brings replicas >= 2. While replicas: 1 this blocks drains of the
+# single backend pod — acceptable trade-off for a self-hosted cluster
+# where ops are rare and downtime matters.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: loomie-backend
+  namespace: loomie
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: loomie-backend
