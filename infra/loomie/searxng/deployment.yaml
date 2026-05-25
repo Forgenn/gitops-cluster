@@ -13,9 +13,22 @@ spec:
       labels:
         app: loomie-searxng
     spec:
+      # F2 / P-03: pod-level hardening (SearXNG subset). The upstream
+      # searxng/searxng image runs as uid 977 with its own writable layout,
+      # so we deliberately do NOT pin runAsUser / fsGroup or flip
+      # readOnlyRootFilesystem here — those would break the image. Capability
+      # drops + no-privilege-escalation + seccomp are still safe and apply.
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: searxng
           image: searxng/searxng:latest
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
           ports:
             - containerPort: 8080
           volumeMounts:

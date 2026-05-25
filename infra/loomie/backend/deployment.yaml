@@ -16,11 +16,25 @@ spec:
       serviceAccountName: loomie-backend
       imagePullSecrets:
         - name: registry-credentials
+      # F2 / P-03: pod-level hardening — non-root, no privilege escalation,
+      # restricted seccomp. The image already runs as appuser (uid 1000).
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: backend
           image: registry.monederobox.dev/loomie/backend:f702bed
           ports:
             - containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
           env:
             - name: PORT
               value: "8080"
@@ -127,3 +141,9 @@ spec:
               port: 8080
             initialDelaySeconds: 5
             periodSeconds: 10
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

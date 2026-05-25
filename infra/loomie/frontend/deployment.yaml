@@ -15,11 +15,25 @@ spec:
     spec:
       imagePullSecrets:
         - name: registry-credentials
+      # F2 / P-03: pod-level hardening — non-root, no privilege escalation,
+      # restricted seccomp. The image already runs as appuser (uid 1000).
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: frontend
           image: registry.monederobox.dev/loomie/frontend:f702bed
           ports:
             - containerPort: 3000
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
           env:
             - name: NODE_ENV
               value: production
@@ -62,3 +76,9 @@ spec:
               port: 3000
             initialDelaySeconds: 5
             periodSeconds: 10
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
