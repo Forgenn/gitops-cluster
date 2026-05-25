@@ -6,3 +6,4 @@ resources:
   - service.yaml
   - configmap.yaml
   - httproute.yaml
+  - pdb.yaml
