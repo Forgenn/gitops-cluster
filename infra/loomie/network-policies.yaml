@@ -1,0 +1,72 @@
+# F5 / P-19: NetworkPolicies — pass 1 (ingress only).
+#
+# Posture: default-deny ingress namespace-wide, then explicitly allow:
+#   1. envoy-gateway → backend / frontend (the only externally-reachable hop)
+#   2. any loomie pod → any loomie pod (frontend → backend, backend ↔ sidecar,
+#      sidecar → searxng, anything → CNPG)
+#   3. cnpg controller (in `cnpg` ns) → CNPG cluster pods (so the operator can
+#      reach the instance manager for health checks, failover, backup CR sync)
+#
+# Egress is deliberately left wide open in this pass. F5b will tighten egress
+# once we've verified V1 doesn't break anything in production.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: loomie-default-deny-ingress
+  namespace: loomie
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: loomie-allow-from-envoy-gateway
+  namespace: loomie
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - loomie-backend
+          - loomie-frontend
+          - loomie-searxng
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: loomie-allow-intra-namespace
+  namespace: loomie
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: loomie
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: loomie-allow-cnpg-operator
+  namespace: loomie
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: loomie-db
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cnpg
