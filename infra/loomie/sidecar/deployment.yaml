@@ -15,9 +15,23 @@ spec:
     spec:
       imagePullSecrets:
         - name: registry-credentials
+      # F2 / P-03: pod-level hardening — non-root, no privilege escalation,
+      # restricted seccomp. The pi-sidecar image already runs as USER node (uid 1000).
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       initContainers:
         - name: setup-auth
           image: registry.monederobox.dev/loomie/pi-sidecar:f702bed
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
           command:
             - sh
             - -c
@@ -36,6 +50,11 @@ spec:
       containers:
         - name: pi-sidecar
           image: registry.monederobox.dev/loomie/pi-sidecar:f702bed
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
           ports:
             - containerPort: 50051
           env:
@@ -59,6 +78,8 @@ spec:
             - name: pi-auth
               mountPath: /home/node/.pi/agent
               readOnly: true
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 100m
@@ -80,4 +101,6 @@ spec:
             periodSeconds: 10
       volumes:
         - name: pi-auth
+          emptyDir: {}
+        - name: tmp
           emptyDir: {}
