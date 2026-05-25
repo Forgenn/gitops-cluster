@@ -13,3 +13,4 @@ resources:
   - searxng/
   - httproute.yaml
   - network-policies.yaml
+  - rate-limit.yaml

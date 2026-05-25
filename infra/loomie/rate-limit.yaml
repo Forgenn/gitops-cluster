@@ -1,0 +1,31 @@
+# F6 / P-17: envoy-gateway rate limiting on the loomie HTTPRoute.
+#
+# Posture: 120 requests / minute per source IP (~2 req/sec sustained),
+# type Local (per-gateway-replica in-memory) — no Redis dependency.
+# For a self-host this is more than enough to defeat naive scraping /
+# brute-force without paging legitimate users.
+#
+# Tightening on `/auth/*` (10 / minute, per IP) is queued as F6b — it
+# needs the auth subset split into its own HTTPRoute (or a header-based
+# selector dance we don't want to ship cold).
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: loomie-rate-limit
+  namespace: loomie
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: loomie
+  rateLimit:
+    type: Local
+    local:
+      rules:
+        - limit:
+            requests: 120
+            unit: Minute
+          clientSelectors:
+            - sourceCIDR:
+                value: 0.0.0.0/0
+                type: Distinct
