@@ -1,0 +1,14 @@
+# F1 / P-18: nightly base backup at 08:00 UTC (matches the pattern used
+# by every other CNPG cluster in this repo). WAL is shipped continuously
+# via the cluster's barmanObjectStore config.
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: loomie-db-backup
+  namespace: loomie
+spec:
+  immediate: false
+  schedule: "0 0 8 * * *"
+  backupOwnerReference: self
+  cluster:
+    name: loomie-db

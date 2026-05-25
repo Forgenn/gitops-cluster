@@ -4,7 +4,12 @@ metadata:
   name: loomie-db
   namespace: loomie
 spec:
-  instances: 1
+  # F1 / P-02: HA — 3 instances + 1 synchronous replica.
+  # CNPG promotes a replica automatically on primary failure; writes
+  # block until at least one replica acks (minSyncReplicas: 1).
+  instances: 3
+  minSyncReplicas: 1
+  maxSyncReplicas: 1
 
   # Enable pgvector extension for embeddings
   postgresql:
@@ -18,6 +23,26 @@ spec:
       postInitSQL:
         - CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
         - CREATE EXTENSION IF NOT EXISTS "vector";
+
+  # F1 / P-18: continuous WAL backup + base backups to Hetzner S3 via Barman.
+  # Same `hetzner-backup-bucket-credentials` secret pattern used by every
+  # other CNPG cluster in this repo (immich, infisical, pocket-id, vaultwarden).
+  backup:
+    barmanObjectStore:
+      endpointURL: "https://hel1.your-objectstorage.com"
+      destinationPath: "s3://revachol/backups/loomie-cnpg-db"
+      s3Credentials:
+        accessKeyId:
+          name: hetzner-backup-bucket-credentials
+          key: ACCESS_KEY
+        secretAccessKey:
+          name: hetzner-backup-bucket-credentials
+          key: ACCESS_SECRET_KEY
+      data:
+        compression: gzip
+      wal:
+        compression: gzip
+    retentionPolicy: 60d
 
   storage:
     storageClass: longhorn
