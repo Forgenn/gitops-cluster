@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: backend
-          image: registry.monederobox.dev/loomie/backend:91fad7e
+          image: registry.monederobox.dev/loomie/backend:9b40276
           ports:
             - containerPort: 8080
           securityContext:
@@ -121,7 +121,7 @@ spec:
               value: "http://loomie-pi-sidecar:50051"
             # MCP init container image for Claude Code tool access
             - name: MCP_IMAGE
-              value: "registry.monederobox.dev/loomie/mcp:91fad7e"
+              value: "registry.monederobox.dev/loomie/mcp:9b40276"
           resources:
             requests:
               cpu: 100m
