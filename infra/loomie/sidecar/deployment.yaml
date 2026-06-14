@@ -26,7 +26,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: setup-auth
-          image: registry.monederobox.dev/loomie/pi-sidecar:b899fe2
+          image: registry.monederobox.dev/loomie/pi-sidecar:f373e1c
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -49,7 +49,7 @@ spec:
               mountPath: /home/node/.pi/agent
       containers:
         - name: pi-sidecar
-          image: registry.monederobox.dev/loomie/pi-sidecar:b899fe2
+          image: registry.monederobox.dev/loomie/pi-sidecar:f373e1c
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
