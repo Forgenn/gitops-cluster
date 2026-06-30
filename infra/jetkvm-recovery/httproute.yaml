@@ -41,4 +41,4 @@ spec:
       - action: Allow
         principal:
           clientCIDRs:
-            - 80.233.47.107/32
+            - 80.233.0.0/16
