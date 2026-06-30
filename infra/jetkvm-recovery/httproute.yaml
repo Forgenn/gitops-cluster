@@ -13,7 +13,13 @@ spec:
   hostnames:
     - "jetkvm-recovery.monederobox.dev"
   rules:
-    - backendRefs:
+    - filters:
+        # JetKVM's app 500s on an unexpected Host header; make it look like
+        # direct LAN access (Host: 192.168.1.172), which we confirmed works.
+        - type: URLRewrite
+          urlRewrite:
+            hostname: "192.168.1.172"
+      backendRefs:
         - group: ""
           kind: Service
           name: jetkvm
@@ -24,7 +30,6 @@ spec:
             type: PathPrefix
             value: /
 ---
-# Locked to YOUR public IP only. Default Deny, single Allow.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
