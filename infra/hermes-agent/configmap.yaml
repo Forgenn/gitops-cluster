@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hermes-config
+  namespace: hermes
+data:
+  # Mounted read-only at /opt/data/config.yaml. To change the model/provider,
+  # edit here and restart the deployment. The API key itself never lives here —
+  # it is injected from the Infisical-backed `hermes-secrets` secret via env.
+  config.yaml: |
+    # Non-secret behaviour settings
+    model:
+      default: deepseek/deepseek-v4-flash-0731
+      provider: openrouter
+    approvals:
+      # smart = human-in-the-loop for destructive commands. `serve` clients get
+      # an approval prompt in the desktop app.
+      mode: smart
+    desktop:
+      repo_scan_enabled: false

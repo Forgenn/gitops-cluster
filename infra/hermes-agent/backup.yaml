@@ -1,0 +1,16 @@
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: hermes-data
+  namespace: hermes
+spec:
+  sourcePVC: hermes-data
+  trigger:
+    schedule: "0 2 * * *"
+  restic:
+    copyMethod: Direct
+    pruneIntervalDays: 7
+    repository: hermes-bucket-restic-config
+    retain:
+      daily: 7
+      within: 3d

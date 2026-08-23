@@ -1,0 +1,47 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: hermes
+  namespace: hermes
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: envoy-gateway
+      namespace: envoy-gateway
+      sectionName: https
+  hostnames:
+    - "hermes.monederobox.dev"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: hermes-agent
+          port: 9119
+          weight: 1
+---
+# SecurityPolicy — VPN/internal access only.
+# Desktop clients attach over the Tailscale tailnet (100.64.0.0/10) or LAN
+# (192.168.1.0/24). The dashboard's own basic-auth login is a second layer.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: hermes-internal
+  namespace: hermes
+spec:
+  targetRefs:
+    - group: "gateway.networking.k8s.io"
+      name: hermes
+      kind: HTTPRoute
+  authorization:
+    defaultAction: Deny
+    rules:
+      - action: Allow
+        principal:
+          clientCIDRs:
+            - 100.64.0.0/10
+            - 192.168.1.0/24
