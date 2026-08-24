@@ -11,7 +11,6 @@ resources:
   - deployment.yaml
   - service.yaml
   - httproute.yaml
-  # Optional nightly backups of the agent's brain (/opt/data) to Hetzner object storage.
-  # Requires /hermes/... secrets in Infisical; remove these lines to disable backups.
-  - backup-restic-config.yaml
-  - backup.yaml
+  # NOTE: volsync/restic backups intentionally NOT included yet — see README.
+  # The /hermes PVC is empty at first boot; add backup.yaml + backup-restic-config.yaml
+  # after first successful run once you've created the /hermes restic secrets in Infisical.
