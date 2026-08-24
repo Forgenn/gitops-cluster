@@ -17,6 +17,20 @@ servers:
           match ^([a-z0-9-]+)\.monederobox\.dev\.$
           answer "{{ .Name }} 60 IN A 192.168.1.200"
 
+      # Static .home records — this used to be served by a Docker `bind` container
+      # on dolores, backed by the /storage/hydrogen disk. That was an undocumented,
+      # unmonitored single point of failure for the whole LAN's .home resolution
+      # (root cause of the original dolores.home ENOTFOUND crash-loop too — see the
+      # migration report). Moving it here makes it GitOps-managed instead.
+      - name: hosts
+        parameters: home
+        configBlock: |
+          192.168.1.34  dolores.home
+          192.168.1.155 dubois.home
+          192.168.1.156 cuno.home
+          192.168.1.157 katsuragi.home
+          fallthrough
+
       # If it's not a custom zones, check if it's a Kubernetes service.
       #- name: kubernetes
       #  parameters: cluster.local in-addr.arpa ip6.arpa
