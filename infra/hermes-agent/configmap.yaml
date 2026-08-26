@@ -18,3 +18,16 @@ data:
       mode: smart
     desktop:
       repo_scan_enabled: false
+  # Mounted at /root/.ssh/config. Not sensitive on its own -- just host aliases and
+  # identity-file paths; the actual keys come from the hermes-secrets Secret.
+  ssh_config: |
+    Host github.com
+      User git
+      IdentityFile /root/.ssh/git_deploy_key
+      IdentitiesOnly yes
+
+    Host dolores.home dubois.home cuno.home katsuragi.home
+      User hermes-agent
+      IdentityFile /root/.ssh/fleet_ssh_key
+      IdentitiesOnly yes
+      StrictHostKeyChecking accept-new

@@ -7,6 +7,7 @@ resources:
   - namespace.yaml
   - secrets/
   - configmap.yaml
+  - rbac.yaml
   - pvc.yaml
   - deployment.yaml
   - service.yaml

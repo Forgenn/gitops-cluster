@@ -1,0 +1,22 @@
+# Read-only cluster access for hermes-agent -- get/list/watch via the built-in `view`
+# ClusterRole, nothing more. It can inspect pods/deployments/services/logs cluster-wide
+# but can't create, modify, or delete anything, and `view` deliberately excludes Secret
+# *contents* (it can see that a Secret exists, not read its data).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hermes-agent
+  namespace: hermes
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: hermes-agent-view
+subjects:
+  - kind: ServiceAccount
+    name: hermes-agent
+    namespace: hermes
+roleRef:
+  kind: ClusterRole
+  name: view
+  apiGroup: rbac.authorization.k8s.io

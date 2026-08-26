@@ -17,6 +17,16 @@ spec:
     spec:
       securityContext:
         fsGroup: 10000
+      serviceAccountName: hermes-agent
+      # The image doesn't bundle kubectl -- copy the binary in from a real kubectl
+      # image rather than baking a custom image just for this one tool.
+      initContainers:
+        - name: kubectl-copy
+          image: bitnami/kubectl:1.35
+          command: ["sh", "-c", "cp /opt/bitnami/kubectl/bin/kubectl /kubectl-bin/kubectl"]
+          volumeMounts:
+            - name: kubectl-bin
+              mountPath: /kubectl-bin
       containers:
         - name: hermes-agent
           image: nousresearch/hermes-agent:v2026.8.19
@@ -53,6 +63,22 @@ spec:
               mountPath: /tmp
             - name: shm
               mountPath: /dev/shm
+            - name: kubectl-bin
+              mountPath: /usr/local/bin/kubectl
+              subPath: kubectl
+              readOnly: true
+            - name: ssh-config
+              mountPath: /root/.ssh/config
+              subPath: ssh_config
+              readOnly: true
+            - name: git-deploy-key
+              mountPath: /root/.ssh/git_deploy_key
+              subPath: GIT_DEPLOY_KEY
+              readOnly: true
+            - name: fleet-ssh-key
+              mountPath: /root/.ssh/fleet_ssh_key
+              subPath: FLEET_SSH_KEY
+              readOnly: true
           resources:
             requests:
               cpu: 200m
@@ -93,3 +119,22 @@ spec:
           emptyDir: {}
         - name: shm
           emptyDir: {}
+        - name: kubectl-bin
+          emptyDir: {}
+        - name: ssh-config
+          configMap:
+            name: hermes-config
+        - name: git-deploy-key
+          secret:
+            secretName: hermes-secrets
+            defaultMode: 0400
+            items:
+              - key: GIT_DEPLOY_KEY
+                path: GIT_DEPLOY_KEY
+        - name: fleet-ssh-key
+          secret:
+            secretName: hermes-secrets
+            defaultMode: 0400
+            items:
+              - key: FLEET_SSH_KEY
+                path: FLEET_SSH_KEY
