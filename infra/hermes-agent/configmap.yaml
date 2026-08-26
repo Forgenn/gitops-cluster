@@ -25,6 +25,7 @@ data:
       User git
       IdentityFile /root/.ssh/git_deploy_key
       IdentitiesOnly yes
+      StrictHostKeyChecking accept-new
 
     Host dolores.home dubois.home cuno.home katsuragi.home
       User hermes-agent
