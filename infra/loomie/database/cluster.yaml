@@ -46,7 +46,10 @@ spec:
 
   storage:
     storageClass: longhorn
-    size: 10Gi
+    # Was 10Gi -- primary hit "Not enough disk space" with actual usage at 9.95Gi
+    # (99.5% full), taking the whole cluster down (all 3 instances unhealthy).
+    # Longhorn supports online expansion, no data loss.
+    size: 20Gi
 
   resources:
     requests:
