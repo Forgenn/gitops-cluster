@@ -19,11 +19,16 @@ spec:
         fsGroup: 10000
       serviceAccountName: hermes-agent
       # The image doesn't bundle kubectl -- copy the binary in from a real kubectl
-      # image rather than baking a custom image just for this one tool.
+      # image rather than baking a custom image just for this one tool. Real semver
+      # tags, matches the cluster's own k3s version. Deliberately not bitnami/kubectl
+      # (dropped pinned tags for free/community images in 2025) or registry.k8s.io/kubectl
+      # (real tags, but a truly shell-less distroless image -- no cp, can't be used for
+      # this copy-out pattern at all). alpine/k8s has both: real tags and a full
+      # shell/coreutils, verified live before picking it.
       initContainers:
         - name: kubectl-copy
-          image: bitnami/kubectl:latest # was :1.35, that tag doesn't actually exist
-          command: ["sh", "-c", "cp /opt/bitnami/kubectl/bin/kubectl /kubectl-bin/kubectl"]
+          image: alpine/k8s:1.35.6
+          command: ["cp", "/usr/bin/kubectl", "/kubectl-bin/kubectl"]
           volumeMounts:
             - name: kubectl-bin
               mountPath: /kubectl-bin
