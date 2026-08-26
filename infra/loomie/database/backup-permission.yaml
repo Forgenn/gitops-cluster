@@ -1,0 +1,25 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cnpg-secret-reader
+  namespace: loomie
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+    resourceNames: ["hetzner-backup-bucket-credentials"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cnpg-secret-reader-binding
+  namespace: loomie
+subjects:
+  - kind: ServiceAccount
+    name: loomie-db
+    namespace: loomie
+roleRef:
+  kind: Role
+  name: cnpg-secret-reader
+  apiGroup: rbac.authorization.k8s.io
