@@ -15,11 +15,15 @@ spec:
     spec:
       # F2 / P-03: pod-level hardening (SearXNG subset). The upstream
       # searxng/searxng image runs as uid 977 with its own writable layout,
-      # so we deliberately do NOT pin runAsUser / fsGroup or flip
-      # readOnlyRootFilesystem here — those would break the image. Capability
-      # drops + no-privilege-escalation + seccomp are still safe and apply.
+      # so we deliberately do NOT flip readOnlyRootFilesystem or set fsGroup
+      # here — those would break the image. runAsUser IS pinned explicitly
+      # (not left to the image default) -- :latest started defaulting to
+      # root at some point, which made runAsNonRoot reject the container
+      # outright (CreateContainerConfigError). Capability drops +
+      # no-privilege-escalation + seccomp are still safe and apply.
       securityContext:
         runAsNonRoot: true
+        runAsUser: 977
         seccompProfile:
           type: RuntimeDefault
       containers:
