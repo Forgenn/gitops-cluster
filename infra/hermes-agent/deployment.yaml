@@ -18,6 +18,20 @@ spec:
       securityContext:
         fsGroup: 10000
       serviceAccountName: hermes-agent
+      # This pod uses the default cluster DNS (kube-system's CoreDNS), which never
+      # learned .home -- that's a separate CoreDNS instance from the one serving the
+      # LAN (infra/coredns). Not changing dnsPolicy since that'd risk breaking this
+      # pod's own in-cluster service-name resolution; pinning statically instead,
+      # same fix used everywhere else this DNS gap has come up.
+      hostAliases:
+        - ip: "192.168.1.155"
+          hostnames: ["dubois.home"]
+        - ip: "192.168.1.156"
+          hostnames: ["cuno.home"]
+        - ip: "192.168.1.157"
+          hostnames: ["katsuragi.home"]
+        - ip: "192.168.1.34"
+          hostnames: ["dolores.home"]
       # The image doesn't bundle kubectl -- copy the binary in from a real kubectl
       # image rather than baking a custom image just for this one tool. Real semver
       # tags, matches the cluster's own k3s version. Deliberately not bitnami/kubectl
