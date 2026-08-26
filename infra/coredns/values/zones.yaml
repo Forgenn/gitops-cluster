@@ -29,11 +29,12 @@ servers:
           192.168.1.155 dubois.home
           192.168.1.156 cuno.home
           192.168.1.157 katsuragi.home
-          # k3s API server — only dubois runs the server role right now (cuno/katsuragi
-          # HA conversion still pending), so this is a single record, not a 3-way set.
-          # Re-point once the HA conversion lands. This was also served by the old bind
-          # container and got missed in the initial CoreDNS migration.
+          # k3s API server — HA conversion landed, all 3 nodes now run the server role
+          # and are real etcd members. 3-way record; the `loadbalance` plugin below
+          # already shuffles multi-A responses, so this gets round-robin for free.
           192.168.1.155 api.kube-cluster.revachol.home
+          192.168.1.156 api.kube-cluster.revachol.home
+          192.168.1.157 api.kube-cluster.revachol.home
           fallthrough
 
       # If it's not a custom zones, check if it's a Kubernetes service.
