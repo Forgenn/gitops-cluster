@@ -22,7 +22,7 @@ spec:
       # image rather than baking a custom image just for this one tool.
       initContainers:
         - name: kubectl-copy
-          image: bitnami/kubectl:1.35
+          image: bitnami/kubectl:latest # was :1.35, that tag doesn't actually exist
           command: ["sh", "-c", "cp /opt/bitnami/kubectl/bin/kubectl /kubectl-bin/kubectl"]
           volumeMounts:
             - name: kubectl-bin
