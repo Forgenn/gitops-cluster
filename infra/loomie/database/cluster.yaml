@@ -53,8 +53,12 @@ spec:
 
   resources:
     requests:
-      cpu: 100m
+      cpu: 200m
       memory: 256Mi
     limits:
-      cpu: 500m
-      memory: 512Mi
+      # Was 500m/512Mi -- too tight even for steady state (gzip-compressing each WAL
+      # segment on archive is real CPU work), and pegged at 100% during the WAL/backup
+      # backlog catch-up after months of failed archiving, starving the instance
+      # manager's own status/health endpoint and triggering liveness-kill restart loops.
+      cpu: 1500m
+      memory: 1Gi
