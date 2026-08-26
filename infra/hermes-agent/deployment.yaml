@@ -46,6 +46,28 @@ spec:
           volumeMounts:
             - name: kubectl-bin
               mountPath: /kubectl-bin
+        # The pod's fsGroup (needed by the app itself) forces group-read onto
+        # Secret-mounted files no matter what defaultMode says -- SSH categorically
+        # refuses a group-readable private key. Copy the keys into a plain writable
+        # emptyDir and chmod there, where fsGroup's floor doesn't apply.
+        - name: ssh-key-perms
+          image: alpine/k8s:1.35.6
+          command:
+            - sh
+            - -c
+            - |
+              cp /secrets/git-deploy-key/GIT_DEPLOY_KEY /ssh-keys/git_deploy_key
+              cp /secrets/fleet-ssh-key/FLEET_SSH_KEY /ssh-keys/fleet_ssh_key
+              chmod 600 /ssh-keys/git_deploy_key /ssh-keys/fleet_ssh_key
+          volumeMounts:
+            - name: git-deploy-key
+              mountPath: /secrets/git-deploy-key
+              readOnly: true
+            - name: fleet-ssh-key
+              mountPath: /secrets/fleet-ssh-key
+              readOnly: true
+            - name: ssh-keys
+              mountPath: /ssh-keys
       containers:
         - name: hermes-agent
           image: nousresearch/hermes-agent:v2026.8.19
@@ -90,13 +112,13 @@ spec:
               mountPath: /root/.ssh/config
               subPath: ssh_config
               readOnly: true
-            - name: git-deploy-key
+            - name: ssh-keys
               mountPath: /root/.ssh/git_deploy_key
-              subPath: GIT_DEPLOY_KEY
+              subPath: git_deploy_key
               readOnly: true
-            - name: fleet-ssh-key
+            - name: ssh-keys
               mountPath: /root/.ssh/fleet_ssh_key
-              subPath: FLEET_SSH_KEY
+              subPath: fleet_ssh_key
               readOnly: true
           resources:
             requests:
@@ -139,6 +161,8 @@ spec:
         - name: shm
           emptyDir: {}
         - name: kubectl-bin
+          emptyDir: {}
+        - name: ssh-keys
           emptyDir: {}
         - name: ssh-config
           configMap:
