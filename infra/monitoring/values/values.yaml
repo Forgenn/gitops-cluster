@@ -94,6 +94,16 @@ prometheus:
   enabled: true
   prometheusSpec:
     retention: 24h
+    # dolores isn't a k8s node, so the chart's own DaemonSet-based node-exporter (below)
+    # never reaches it. Static target instead -- node_exporter enabled directly in its
+    # NixOS config, firewalled to just the 3 cluster node IPs.
+    additionalScrapeConfigs:
+      - job_name: dolores-node-exporter
+        static_configs:
+          - targets: ["dolores.home:9100"]
+            labels:
+              instance: dolores
+              role: nas
     storageSpec:
       volumeClaimTemplate:
         spec:
