@@ -50,14 +50,21 @@ spec:
         # Secret-mounted files no matter what defaultMode says -- SSH categorically
         # refuses a group-readable private key. Copy the keys into a plain writable
         # emptyDir and chmod there, where fsGroup's floor doesn't apply.
+        #
+        # Also: whatever stored these secrets (Infisical's UI, most likely) strips the
+        # key's trailing newline -- confirmed by comparing byte counts against the
+        # original generated file (419 vs 418 bytes). OpenSSH's strict parser fails on
+        # that with an opaque "error in libcrypto", not an obvious "missing newline"
+        # message. `printf '%s\n' "$(cat ...)"` normalizes to exactly one trailing
+        # newline regardless of how many (zero or more) the source actually has.
         - name: ssh-key-perms
           image: alpine/k8s:1.35.6
           command:
             - sh
             - -c
             - |
-              cp /secrets/git-deploy-key/GIT_DEPLOY_KEY /ssh-keys/git_deploy_key
-              cp /secrets/fleet-ssh-key/FLEET_SSH_KEY /ssh-keys/fleet_ssh_key
+              printf '%s\n' "$(cat /secrets/git-deploy-key/GIT_DEPLOY_KEY)" > /ssh-keys/git_deploy_key
+              printf '%s\n' "$(cat /secrets/fleet-ssh-key/FLEET_SSH_KEY)" > /ssh-keys/fleet_ssh_key
               chmod 600 /ssh-keys/git_deploy_key /ssh-keys/fleet_ssh_key
           volumeMounts:
             - name: git-deploy-key
