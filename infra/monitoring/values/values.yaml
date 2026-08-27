@@ -1,3 +1,17 @@
+# k3s runs the scheduler, controller-manager, and kube-proxy embedded inside the k3s
+# server binary rather than as separately-scrapable pods the way kube-prometheus-stack's
+# default ServiceMonitors expect (upstream kubeadm-style clusters). These three alerts
+# were permanently firing false positives since day one, not real outages -- disabling
+# their ServiceMonitor + PrometheusRule pair rather than silencing in Alertmanager, since
+# there's nothing real to monitor here. kubeEtcd and kubeApiServer stay enabled -- k3s
+# does expose those in a scrapable way and their alerts were not firing. Found via audit.
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+
 alertmanager:
   enabled: true
   alertmanagerSpec:
