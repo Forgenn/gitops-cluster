@@ -1,0 +1,23 @@
+# vaultwarden-data-vaultwarden-0 had NO backup at all -- only the Postgres DB was
+# covered. This PVC holds rsa_key.pem (the JWT signing key -- losing it invalidates
+# every session/device token on restore), attachments, sends, and the icon cache, none
+# of which are reconstructible from the DB backup alone. Found via the Opus 5 audit.
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: vaultwarden-pvc
+spec:
+  sourcePVC: vaultwarden-data-vaultwarden-0
+  trigger:
+    schedule: "0 8 * * *"
+  restic:
+    copyMethod: Direct
+    pruneIntervalDays: 14
+    cacheCapacity: 5Gi
+    repository: vaultwarden-restic-config
+    moverSecurityContext:
+      runAsUser: 0
+      runAsGroup: 0
+    retain:
+      daily: 14
+      within: 3d

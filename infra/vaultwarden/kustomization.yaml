@@ -7,6 +7,7 @@ resources:
   - externalsecret.yaml
   - smtp-externalsecret.yaml
   - db
+  - backup
   - network-policies.yaml
 
 helmCharts:
