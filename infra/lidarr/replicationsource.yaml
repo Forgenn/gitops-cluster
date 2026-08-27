@@ -14,6 +14,7 @@ spec:
     pruneIntervalDays: 7
     cacheCapacity: 5Gi
     repository: lidarr-config-restic-config
+    unlock: unlock
     retain:
       daily: 7
       within: 3d
