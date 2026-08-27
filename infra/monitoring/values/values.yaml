@@ -17,6 +17,21 @@
 # embedded-etcd control plane these are the alerts you most want, so the fix is to
 # repair the scrape, not to delete the rules. See docs/plans/2026-08-27-alerting-redesign.md
 # GAP-1. The same namespace-rewrite bug leaves CoreDNS entirely unscraped.
+#
+# FIX 2026-08-28: kubeEtcd and coreDns are now both disabled here -- the chart's own
+# Service/Endpoints/ServiceMonitor for both are unfixable in-place, since the
+# ServiceMonitor's namespaceSelector is hardcoded to ["kube-system"] with no values
+# override, and CoreDNS's real Service can never be patched to follow the ServiceMonitor
+# into `monitoring` (Service selectors only match pods in their own namespace, and the
+# real CoreDNS pod lives in kube-system). Replaced by hand-written equivalents that
+# actually live in kube-system: see infra/kube-system-metrics-servicemonitors/. The
+# --etcd-expose-metrics=true flag still needs to land on all 3 server nodes via
+# nixos-config + `sudo nh os switch` -- until then kube-system-etcd's targets will be
+# down (correctly reflecting the real state), not silently absent.
+kubeEtcd:
+  enabled: false
+coreDns:
+  enabled: false
 kubeControllerManager:
   enabled: false
 kubeScheduler:

@@ -1,0 +1,41 @@
+# kube-prometheus-stack's own `coreDns.serviceMonitor` (infra/monitoring/values/values.yaml
+# now sets `coreDns.enabled: false` to kill it) is rendered by the `monitoring` app's
+# kustomization, which forces `namespace: monitoring` on every resource it produces --
+# including this ServiceMonitor. Its spec.namespaceSelector is hardcoded by the chart to
+# `["kube-system"]` with no values override (checked the vendored chart template
+# directly), so once the ServiceMonitor itself got moved to `monitoring`, Prometheus was
+# looking for a Service in kube-system from a ServiceMonitor namespace-selector that no
+# longer agreed with where the object actually lived -- zero scrape targets, 15 dead etcd
+# alerts (the sibling kube-etcd fix has the same root cause, see kube-etcd.yaml).
+#
+# Patching spec.namespaceSelector to follow the ServiceMonitor into `monitoring` (the
+# other fix that was considered) does NOT work for CoreDNS specifically: the real
+# CoreDNS metrics Service (kube-system/kube-dns, already exists, port `metrics`/9153,
+# k3s's own addon) selects pods by label `k8s-app: kube-dns` -- and Kubernetes Service
+# selectors only ever match pods in their OWN namespace. Moving that Service (or a
+# lookalike) into `monitoring` would leave it with zero endpoints forever, since the
+# real CoreDNS pod runs in kube-system. So this ServiceMonitor has to actually live in
+# kube-system, pointed at the real, already-working kube-dns Service -- hence this file
+# has no synthetic Service of its own, unlike kube-etcd.yaml.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kube-system-coredns
+  namespace: kube-system
+  labels:
+    # Required for Prometheus to pick this up at all -- the live Prometheus CR's
+    # serviceMonitorSelector is `matchLabels: {release: prometheus}` (serviceMonitorNamespaceSelector
+    # is `{}`, i.e. all namespaces, so only this label was ever the blocker).
+    release: prometheus
+    app: kube-system-coredns
+spec:
+  jobLabel: k8s-app
+  selector:
+    matchLabels:
+      k8s-app: kube-dns
+  namespaceSelector:
+    matchNames:
+      - kube-system
+  endpoints:
+    - port: metrics
+      interval: 30s

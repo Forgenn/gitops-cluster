@@ -1,0 +1,70 @@
+# Same root cause as coredns-servicemonitor.yaml: kube-prometheus-stack's own
+# `kubeEtcd.*` Service/Endpoints/ServiceMonitor (infra/monitoring/values/values.yaml now
+# sets `kubeEtcd.enabled: false` to kill them) get force-moved into `monitoring` by the
+# `monitoring` app's kustomization, while the ServiceMonitor's namespaceSelector stays
+# hardcoded to `["kube-system"]` -- zero scrape targets.
+#
+# Unlike CoreDNS, k3s's embedded etcd isn't fronted by any Service at all -- it's a
+# static process on each server node, not a selectable pod -- so the chart's own
+# kubeEtcd.endpoints mechanism (never populated in this repo until now) exists
+# specifically to hand-build a Service+Endpoints pair with manually-listed IPs instead
+# of a label selector. That has no same-namespace-selector problem, so (unlike coredns)
+# patching the namespace forward would have worked here too -- but since kubeEtcd had to
+# be hand-rebuilt in kube-system anyway to share a home with the coredns fix, and to keep
+# both scrape-target fixes in one obviously-related place, it's defined here rather than
+# via a namespace-selector patch on the chart's version.
+#
+# Requires `--etcd-expose-metrics=true` on all 3 k3s server nodes (dubois/cuno/katsuragi,
+# see nixos-config) -- without it, etcd never listens on :2381 at all and every target
+# here reads down regardless of how correctly this file is wired.
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-system-etcd
+  namespace: kube-system
+  labels:
+    k8s-app: etcd-server
+spec:
+  clusterIP: None
+  ports:
+    - name: http-metrics
+      port: 2381
+      protocol: TCP
+      targetPort: 2381
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: kube-system-etcd
+  namespace: kube-system
+  labels:
+    k8s-app: etcd-server
+subsets:
+  - addresses:
+      - ip: 192.168.1.155 # dubois
+      - ip: 192.168.1.156 # cuno
+      - ip: 192.168.1.157 # katsuragi
+    ports:
+      - name: http-metrics
+        port: 2381
+        protocol: TCP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kube-system-etcd
+  namespace: kube-system
+  labels:
+    release: prometheus
+    app: kube-system-etcd
+spec:
+  jobLabel: k8s-app
+  selector:
+    matchLabels:
+      k8s-app: etcd-server
+  namespaceSelector:
+    matchNames:
+      - kube-system
+  endpoints:
+    - port: http-metrics
+      interval: 30s

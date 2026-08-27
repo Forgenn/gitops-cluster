@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Deliberately NO `namespace:` field -- same reason as infra/kube-system-coredns-custom:
+# the ApplicationSet's Kustomize namespace transformer applies unconditionally to
+# everything an app renders, so a resource can only land in kube-system if it comes from
+# an app whose kustomization.yaml never sets `namespace:` at all. See coredns-servicemonitor.yaml
+# and kube-etcd.yaml for why these specific objects need to live in kube-system.
+resources:
+  - coredns-servicemonitor.yaml
+  - kube-etcd.yaml
