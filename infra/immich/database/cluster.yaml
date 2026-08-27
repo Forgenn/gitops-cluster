@@ -4,7 +4,10 @@ metadata:
   name: immich-db
   namespace: immich
 spec:
-  instances: 1
+  # Was 1 -- PDB shows ALLOWED DISRUPTIONS: 0, any node drain hosting this blocks
+  # until forced. immich-db is small (20Gi) so the storage/replication cost of HA is
+  # negligible. Found via the Opus 5 audit.
+  instances: 3
   imageName: ghcr.io/tensorchord/cloudnative-vectorchord:16-0.3.0
   postgresql:
     shared_preload_libraries:

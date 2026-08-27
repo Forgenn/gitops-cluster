@@ -4,7 +4,9 @@ metadata:
   name: sparky-fitness-cnpg-cluster
   namespace: sparky-fitness
 spec:
-  instances: 1
+  # Was 1 -- PDB showed ALLOWED DISRUPTIONS: 0, any node drain hosting this blocks
+  # until forced. Small DB (5Gi) so HA cost is negligible. Found via the Opus 5 audit.
+  instances: 3
   # Requests keep this out of BestEffort QoS (first to be OOM-killed under node
   # pressure) -- sized off actual usage (~6m CPU, ~77Mi RSS observed). Limits leave
   # headroom for backup/vacuum spikes. Found via the Opus 5 audit.
