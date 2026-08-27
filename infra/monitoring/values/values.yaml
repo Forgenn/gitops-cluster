@@ -107,7 +107,11 @@ grafana:
 prometheus:
   enabled: true
   prometheusSpec:
-    retention: 24h
+    # Was 24h on a 1Gi memory limit -- live usage was already 965Mi against that limit,
+    # and the container was being OOMKilled repeatedly (14 restarts observed) plus
+    # continuously CPU-throttled at 500m. Every OOM drops the in-memory head block, so
+    # actual usable retention was far less than 24h. Found via the Opus 5 audit.
+    retention: 15d
     # dolores isn't a k8s node, so the chart's own DaemonSet-based node-exporter (below)
     # never reaches it. Static target instead -- node_exporter enabled directly in its
     # NixOS config, firewalled to just the 3 cluster node IPs.
@@ -125,14 +129,14 @@ prometheus:
           accessModes: ["ReadWriteMany"]
           resources:
             requests:
-              storage: 5Gi
+              storage: 20Gi
     resources:
       requests:
-        cpu: 100m
-        memory: 512Mi
-      limits:
-        cpu: 500m
+        cpu: 200m
         memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 3Gi
 
 prometheusOperator:
   admissionWebhooks:
