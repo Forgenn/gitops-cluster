@@ -17,6 +17,15 @@
 # Requires `--etcd-expose-metrics=true` on all 3 k3s server nodes (dubois/cuno/katsuragi,
 # see nixos-config) -- without it, etcd never listens on :2381 at all and every target
 # here reads down regardless of how correctly this file is wired.
+#
+# No Endpoints object here even though the Service above has no selector and needs one:
+# ArgoCD's argocd-cm ships a hardcoded `resource.exclusions` (argo-helm chart default,
+# not repo config) that drops Endpoints/EndpointSlice from every Application cluster-wide
+# -- confirmed live, a manually-added Endpoints doc here synced everything else but was
+# silently dropped from the sync result, no error. It's deployed instead via k3s's own
+# manifest auto-deploy on dubois -- see nixos-config
+# hosts/revachol-cluster/dubois/manifests/bootstrap-argocd-manifests.nix,
+# `kube-system-etcd-endpoints`.
 apiVersion: v1
 kind: Service
 metadata:
@@ -31,23 +40,6 @@ spec:
       port: 2381
       protocol: TCP
       targetPort: 2381
----
-apiVersion: v1
-kind: Endpoints
-metadata:
-  name: kube-system-etcd
-  namespace: kube-system
-  labels:
-    k8s-app: etcd-server
-subsets:
-  - addresses:
-      - ip: 192.168.1.155 # dubois
-      - ip: 192.168.1.156 # cuno
-      - ip: 192.168.1.157 # katsuragi
-    ports:
-      - name: http-metrics
-        port: 2381
-        protocol: TCP
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
