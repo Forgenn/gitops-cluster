@@ -30,6 +30,46 @@ alertmanager:
       limits:
         cpu: 100m
         memory: 128Mi
+    # Mounts telegram-bot-credentials (synced from Infisical) at
+    # /etc/alertmanager/secrets/telegram-bot-credentials/ -- config.receivers below
+    # references the BOT_TOKEN file from there so the token never lands in git.
+    secrets:
+      - telegram-bot-credentials
+
+  # Was routing every alert to a null receiver -- nothing was ever delivered anywhere.
+  # chat_id is the numeric Telegram chat ID; low sensitivity (useless without the bot
+  # token) so it's fine inlined here rather than file-mounted -- Alertmanager's
+  # telegram_configs has no chat_id_file equivalent anyway.
+  config:
+    global:
+      resolve_timeout: 5m
+    inhibit_rules:
+      - source_matchers: ['severity = critical']
+        target_matchers: ['severity =~ warning|info']
+        equal: ['namespace', 'alertname']
+      - source_matchers: ['severity = warning']
+        target_matchers: ['severity = info']
+        equal: ['namespace', 'alertname']
+      - source_matchers: ['alertname = InfoInhibitor']
+        target_matchers: ['severity = info']
+        equal: ['namespace']
+      - target_matchers: ['alertname = Watchdog']
+    route:
+      group_by: ['namespace']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: telegram
+      routes:
+        - matchers: ['alertname = Watchdog']
+          receiver: 'null'
+    receivers:
+      - name: 'null'
+      - name: telegram
+        telegram_configs:
+          - bot_token_file: /etc/alertmanager/secrets/telegram-bot-credentials/BOT_TOKEN
+            chat_id: 7850573137
+            parse_mode: ''
 
 grafana:
   enabled: true
