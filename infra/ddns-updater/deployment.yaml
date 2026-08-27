@@ -25,20 +25,16 @@ spec:
                 name: porkbun-ddns-credentials
           ports:
             - containerPort: 8000
-          # Was BestEffort QoS with no probes at all. The image's own Dockerfile
-          # HEALTHCHECK uses this exact command (hits its internal health server on
-          # 127.0.0.1:9999) -- reusing it here avoids guessing at an HTTP path. Found
-          # via the Opus 5 audit.
-          livenessProbe:
-            exec:
-              command: ["/updater/ddns-updater", "healthcheck"]
-            initialDelaySeconds: 10
-            periodSeconds: 30
-          readinessProbe:
-            exec:
-              command: ["/updater/ddns-updater", "healthcheck"]
-            initialDelaySeconds: 5
-            periodSeconds: 15
+          # Tried the image's own Dockerfile HEALTHCHECK command as liveness/readiness
+          # probes, but reverted: its healthcheck does its own DNS lookup of the
+          # configured domain to self-verify, and this cluster's split-horizon CoreDNS
+          # wildcard-answers every *.monederobox.dev query with the internal LB IP
+          # (see infra/coredns/values/zones.yaml's template plugin) -- so the
+          # healthcheck always reports unhealthy regardless of whether the actual DNS
+          # update succeeded. A failing liveness probe means restart-loop, which is
+          # worse than no probe at all, so left unprobed rather than ship something
+          # actively harmful. Found via the Opus 5 audit (QoS only; the probe
+          # incompatibility was found and reverted in the same pass).
           resources:
             requests:
               cpu: 20m
