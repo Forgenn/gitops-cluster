@@ -12,6 +12,13 @@ spec:
     pruneIntervalDays: 7
     cacheCapacity: 5Gi
     repository: hermes-bucket-restic-config
+    # /opt/data is mode 700, owned by hermes:hermes (uid/gid 10000) -- the mover drops
+    # ALL capabilities including DAC_OVERRIDE, so plain root can't read it, and group
+    # access wouldn't help even if it had it since the directory has no group bits set.
+    # Must run as the exact owning UID.
+    moverSecurityContext:
+      runAsUser: 10000
+      runAsGroup: 10000
     retain:
       daily: 7
       within: 3d

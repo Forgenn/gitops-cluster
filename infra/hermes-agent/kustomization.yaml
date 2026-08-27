@@ -13,6 +13,5 @@ resources:
   - service.yaml
   - httproute.yaml
   - network-policies.yaml
-  # NOTE: volsync/restic backups intentionally NOT included yet — see README.
-  # The /hermes PVC is empty at first boot; add backup.yaml + backup-restic-config.yaml
-  # after first successful run once you've created the /hermes restic secrets in Infisical.
+  - backup-restic-config.yaml
+  - backup.yaml
