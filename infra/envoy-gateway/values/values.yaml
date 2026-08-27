@@ -7,17 +7,3 @@ provider:
       annotations:
         # This tells MetalLB to assign a specific IP address. NOT WORKING
         metallb.io/load-balancer-ip: "192.168.1.201"
-
-# This is the top-level Helm chart's own values -- config.envoyGateway below is a
-# DIFFERENT thing, it's passed through as the EnvoyGateway static config file that
-# controls the *data-plane* Envoy proxy Deployment (the one that actually terminates
-# all cluster ingress traffic). It was single-replica with no PDB -- one node drain or
-# eviction would take down all external access. Bumping to 2; PDB added as a plain
-# core policy/v1 resource (pdb.yaml) rather than guessing at this alpha API's field
-# names, since getting this config wrong risks the controller failing to start.
-config:
-  envoyGateway:
-    provider:
-      kubernetes:
-        envoyDeployment:
-          replicas: 2

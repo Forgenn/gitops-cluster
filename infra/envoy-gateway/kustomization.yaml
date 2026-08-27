@@ -14,7 +14,7 @@ resources:
   - gateway.yaml
   - http-redirect-route.yaml
   - client-traffic-policy.yaml
-  - pdb.yaml
+  - envoy-proxy.yaml
 
 helmCharts:
   - name: gateway-helm

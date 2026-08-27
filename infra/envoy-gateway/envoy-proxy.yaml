@@ -1,0 +1,20 @@
+# Controls the data-plane Envoy proxy Deployment (the one that actually terminates all
+# cluster ingress traffic) via GatewayClass.spec.parametersRef below. It was single-
+# replica with no PodDisruptionBudget -- one node drain or eviction would take down all
+# external access. Verified field paths against api/v1alpha1/envoyproxy_types.go for
+# v1.5.1 before writing this (envoyDeployment.replicas, envoyPDB.minAvailable) since an
+# earlier attempt at this via the EnvoyGateway static config (wrong resource entirely)
+# was silently ignored -- this alpha API has no schema validation on unknown fields.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: envoy-proxy-config
+  namespace: envoy-gateway
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyDeployment:
+        replicas: 2
+      envoyPDB:
+        minAvailable: 1
