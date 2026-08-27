@@ -1,0 +1,4 @@
+# Local `helm dep`/kustomize --enable-helm artifacts. ArgoCD pulls charts itself at
+# sync time via each app's helmCharts entry -- these are never committed, just clutter
+# git status. Found via the Opus 5 audit.
+infra/*/charts/
