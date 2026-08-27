@@ -10,3 +10,5 @@ resources:
   - navidrome-service.yaml
   - httproute.yaml
   - network-policies.yaml
+  - backup-restic-config.yaml
+  - backup.yaml

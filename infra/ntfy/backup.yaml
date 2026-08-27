@@ -1,0 +1,21 @@
+# ntfy-data had no backup -- user.db (topics, subscriptions, auth) and cached
+# attachments live here. Found via the Opus 5 audit.
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: ntfy-data
+spec:
+  sourcePVC: ntfy-data
+  trigger:
+    schedule: "0 8 * * *"
+  restic:
+    copyMethod: Direct
+    pruneIntervalDays: 14
+    cacheCapacity: 2Gi
+    repository: ntfy-restic-config
+    moverSecurityContext:
+      runAsUser: 0
+      runAsGroup: 0
+    retain:
+      daily: 7
+      within: 3d

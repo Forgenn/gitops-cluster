@@ -1,0 +1,21 @@
+# navidrome-data had no backup -- play counts, ratings, and playlists live here and
+# aren't reconstructible from the media files themselves. Found via the Opus 5 audit.
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: navidrome-data
+spec:
+  sourcePVC: navidrome-data
+  trigger:
+    schedule: "0 8 * * *"
+  restic:
+    copyMethod: Direct
+    pruneIntervalDays: 14
+    cacheCapacity: 2Gi
+    repository: navidrome-restic-config
+    moverSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+    retain:
+      daily: 7
+      within: 3d
