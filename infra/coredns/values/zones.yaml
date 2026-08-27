@@ -56,3 +56,23 @@ servers:
       - name: loop
       - name: reload
       - name: loadbalance
+
+  # This instance is LAN-facing (.home, .monederobox.dev) and deliberately not the
+  # cluster's own CoreDNS -- the commented-out `kubernetes` plugin above was an earlier,
+  # abandoned attempt at giving it real in-cluster service discovery (would need its own
+  # RBAC to watch the k8s API). Simpler and lower-risk: delegate cluster.local specifically
+  # to the real cluster CoreDNS (kube-system, ClusterIP 10.43.0.10) as its own zone.
+  # Root cause: any pod using this server as its ONLY nameserver (dnsPolicy: None, e.g.
+  # opencloud, which needs split-horizon .monederobox.dev resolution) got NXDOMAIN for
+  # every in-cluster service name -- confirmed live, 100% reproducible, not a race --
+  # because this server's only fallback was the public forwarders below, and opencloud's
+  # own supervisor panics instead of degrading when that keeps failing.
+  - zones:
+      - zone: cluster.local
+    port: 53
+    plugins:
+      - name: errors
+      - name: forward
+        parameters: . 10.43.0.10
+      - name: cache
+        parameters: 30
