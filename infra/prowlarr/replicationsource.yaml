@@ -12,6 +12,7 @@ spec:
       runAsUser: 0
       runAsGroup: 0
     pruneIntervalDays: 7
+    cacheCapacity: 5Gi
     repository: prowlarr-config-restic-config
     retain:
       daily: 7

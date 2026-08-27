@@ -10,6 +10,7 @@ spec:
   restic:
     copyMethod: Direct
     pruneIntervalDays: 7
+    cacheCapacity: 5Gi
     repository: hermes-bucket-restic-config
     retain:
       daily: 7

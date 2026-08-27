@@ -9,6 +9,7 @@ spec:
   restic:
     copyMethod: Direct
     pruneIntervalDays: 14
+    cacheCapacity: 5Gi
     repository: pocket-id-restic-config
     moverSecurityContext:
       runAsUser: 1000

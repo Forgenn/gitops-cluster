@@ -9,6 +9,7 @@ spec:
   restic:
     copyMethod: Direct
     pruneIntervalDays: 7
+    cacheCapacity: 5Gi
     repository: kavita-config-restic-config
     retain:
       daily: 7

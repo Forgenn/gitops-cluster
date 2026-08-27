@@ -12,7 +12,7 @@ spec:
     pruneIntervalDays: 7
     unlock: unlock
     repository: restic-config
-    cacheCapacity: 2Gi
+    cacheCapacity: 10Gi
     retain:
       daily: 7
       weekly: 4

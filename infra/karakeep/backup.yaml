@@ -14,7 +14,7 @@ spec:
     repository: restic-config
     storageClassName: longhorn
     volumeSnapshotClassName: longhorn
-    cacheCapacity: 2Gi
+    cacheCapacity: 5Gi
     retain:
       daily: 7
       weekly: 4

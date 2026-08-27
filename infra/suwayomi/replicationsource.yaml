@@ -9,6 +9,7 @@ spec:
   restic:
     copyMethod: Direct
     pruneIntervalDays: 7
+    cacheCapacity: 5Gi
     repository: suwayomi-data-restic-config
     retain:
       daily: 7

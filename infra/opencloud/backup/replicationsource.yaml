@@ -14,7 +14,7 @@ spec:
     repository: restic-config
     storageClassName: zfs-generic-nfs-csi
     volumeSnapshotClassName: zfs-generic-nfs-csi
-    cacheCapacity: 2Gi
+    cacheCapacity: 20Gi
     retain:
       daily: 7
       weekly: 4
