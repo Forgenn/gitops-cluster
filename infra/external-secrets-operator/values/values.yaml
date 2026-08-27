@@ -1,1 +1,22 @@
 installCRDs: true
+
+# All 3 components were single-replica with no PDB -- the webhook is the sharpest
+# risk: if it's down during a node drain, ALL ExternalSecret/SecretStore admission
+# fails cluster-wide, breaking secret sync everywhere, not just on that node. All 3
+# support leader election, so >1 replica is safe. Found via the Opus 5 audit.
+replicaCount: 2
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+webhook:
+  replicaCount: 2
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+certController:
+  replicaCount: 2
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
