@@ -8,13 +8,15 @@ spec:
     schedule: "0 2 * * *"
   restic:
     copyMethod: Direct
+    # runAsGroup matches this app's PGID so the mover can read LSIO's mode-660 ASP.NET
+    # key files without needing DAC_OVERRIDE (see infra/lidarr for the full explanation).
     moverSecurityContext:
       runAsUser: 0
-      runAsGroup: 0
+      runAsGroup: 1000
     pruneIntervalDays: 7
     cacheCapacity: 5Gi
     repository: prowlarr-config-restic-config
-    unlock: unlock
+    unlock: unlock-2
     retain:
       daily: 7
       within: 3d

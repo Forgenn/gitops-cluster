@@ -10,7 +10,7 @@ spec:
   restic:
     copyMethod: Direct
     pruneIntervalDays: 7
-    unlock: unlock
+    unlock: unlock-2
     repository: restic-config
     cacheCapacity: 10Gi
     retain:

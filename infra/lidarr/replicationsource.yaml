@@ -8,13 +8,20 @@ spec:
     schedule: "0 2 * * *"
   restic:
     copyMethod: Direct
+    # runAsUser stays 0 (mover cache dirs are root-owned; switching UID broke cache
+    # access entirely -- see immich/opencloud history). runAsGroup: 1000 matches this
+    # app's PGID -- LSIO's ASP.NET key files are mode 660 owned by abc:users(1000), and
+    # the mover drops ALL capabilities (no DAC_OVERRIDE), so plain root without a matching
+    # GID genuinely cannot read them. That caused restic to exit 3 ("could not read source
+    # file") on every run, which VolSync treats as a failed Job -- not cosmetic, the
+    # ReplicationSource never recorded a successful sync at all.
     moverSecurityContext:
       runAsUser: 0
-      runAsGroup: 0
+      runAsGroup: 1000
     pruneIntervalDays: 7
     cacheCapacity: 5Gi
     repository: lidarr-config-restic-config
-    unlock: unlock
+    unlock: unlock-2
     retain:
       daily: 7
       within: 3d
