@@ -10,6 +10,7 @@ resources:
   - argocd-dashboard.yaml
   - grafana-admin-externalsecret.yaml
   - grafana-oidc-externalsecret.yaml
+  - telegram-credentials-externalsecret.yaml
   - httproute-internal.yaml
   - argocd-servicemonitor.yaml
 
