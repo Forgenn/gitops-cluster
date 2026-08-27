@@ -19,7 +19,16 @@ defaultSettings:
   replicaAutoBalance: "best-effort" # Auto-balance replicas
 
   # Storage settings
-  storageOverProvisioningPercentage: "100"
+  # Was 100 (zero overcommit tolerance) -- with storageReservedPercentageForDefaultDisk
+  # already carving out 15% as an absolute floor, 100% here meant Longhorn refused to
+  # *schedule* (promise) more nominal volume capacity than raw-minus-reserved, even
+  # though actual physical usage stays well under that (e.g. cuno: 251GiB used of 455GiB
+  # raw, 55%, while ScheduledTotal had already hit the 100% ceiling). Blocked a legitimate
+  # loomie-db replica rebuild with 181GiB genuinely free on disk. 110% keeps promised
+  # capacity capped at roughly disk-size-minus-reserved -- never exceeds physical capacity
+  # even in a worst-case simultaneous-full-fill scenario, just stops double-counting the
+  # reserved margin on top of a zero-overcommit ceiling.
+  storageOverProvisioningPercentage: "110"
   storageMinimalAvailablePercentage: "5"
   storageReservedPercentageForDefaultDisk: "15" # Match your reserved space
 
