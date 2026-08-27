@@ -1,0 +1,32 @@
+# The cluster's real DNS resolver (kube-system/coredns, ClusterIP 10.43.0.10) is what
+# every pod actually uses -- but it has no delegation for the `.home` LAN zone, only
+# the custom coredns instance in infra/coredns does (see infra/coredns/values/zones.yaml).
+# Any in-cluster client using the default resolver (e.g. Prometheus scraping
+# dolores.home:9100) gets NXDOMAIN. `coredns-custom` is k3s's own supported
+# customization point -- the shipped Corefile already has
+# `import /etc/coredns/custom/*.server` -- so this just adds a `home` zone delegation to
+# the real cluster DNS, mirroring the cluster.local delegation infra/coredns already does
+# in the other direction.
+#
+# This lives in its own top-level infra/ directory (rather than nested under
+# infra/coredns) because the ApplicationSet's Kustomize `namespace:` transformer applies
+# unconditionally to everything an app renders, including nested kustomizations -- there
+# is no way to land a resource in kube-system from inside an app whose kustomization.yaml
+# sets `namespace: coredns`. This directory deliberately has no `namespace:` field at all,
+# so this ConfigMap's own explicit metadata.namespace stands.
+#
+# Found via the Opus 5 audit: dolores' node-exporter scrape has been failing, meaning the
+# ZfsPoolNotHealthy alert (written after revachol-pool sat DEGRADED unnoticed for ~5
+# months) has had no data to fire on.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+data:
+  home.server: |
+    home:53 {
+        errors
+        forward . 10.43.230.214
+        cache 30
+    }
