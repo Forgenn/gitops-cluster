@@ -11,7 +11,7 @@ spec:
   restic:
     copyMethod: Direct
     pruneIntervalDays: 14
-    cacheCapacity: 2Gi
+    cacheCapacity: 1Gi
     repository: ntfy-restic-config
     moverSecurityContext:
       runAsUser: 0

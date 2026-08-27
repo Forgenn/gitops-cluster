@@ -10,7 +10,7 @@ spec:
   restic:
     copyMethod: Direct
     pruneIntervalDays: 7
-    cacheCapacity: 5Gi
+    cacheCapacity: 3Gi
     repository: hermes-bucket-restic-config
     # /opt/data is mode 700, owned by hermes:hermes (uid/gid 10000) -- the mover drops
     # ALL capabilities including DAC_OVERRIDE, so plain root can't read it, and group
