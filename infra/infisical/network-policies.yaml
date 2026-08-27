@@ -1,0 +1,90 @@
+# NetworkPolicies — ingress only, mirrors infra/loomie/network-policies.yaml.
+#
+# Posture: default-deny ingress namespace-wide, then explicitly allow:
+#   1. envoy-gateway -> infisical-standalone (external UI/API on 8080)
+#   2. external-secrets -> infisical-standalone (CRITICAL: the cluster-wide
+#      ClusterSecretStore `infisical-cluster-secret-store` in
+#      infra/external-secrets-operator/clustersecretstore.yaml has the ESO
+#      controller in the `external-secrets` namespace calling
+#      infisical-infisical-standalone-infisical.infisical.svc.cluster.local:8080
+#      directly. EVERY ExternalSecret in the entire cluster that backs onto
+#      Infisical depends on this path. Without this rule, default-deny here
+#      breaks secret sync cluster-wide.)
+#   3. any infisical pod -> any infisical pod (app <-> redis, app <-> CNPG db)
+#   4. cnpg controller (in `cnpg` ns) -> infisical-cnpg-cluster CNPG pods
+#
+# Egress is left open, matching loomie's pass-1 posture.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: infisical-default-deny-ingress
+  namespace: infisical
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: infisical-allow-from-envoy-gateway
+  namespace: infisical
+spec:
+  podSelector:
+    matchLabels:
+      app: infisical-standalone
+      component: infisical
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: infisical-allow-from-external-secrets
+  namespace: infisical
+spec:
+  podSelector:
+    matchLabels:
+      app: infisical-standalone
+      component: infisical
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: external-secrets
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: infisical-allow-intra-namespace
+  namespace: infisical
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: infisical
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: infisical-allow-cnpg-operator
+  namespace: infisical
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: infisical-cnpg-cluster
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cnpg

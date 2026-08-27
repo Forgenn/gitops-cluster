@@ -8,6 +8,7 @@ resources:
   - secrets.yaml
   - restic-config.yaml
   - backup.yaml
+  - network-policies.yaml
 
 helmCharts:
   - name: karakeep

@@ -1,0 +1,58 @@
+# NetworkPolicies — ingress only, mirrors infra/loomie/network-policies.yaml.
+#
+# Posture: default-deny ingress namespace-wide, then explicitly allow:
+#   1. envoy-gateway -> opencloud-opencloud only (the httproute backend;
+#      opencloud-tika stays internal-only, reached via intra-namespace)
+#   2. any opencloud pod -> any opencloud pod (opencloud <-> tika)
+#
+# NOTE: infra/opencloud/values/values.yaml has a commented-out seaweedfs S3
+# block (endpoint seaweedfs-s3.seaweedfs.svc.cluster.local:8333). It is NOT
+# currently enabled, so no cross-namespace rule is needed today — but if
+# that S3 backend is ever turned on, infra/seaweedfs will need a matching
+# allow-from-opencloud ingress rule added, or opencloud's storage backend
+# will silently start failing connections.
+#
+# No CNPG cluster and no live ServiceMonitor in this namespace.
+# Egress is left open, matching loomie's pass-1 posture.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: opencloud-default-deny-ingress
+  namespace: opencloud
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: opencloud-allow-from-envoy-gateway
+  namespace: opencloud
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: opencloud
+      app.kubernetes.io/instance: opencloud
+      app.kubernetes.io/name: opencloud
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: opencloud-allow-intra-namespace
+  namespace: opencloud
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: opencloud

@@ -9,6 +9,7 @@ resources:
   - backup-permission.yaml
   - httproute-internal.yaml
   - secret.yaml
+  - network-policies.yaml
 
 helmCharts:
   - name: infisical-standalone

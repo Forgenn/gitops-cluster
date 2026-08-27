@@ -1,0 +1,65 @@
+# NetworkPolicies — ingress only, mirrors infra/loomie/network-policies.yaml.
+#
+# Posture: default-deny ingress namespace-wide, then explicitly allow:
+#   1. envoy-gateway -> vaultwarden (external UI/API, port 80)
+#   2. any vaultwarden pod -> any vaultwarden pod (app <-> CNPG db)
+#   3. cnpg controller (in `cnpg` ns) -> vaultwarden-cnpg-cluster pods
+#
+# Egress is left open, matching loomie's pass-1 posture.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vaultwarden-default-deny-ingress
+  namespace: vaultwarden
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vaultwarden-allow-from-envoy-gateway
+  namespace: vaultwarden
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: vaultwarden
+      app.kubernetes.io/component: vaultwarden
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vaultwarden-allow-intra-namespace
+  namespace: vaultwarden
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: vaultwarden
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vaultwarden-allow-cnpg-operator
+  namespace: vaultwarden
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: vaultwarden-cnpg-cluster
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cnpg

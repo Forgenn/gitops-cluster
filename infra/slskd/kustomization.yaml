@@ -12,3 +12,4 @@ resources:
   - config-secret.yaml
   - restic-config.yaml
   - replicationsource.yaml
+  - network-policies.yaml

@@ -1,0 +1,51 @@
+# NetworkPolicies — ingress only, mirrors infra/loomie/network-policies.yaml.
+#
+# Posture: default-deny ingress namespace-wide, then explicitly allow:
+#   1. envoy-gateway -> karakeep only (the httproute backend; karakeep-chrome
+#      and karakeep-meilisearch stay internal-only)
+#   2. any karakeep pod -> any karakeep pod (karakeep <-> chrome, meilisearch)
+#
+# No CNPG cluster and no live ServiceMonitor in this namespace.
+# Egress is left open, matching loomie's pass-1 posture.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: karakeep-default-deny-ingress
+  namespace: karakeep
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: karakeep-allow-from-envoy-gateway
+  namespace: karakeep
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: karakeep
+      app.kubernetes.io/instance: karakeep
+      app.kubernetes.io/name: karakeep
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: karakeep-allow-intra-namespace
+  namespace: karakeep
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: karakeep

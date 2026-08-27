@@ -6,6 +6,7 @@ namespace: seaweedfs
 resources:
   - namespace.yaml
   - secret.yaml
+  - network-policies.yaml
 
 helmCharts:
   - name: seaweedfs

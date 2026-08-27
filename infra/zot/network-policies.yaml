@@ -1,0 +1,48 @@
+# NetworkPolicies — ingress only, mirrors infra/loomie/network-policies.yaml.
+# No CNPG cluster in this namespace. zot ships a ServiceMonitor template in
+# its chart but it is not enabled live (no ServiceMonitor object exists for
+# zot today), so no allow-from-monitoring rule is included. If metrics
+# scraping is enabled later, add one mirroring the envoy-gateway rule but
+# sourced from the `monitoring` namespace on the metrics port.
+# Egress is left open, matching loomie's pass-1 posture.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zot-default-deny-ingress
+  namespace: zot
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zot-allow-from-envoy-gateway
+  namespace: zot
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: zot
+      app.kubernetes.io/name: zot
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zot-allow-intra-namespace
+  namespace: zot
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: zot

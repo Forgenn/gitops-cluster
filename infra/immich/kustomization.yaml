@@ -10,6 +10,7 @@ resources:
   - restic-config.yaml
   - backup.yaml
   - httproute.yaml
+  - network-policies.yaml
 
 helmCharts:
   - name: immich

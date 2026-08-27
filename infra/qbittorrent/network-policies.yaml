@@ -1,0 +1,43 @@
+# NetworkPolicies — ingress only, mirrors infra/loomie/network-policies.yaml.
+# No CNPG cluster and no live ServiceMonitor in this namespace.
+# Egress is left open, matching loomie's pass-1 posture.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: qbittorrent-default-deny-ingress
+  namespace: qbittorrent
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: qbittorrent-allow-from-envoy-gateway
+  namespace: qbittorrent
+spec:
+  podSelector:
+    matchLabels:
+      app: qbittorrent
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: qbittorrent-allow-intra-namespace
+  namespace: qbittorrent
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: qbittorrent

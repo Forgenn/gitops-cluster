@@ -9,3 +9,4 @@ resources:
   - navidrome-deployment.yaml
   - navidrome-service.yaml
   - httproute.yaml
+  - network-policies.yaml

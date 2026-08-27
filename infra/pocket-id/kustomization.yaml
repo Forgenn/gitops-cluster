@@ -9,6 +9,7 @@ resources:
   - httproute.yaml
   - cm.yaml
   - backup
+  - network-policies.yaml
 
 helmCharts:
   - name: pocket-id

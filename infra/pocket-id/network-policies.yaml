@@ -1,0 +1,70 @@
+# NetworkPolicies — ingress only, mirrors infra/loomie/network-policies.yaml.
+#
+# Posture: default-deny ingress namespace-wide, then explicitly allow:
+#   1. envoy-gateway -> pocket-id (external OIDC provider UI/API, port 80).
+#      NOTE: pocket-id is the OIDC issuer for kavita/lidarr/prowlarr/
+#      qbittorrent/readarr/slskd/loomie. Those all call out to
+#      https://pocket-id.monederobox.dev, which re-enters the cluster
+#      through envoy-gateway like any other external hit, so this single
+#      rule covers all of them.
+#   2. any pocket-id pod -> any pocket-id pod (app <-> CNPG db)
+#   3. cnpg controller (in `cnpg` ns) -> pocket-id-cnpg-cluster CNPG pods
+#
+# Egress is left open, matching loomie's pass-1 posture.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pocket-id-default-deny-ingress
+  namespace: pocket-id
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pocket-id-allow-from-envoy-gateway
+  namespace: pocket-id
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: pocket-id
+      app.kubernetes.io/name: pocket-id
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pocket-id-allow-intra-namespace
+  namespace: pocket-id
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: pocket-id
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pocket-id-allow-cnpg-operator
+  namespace: pocket-id
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: pocket-id-cnpg-cluster
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cnpg

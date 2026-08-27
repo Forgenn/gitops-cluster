@@ -7,6 +7,7 @@ resources:
   - externalsecret.yaml
   - smtp-externalsecret.yaml
   - db
+  - network-policies.yaml
 
 helmCharts:
   - name: vaultwarden

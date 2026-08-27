@@ -1,0 +1,43 @@
+# NetworkPolicies — ingress only, mirrors infra/loomie/network-policies.yaml.
+# No CNPG cluster and no live ServiceMonitor in this namespace.
+# Egress is left open, matching loomie's pass-1 posture.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: suwayomi-default-deny-ingress
+  namespace: suwayomi
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: suwayomi-allow-from-envoy-gateway
+  namespace: suwayomi
+spec:
+  podSelector:
+    matchLabels:
+      app: suwayomi
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: suwayomi-allow-intra-namespace
+  namespace: suwayomi
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: suwayomi

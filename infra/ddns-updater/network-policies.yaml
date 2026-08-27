@@ -1,0 +1,29 @@
+# NetworkPolicies — ingress only, mirrors infra/loomie/network-policies.yaml.
+# No httproute, no CNPG cluster, no live ServiceMonitor in this namespace —
+# ddns-updater is outbound-only (polls its own public IP and updates DNS via
+# external APIs), so it needs no inbound allow rules at all beyond intra-ns.
+# Egress is left open, matching loomie's pass-1 posture.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ddns-updater-default-deny-ingress
+  namespace: ddns-updater
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ddns-updater-allow-intra-namespace
+  namespace: ddns-updater
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ddns-updater

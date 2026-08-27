@@ -1,0 +1,67 @@
+# NetworkPolicies — ingress only, mirrors infra/loomie/network-policies.yaml.
+#
+# Posture: default-deny ingress namespace-wide, then explicitly allow:
+#   1. envoy-gateway -> sparky-fitness-frontend only (the httproute backend;
+#      sparky-fitness-server is reached only via intra-namespace traffic
+#      from the frontend)
+#   2. any sparky-fitness pod -> any sparky-fitness pod (frontend -> server,
+#      server -> CNPG db)
+#   3. cnpg controller (in `cnpg` ns) -> sparky-fitness-cnpg-cluster pods
+#
+# Egress is left open, matching loomie's pass-1 posture.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sparky-fitness-default-deny-ingress
+  namespace: sparky-fitness
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sparky-fitness-allow-from-envoy-gateway
+  namespace: sparky-fitness
+spec:
+  podSelector:
+    matchLabels:
+      app: sparky-fitness-frontend
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sparky-fitness-allow-intra-namespace
+  namespace: sparky-fitness
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sparky-fitness
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sparky-fitness-allow-cnpg-operator
+  namespace: sparky-fitness
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: sparky-fitness-cnpg-cluster
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cnpg
