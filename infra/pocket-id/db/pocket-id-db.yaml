@@ -10,6 +10,25 @@ spec:
     recovery:
       source: pocket-id-cnpg-cluster
 
+  # Ongoing backups -- this was missing entirely (only the one-time restore-from-backup
+  # config below existed), so the pre-existing ScheduledBackup had nothing to talk to and
+  # failed every day since creation. Points at the same destinationPath as externalClusters
+  # to continue the existing backup chain rather than starting a fresh one. Found via audit.
+  backup:
+    barmanObjectStore:
+      endpointURL: "https://hel1.your-objectstorage.com"
+      destinationPath: "s3://revachol/backups/pocket-id-cnpg-db"
+      s3Credentials:
+        accessKeyId:
+          name: hetzner-backup-bucket-credentials
+          key: ACCESS_KEY
+        secretAccessKey:
+          name: hetzner-backup-bucket-credentials
+          key: ACCESS_SECRET_KEY
+      data:
+        compression: gzip
+    retentionPolicy: 60d
+
   # Reference to the backup configuration
   externalClusters:
     - name: pocket-id-cnpg-cluster

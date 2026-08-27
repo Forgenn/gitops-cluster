@@ -14,3 +14,21 @@ spec:
       owner: sparkyfitness
       postInitSQL:
         - "ALTER USER sparkyfitness SUPERUSER;"
+
+  # Ongoing backups -- this cluster had no backup config at all (found via audit:
+  # no spec.backup, no firstRecoverabilityPoint, no ScheduledBackup). Same
+  # hetzner-backup-bucket-credentials pattern used by every other CNPG cluster here.
+  backup:
+    barmanObjectStore:
+      endpointURL: "https://hel1.your-objectstorage.com"
+      destinationPath: "s3://revachol/backups/sparky-fitness-cnpg-db"
+      s3Credentials:
+        accessKeyId:
+          name: hetzner-backup-bucket-credentials
+          key: ACCESS_KEY
+        secretAccessKey:
+          name: hetzner-backup-bucket-credentials
+          key: ACCESS_SECRET_KEY
+      data:
+        compression: gzip
+    retentionPolicy: 60d

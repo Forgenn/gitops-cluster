@@ -12,3 +12,6 @@ resources:
   - smtp-externalsecret.yaml
   - restic-config-backup.yaml
   - replicationsource.yaml
+  - backup-credentials-externalsecret.yaml
+  - backup-permission.yaml
+  - scheduled-backup.yaml

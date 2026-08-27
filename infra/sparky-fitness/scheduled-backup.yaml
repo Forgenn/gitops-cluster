@@ -1,0 +1,13 @@
+# Nightly base backup at 08:00 UTC (matches the pattern used by every other
+# CNPG cluster in this repo). WAL is shipped continuously via barmanObjectStore.
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: sparky-fitness-db-backup
+  namespace: sparky-fitness
+spec:
+  immediate: false
+  schedule: "0 0 8 * * *"
+  backupOwnerReference: self
+  cluster:
+    name: sparky-fitness-cnpg-cluster
