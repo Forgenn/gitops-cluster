@@ -6,3 +6,5 @@ namespace: opencloud
 resources:
   - replicationsource.yaml
   - restic-config.yaml
+  - replicationsource-config.yaml
+  - restic-config-config.yaml

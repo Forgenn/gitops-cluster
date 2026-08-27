@@ -1,0 +1,49 @@
+# Only opencloud-opencloud-posixfs (the raw file bytes) was backed up.
+# opencloud-opencloud-config (/etc/opencloud -- generated certs/JWT signing config) and
+# opencloud-opencloud-data (/var/lib/opencloud -- the actual metadata/permissions/shares
+# database and search index, kept separate from the posixfs-mounted file bytes at
+# /var/lib/opencloud/storage) were both uncovered. Losing opencloud-data specifically
+# would orphan the files in posixfs -- the raw bytes would survive but the app couldn't
+# find them without their metadata. Found via the Opus 5 audit (config PVC) and while
+# implementing this fix (data PVC, not flagged by the audit but the same gap).
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: opencloud-config-backup
+  namespace: opencloud
+spec:
+  sourcePVC: opencloud-opencloud-config
+  trigger:
+    schedule: "0 8 * * *"
+  restic:
+    copyMethod: Direct
+    pruneIntervalDays: 14
+    cacheCapacity: 2Gi
+    repository: opencloud-config-restic-config
+    moverSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+    retain:
+      daily: 7
+      within: 3d
+---
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: opencloud-appdata-backup
+  namespace: opencloud
+spec:
+  sourcePVC: opencloud-opencloud-data
+  trigger:
+    schedule: "0 8 * * *"
+  restic:
+    copyMethod: Direct
+    pruneIntervalDays: 14
+    cacheCapacity: 3Gi
+    repository: opencloud-appdata-restic-config
+    moverSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+    retain:
+      daily: 7
+      within: 3d
