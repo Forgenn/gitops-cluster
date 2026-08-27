@@ -10,13 +10,22 @@ persistence:
 
 defaultSettings:
   defaultDataPath: "/var/lib/longhorn-data/"
-  # Defaults to "{"v1":"3","v2":"3"}".
-  #defaultReplicaCount: "3"
+  # Live setting was actually "2", not the chart's documented default of 3 -- caught
+  # live via audit (hermes/hermes-data ended up with numberOfReplicas:2 despite the
+  # "longhorn" StorageClass correctly specifying 3, because this volume predates
+  # that StorageClass param; the fallback Setting is what applied at creation time).
+  # The StorageClass fix covers new volumes; this closes the fallback gap too.
+  defaultReplicaCount: "3"
 
   # Scheduling settings
   disableSchedulingOnCordonedNode: "false"
   replicaSoftAntiAffinity: "true" # Allow replicas on same node if needed
   replicaAutoBalance: "best-effort" # Auto-balance replicas
+
+  # HA: was "do-nothing" -- on a node failure, RWO volumes stay attached to the dead
+  # node and pods never get force-deleted/rescheduled without manual intervention,
+  # which defeats the point of the 3-node k3s HA control plane. Caught via audit.
+  nodeDownPodDeletionPolicy: "delete-both-statefulset-and-deployment-pod"
 
   # Storage settings
   # Was 100 (zero overcommit tolerance) -- with storageReservedPercentageForDefaultDisk
