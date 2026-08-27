@@ -8,6 +8,7 @@ resources:
   - externalsecret.yaml
   - httproute.yaml
   - network-policies.yaml
+  - backup
 
 helmCharts:
   - name: zot

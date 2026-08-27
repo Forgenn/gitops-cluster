@@ -1,0 +1,24 @@
+# zot-pvc-zot-0 had no backup at all -- this is the container registry, and loomie's
+# own built images (backend/frontend/pi-sidecar/env-*) live here. Losing it means
+# loomie can't be rescheduled from scratch even with the GitOps manifests intact.
+# Found via the Opus 5 audit.
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: zot-pvc
+spec:
+  sourcePVC: zot-pvc-zot-0
+  trigger:
+    schedule: "0 9 * * *"
+  restic:
+    copyMethod: Direct
+    pruneIntervalDays: 14
+    cacheCapacity: 15Gi
+    repository: zot-restic-config
+    moverSecurityContext:
+      runAsUser: 0
+      runAsGroup: 0
+    retain:
+      daily: 7
+      weekly: 4
+      within: 3d
