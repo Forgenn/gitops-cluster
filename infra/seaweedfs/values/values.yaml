@@ -162,11 +162,15 @@ master:
   ## Set podManagementPolicy
   podManagementPolicy: Parallel
 
-  # Resource requests, limits, etc. for the master cluster placement. This
-  # should map directly to the value of the resources field for a PodSpec,
-  # formatted as a multi-line string. By default no direct resource request
-  # is made.
-  resources: {}
+  # Was {} (BestEffort QoS). Sized off actual usage (~1m CPU, ~20Mi RSS). Found via
+  # the Opus 5 audit.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
 
   # updatePartition is used to control a careful rolling update of SeaweedFS
   # masters.
@@ -442,11 +446,15 @@ volume:
   # for a PodSpec. By Default no constraints are set.
   topologySpreadConstraints: null
 
-  # Resource requests, limits, etc. for the server cluster placement. This
-  # should map directly to the value of the resources field for a PodSpec,
-  # formatted as a multi-line string. By default no direct resource request
-  # is made.
-  resources: {}
+  # Was {} (BestEffort QoS). Sized off actual usage (~1m CPU, ~23Mi RSS). Found via
+  # the Opus 5 audit.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
 
   # Toleration Settings for server pods
   # This should be a multi-line string matching the Toleration array
@@ -670,11 +678,15 @@ filer:
   # masters.
   updatePartition: 0
 
-  # Resource requests, limits, etc. for the server cluster placement. This
-  # should map directly to the value of the resources field for a PodSpec,
-  # formatted as a multi-line string. By default no direct resource request
-  # is made.
-  resources: {}
+  # Was {} (BestEffort QoS). Sized off actual usage (~1m CPU, ~137Mi RSS). Found via
+  # the Opus 5 audit.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 192Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
 
   # Toleration Settings for server pods
   # This should be a multi-line string matching the Toleration array
@@ -867,11 +879,15 @@ s3:
   # Annotations to be added to the s3 resources
   annotations: {}
 
-  # Resource requests, limits, etc. for the server cluster placement. This
-  # should map directly to the value of the resources field for a PodSpec,
-  # formatted as a multi-line string. By default no direct resource request
-  # is made.
-  resources: {}
+  # Was {} (BestEffort QoS). Sized off actual usage (~1m CPU, ~17Mi RSS). Found via
+  # the Opus 5 audit.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
 
   # Toleration Settings for server pods
   # This should be a multi-line string matching the Toleration array

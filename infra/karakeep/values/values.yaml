@@ -6,6 +6,19 @@ controllers:
   karakeep:
     containers:
       karakeep:
+        # Was BestEffort QoS -- the chart documents a default resources block, but
+        # setting any key under this container (env/envFrom, as this file already did)
+        # causes this chart's values merge to drop the rest of its own defaults,
+        # including resources. Setting explicitly rather than relying on the
+        # documented default. Sized above the chart's own suggestion since live usage
+        # was already ~467Mi RSS. Found via the Opus 5 audit.
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 1536Mi
         env:
           DISABLE_PASSWORD_AUTH: "true"
           OAUTH_ALLOW_DANGEROUS_EMAIL_ACCOUNT_LINKING: "true"
@@ -20,3 +33,14 @@ controllers:
 ingress:
   karakeep:
     enabled: false
+
+# Was BestEffort QoS. Sized off actual usage (~1m CPU, ~8Mi RSS). Found via the
+# Opus 5 audit.
+meilisearch:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi

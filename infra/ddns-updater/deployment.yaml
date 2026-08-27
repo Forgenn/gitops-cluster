@@ -15,9 +15,34 @@ spec:
     spec:
       containers:
         - name: ddns
-          image: qmcgaw/ddns-updater:latest
+          # Pinned to the exact digest already running (verified via `latest` currently
+          # resolving to a DIFFERENT digest than what's live -- confirms drift already
+          # happened at least once). No semver tag on Docker Hub maps cleanly to this
+          # digest, so pinning by digest directly rather than guessing a tag.
+          image: qmcgaw/ddns-updater@sha256:dd0d029b8ed74062d53c3a42e147462598600e842b6d08d8cd809b5ab41869e1
           envFrom:
             - secretRef:
                 name: porkbun-ddns-credentials
           ports:
             - containerPort: 8000
+          # Was BestEffort QoS with no probes at all. The image's own Dockerfile
+          # HEALTHCHECK uses this exact command (hits its internal health server on
+          # 127.0.0.1:9999) -- reusing it here avoids guessing at an HTTP path. Found
+          # via the Opus 5 audit.
+          livenessProbe:
+            exec:
+              command: ["/updater/ddns-updater", "healthcheck"]
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            exec:
+              command: ["/updater/ddns-updater", "healthcheck"]
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi

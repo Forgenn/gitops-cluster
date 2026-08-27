@@ -40,6 +40,17 @@ valkey:
             repository: docker.io/valkey/valkey
             tag: 9.0-alpine
             pullPolicy: IfNotPresent
+          # Was BestEffort QoS (this chart uses the same bjw-s app-template pattern as
+          # karakeep -- setting any key under this container drops its own resources
+          # default). Sized off actual usage (~4m CPU, ~10Mi RSS). Found via the
+          # Opus 5 audit.
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
   persistence:
     data:
       enabled: true
