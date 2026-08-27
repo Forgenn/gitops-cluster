@@ -8,21 +8,93 @@ metadata:
 spec:
   groups:
   - name: argocd.rules
+    # Replaces the previous two rules, which had three problems:
+    #
+    #  1. ArgoAppNotHealthy matched health_status != "Healthy". That set includes
+    #     Progressing, Missing, Suspended and Unknown -- so every normal deploy taking
+    #     more than 5 minutes notified. A genuinely Degraded app was indistinguishable
+    #     from an app mid-rollout.
+    #  2. ArgoAppNotSynced was severity: warning, which is why it had to be muted with a
+    #     one-off `alertname = ArgoAppNotSynced` route in Alertmanager. OutOfSync is a
+    #     drift signal, not an incident -- it is textbook info. Declaring it info means
+    #     the severity model routes it to null on its own and the one-off mute is gone,
+    #     with nothing left to remember to remove later.
+    #  3. Neither rule set a namespace label, so Alertmanager's group_by and every
+    #     `equal: ['namespace', ...]` inhibit rule treated them as namespace-"", lumping
+    #     them into one group and breaking inhibition.
+    #
+    # All rules below carry namespace: argocd and a one-line summary shaped for the
+    # telegram.short template (title line + <=2 context lines).
     rules:
-    - alert: ArgoAppNotHealthy
-      expr: argocd_app_info{health_status != "Healthy"} == 1
-      for: 5m
-      labels:
-        severity: warning
-      annotations:
-        summary: "ArgoCD application not healthy"
-        description: "ArgoCD application {{ $labels.name }} in project {{ $labels.project }} is not healthy. Current status is {{ $labels.health_status }}."
 
-    - alert: ArgoAppNotSynced
-      expr: argocd_app_info{sync_status != "Synced"} == 1
-      for: 5m
+    - alert: ArgoAppDegraded
+      # The real "something is broken" state: ArgoCD applied the manifests and the
+      # resulting resources are unhealthy.
+      expr: argocd_app_info{health_status="Degraded"} == 1
+      for: 15m
       labels:
         severity: warning
+        namespace: argocd
       annotations:
-        summary: "ArgoCD application not synced"
-        description: "ArgoCD application {{ $labels.name }} in project {{ $labels.project }} is out of sync. Current status is {{ $labels.sync_status }}."
+        summary: "ArgoCD application {{ $labels.name }} is Degraded."
+        description: "Project {{ $labels.project }}. Resources are applied but unhealthy -- check the app's resource tree in the ArgoCD UI."
+
+    - alert: ArgoAppStuckProgressing
+      # Progressing is normal during a deploy and is NOT alerted at 5m the way the old
+      # rule effectively did. 30m of Progressing means a rollout is genuinely wedged
+      # (image pull failure, unschedulable pod, failing readiness probe).
+      expr: argocd_app_info{health_status="Progressing"} == 1
+      for: 30m
+      labels:
+        severity: warning
+        namespace: argocd
+      annotations:
+        summary: "ArgoCD application {{ $labels.name }} has been Progressing for 30m."
+        description: "Project {{ $labels.project }}. A rollout this long is usually stuck, not slow."
+
+    - alert: ArgoAppMissing
+      # Missing = the app's resources are not present in the cluster at all.
+      # Unknown = ArgoCD cannot determine health, usually a repo or cluster connection
+      # failure. Both mean ArgoCD is not managing what it thinks it manages.
+      expr: argocd_app_info{health_status=~"Missing|Unknown"} == 1
+      for: 30m
+      labels:
+        severity: warning
+        namespace: argocd
+      annotations:
+        summary: "ArgoCD application {{ $labels.name }} is {{ $labels.health_status }}."
+        description: "Project {{ $labels.project }}. Resources are absent or health cannot be determined."
+
+    - alert: ArgoAppOutOfSync
+      # INFO ON PURPOSE. Live state differs from git -- worth seeing on a dashboard,
+      # never worth a notification. Under the route tree in values.yaml this reaches the
+      # 'null' receiver by severity.
+      #
+      # Context: 5 apps sit here persistently (hermes-agent, infisical, pocket-id,
+      # sparky-fitness, vaultwarden) from a known, already-fixed-in-git cosmetic diff
+      # (StatefulSet volumeClaimTemplates server-side defaults) that needs a supervised
+      # `nh os switch` on dubois to land. Previously that required a hand-written mute
+      # route; now it is just an info alert sitting quietly in the Alertmanager UI, which
+      # is also where you would look to confirm it finally cleared.
+      expr: argocd_app_info{sync_status="OutOfSync"} == 1
+      for: 1h
+      labels:
+        severity: info
+        namespace: argocd
+      annotations:
+        summary: "ArgoCD application {{ $labels.name }} is OutOfSync."
+        description: "Project {{ $labels.project }}. Live state differs from git."
+
+    - alert: ArgoCDMetricsMissing
+      # Companion to the absent() guard in zfs-alerts: none of the rules above can fire if
+      # argocd_app_info stops being produced (application-controller down, ServiceMonitor
+      # broken, argocd-servicemonitor selector drift). Without this, a broken scrape looks
+      # exactly like a perfectly healthy ArgoCD.
+      expr: absent(argocd_app_info)
+      for: 15m
+      labels:
+        severity: warning
+        namespace: argocd
+      annotations:
+        summary: "ArgoCD metrics have disappeared."
+        description: "argocd_app_info is absent, so no ArgoCD alert can fire. Check the application-controller and argocd-servicemonitor."

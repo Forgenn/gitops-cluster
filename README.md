@@ -22,6 +22,8 @@ Each directory in the `infra` directory represents a separate application or com
 - 25/34 ArgoCD applications are persistently OutOfSync, masking real failures; root causes are ESO field drift and unresolved hook resources
 - Several raw-manifest apps (kavita, lidarr, navidrome, etc.) have no resource requests/limits or health probes
 - No automated image update tooling (Renovate/Dependabot) is configured
+- `infra/monitoring/kustomization.yaml`'s blanket `namespace: monitoring` rewrites chart-generated objects that belong in `kube-system`. The `kube-etcd` and `coredns` headless Services land in `monitoring` while their ServiceMonitors still select `kube-system`, so both have zero endpoints: etcd and CoreDNS are entirely unscraped and all 15 etcd alerts are silently dead. See `docs/plans/2026-08-27-alerting-redesign.md`
+- Prometheus' and Grafana's PVCs are `ReadWriteMany` on Longhorn, which serves RWX via an NFS share-manager. Prometheus' TSDB is not NFS-safe and its volume has flipped read-only at least once, crashlooping the pod. Both are single-replica and should be `ReadWriteOnce`
 
 ## Technical Debt
 

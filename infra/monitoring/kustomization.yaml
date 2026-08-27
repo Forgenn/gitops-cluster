@@ -6,6 +6,8 @@ namespace: monitoring
 resources:
   - argocd-alerts.yaml
   - zfs-alerts.yaml
+  - nas-alerts.yaml
+  - retuned-alerts.yaml
   - node-exporter-full-dashboard.yaml
   - argocd-dashboard.yaml
   - grafana-admin-externalsecret.yaml

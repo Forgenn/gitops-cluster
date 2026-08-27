@@ -8,7 +8,42 @@ metadata:
 spec:
   groups:
   - name: zfs.rules
+    # WHAT node_exporter ACTUALLY EXPOSES HERE (verified against the live metric name
+    # list, not assumed):
+    #   node_zfs_zpool_state{zpool,state}   one series per (pool, state), value 1 for the
+    #                                       current state. States present: online,
+    #                                       degraded, faulted, offline, removed,
+    #                                       suspended, unavail.
+    #   node_filesystem_*{fstype="zfs"}     per-dataset capacity, via the generic
+    #                                       filesystem collector.
+    #   node_zfs_arc_*, node_zfs_abd_*,
+    #   node_zfs_zfetch_*,
+    #   node_zfs_zpool_dataset_*            ARC and per-dataset IO counters. Dashboard
+    #                                       material, not alert material.
+    #
+    # WHAT IT DOES NOT EXPOSE: scrub state, scrub errors, per-vdev read/write/checksum
+    # error counts, resilver progress, fragmentation, snapshot counts. There is no
+    # node_zfs_zpool_scrub_* or node_zfs_zpool_errors metric at all. Getting those needs
+    # either prometheus-community/zfs_exporter on dolores or a systemd timer writing
+    # `zpool status -p` into node_exporter's textfile collector directory -- both NixOS
+    # side changes. See OQ-4 in docs/plans/2026-08-27-alerting-redesign.md.
+    #
+    # SCOPE: Prometheus currently sees exactly ONE pool -- revachol-pool on dolores. The
+    # three k3s nodes have no ZFS filesystems at all (only ext4/vfat/tmpfs/ramfs).
+    # If more pools ever appear, note that they are NOT all covered automatically:
+    #   ZfsPoolNotHealthy          extends automatically (per-series comparison)
+    #   ZfsPoolStateUnknown        does NOT -- absent() returns nothing as long as ANY
+    #                              pool reports state, so one pool vanishing while
+    #                              another remains would go unnoticed. With >1 pool this
+    #                              needs rewriting per-pool, e.g. with an
+    #                              `absent(node_zfs_zpool_state{zpool="X",state="online"})`
+    #                              rule per pool or a count-based guard.
+    #   ZfsPool*FreeSpace          do NOT -- they pin mountpoint="/revachol-pool".
+    # See OQ-6.
     rules:
+
+    # --- pool health -------------------------------------------------------------
+
     - alert: ZfsPoolNotHealthy
       # dolores' revachol-pool sat DEGRADED for ~5 months, entirely unnoticed, before the
       # NAS migration -- nothing was watching pool state. node_exporter's ZFS collector
@@ -19,5 +54,76 @@ spec:
       labels:
         severity: critical
       annotations:
-        summary: "ZFS pool {{ $labels.zpool }} is not ONLINE"
-        description: "Pool {{ $labels.zpool }} on {{ $labels.instance }} has left the online state. Check `zpool status {{ $labels.zpool }}` immediately."
+        summary: "ZFS pool {{ $labels.zpool }} is not ONLINE."
+        description: "Pool {{ $labels.zpool }} on {{ $labels.instance }} has left the online state. Run `zpool status {{ $labels.zpool }}`."
+
+    - alert: ZfsPoolStateUnknown
+      # THE IMPORTANT ADDITION. ZfsPoolNotHealthy above compares a series to 0 -- it
+      # cannot fire if the series stops existing. Exporter down, ZFS collector disabled by
+      # a node_exporter flag change, pool exported or not imported after a reboot: in
+      # every one of those cases pool health silently stops being monitored and the alert
+      # stays quiet. That is the same silent-failure mode as the original 5-month
+      # incident, one level up the stack, so it is treated with the same severity.
+      #
+      # `absent()` returns a series only when its argument matches nothing, so this fires
+      # exactly when there is no pool-state data at all.
+      expr: absent(node_zfs_zpool_state{state="online"})
+      for: 15m
+      labels:
+        severity: critical
+      annotations:
+        summary: "ZFS pool state metrics have disappeared."
+        description: "node_zfs_zpool_state is absent, so ZfsPoolNotHealthy cannot fire. Pool health is unmonitored. Check node_exporter on dolores and `zpool list`."
+
+    # --- pool capacity -----------------------------------------------------------
+    #
+    # These use ABSOLUTE FREE BYTES on the pool root mountpoint, not a percentage, and
+    # deliberately so. ZFS reports each dataset's node_filesystem_size_bytes as its own
+    # referenced bytes plus the pool's SHARED available bytes. Two consequences:
+    #
+    #   1. Percentage-used on the pool root is meaningless. /revachol-pool currently
+    #      computes to 0% used (size 7.42 TB, avail 7.42 TB) because almost nothing is
+    #      written to the root dataset directly. A percentage alert would never fire.
+    #   2. A per-dataset alert would fire ~56 times at once, because every dataset on the
+    #      pool reports the same `avail`.
+    #
+    # Pinning mountpoint="/revachol-pool" gives exactly one series, which is the pool's
+    # real remaining free space.
+
+    - alert: ZfsPoolLowFreeSpace
+      # ~5% of the 7.42 TB pool.
+      expr: node_filesystem_avail_bytes{fstype="zfs", mountpoint="/revachol-pool"} < 400e9
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: "ZFS pool revachol-pool is running low on free space."
+        description: "{{ $value | humanize1024 }}B free on {{ $labels.mountpoint }} ({{ $labels.instance }}). Every cluster PVC lives here."
+
+    - alert: ZfsPoolCriticallyLowFreeSpace
+      # ZFS is copy-on-write: write performance collapses and writes start failing well
+      # before free space actually reaches zero. 150 GB is roughly 2% here.
+      expr: node_filesystem_avail_bytes{fstype="zfs", mountpoint="/revachol-pool"} < 150e9
+      for: 10m
+      labels:
+        severity: critical
+      annotations:
+        summary: "ZFS pool revachol-pool is critically low on free space."
+        description: "Only {{ $value | humanize1024 }}B free on {{ $labels.mountpoint }}. CoW writes degrade and then fail before this reaches zero."
+
+    - alert: ZfsPoolFillingUp
+      # 7-day runway based on the last 24h of growth. Catches a runaway *arr download or a
+      # snapshot-retention bug long before either of the threshold alerts above.
+      expr: |-
+        predict_linear(
+          node_filesystem_avail_bytes{fstype="zfs", mountpoint="/revachol-pool"}[24h],
+          7 * 24 * 3600
+        ) < 0
+        and
+        node_filesystem_avail_bytes{fstype="zfs", mountpoint="/revachol-pool"} < 1500e9
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: "ZFS pool revachol-pool is on track to fill within 7 days."
+        description: "At the last 24h growth rate {{ $labels.mountpoint }} runs out inside a week. {{ $value | humanize1024 }}B free now."

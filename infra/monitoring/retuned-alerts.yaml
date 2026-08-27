@@ -1,0 +1,146 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: retuned-alerts
+  labels:
+    app: kube-prometheus-stack
+    release: prometheus
+spec:
+  # WHY THIS FILE EXISTS
+  #
+  # kube-prometheus-stack lets you override an upstream alert's `for` and `severity` via
+  # values.yaml `customRules`, but NOT its threshold or its expression -- those are the
+  # only two `dig` sites in the chart's rule templates. So the only way to retune a
+  # threshold is to disable the upstream rule (defaultRules.disabled.<Name>) and
+  # re-declare it here.
+  #
+  # Each rule below is a near-verbatim copy of the upstream rule it replaces, with one
+  # deliberate change explained inline. Keeping them here rather than editing the chart
+  # means a chart bump cannot silently revert the retune -- but it also means these do
+  # NOT get upstream's improvements. Re-check this file on major chart upgrades.
+  #
+  # Every rule carries an explicit severity: the Alertmanager route in values.yaml is
+  # fail-closed, so a rule without one would be silently dropped.
+  groups:
+
+  - name: retuned.node.rules
+    rules:
+
+    - alert: NodeSystemSaturation
+      # UPSTREAM: > 2 for 15m, severity warning.
+      # CHANGED:  > 6 for 30m.
+      #
+      # load1/core > 2 is a "something is wrong" threshold for a dedicated production
+      # node. Routine work on these nodes -- volsync/restic backup runs, Longhorn replica
+      # rebuilds, image pulls, media indexing -- parks load/core between 2 and 4 for tens
+      # of minutes. dubois was at 2.84 and pending during the audit with nothing wrong.
+      # 6 for 30m still catches a genuinely wedged node while ignoring normal batch work.
+      expr: |-
+        node_load1{job="node-exporter"}
+        / count without (cpu, mode) (node_cpu_seconds_total{job="node-exporter", mode="idle"}) > 6
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: "System saturated: load per core is very high."
+        description: "Load per core on {{ $labels.instance }} has been above 6 for 30m, currently {{ printf \"%.2f\" $value }}. The node may become unresponsive."
+
+  - name: retuned.storage.rules
+    rules:
+
+    - alert: KubePersistentVolumeFillingUp
+      # UPSTREAM: identical, but with no PVC-name exclusion.
+      # CHANGED:  excludes volsync-*-src / volsync-*-dst.
+      #
+      # VolSync ReplicationSource clone PVCs are point-in-time copies sized to the source
+      # volume, mounted only for the duration of a restic run. They are ~100% full BY
+      # CONSTRUCTION -- the data was copied into a volume exactly the size of the data.
+      # This was firing critical on opencloud/volsync-opencloud-data-backup-src at 1.19%
+      # free during the audit, and would do so on every backup cycle for every one of the
+      # ~10 apps using volsync. Upstream offers a namespace filter but no PVC-name filter.
+      expr: |-
+        (
+          kubelet_volume_stats_available_bytes{job="kubelet", metrics_path="/metrics", persistentvolumeclaim!~"volsync-.*-(src|dst)"}
+            /
+          kubelet_volume_stats_capacity_bytes{job="kubelet", metrics_path="/metrics", persistentvolumeclaim!~"volsync-.*-(src|dst)"}
+        ) < 0.03
+        and
+        kubelet_volume_stats_used_bytes{job="kubelet", metrics_path="/metrics", persistentvolumeclaim!~"volsync-.*-(src|dst)"} > 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "PersistentVolume is filling up."
+        description: "The volume claimed by {{ $labels.persistentvolumeclaim }} in {{ $labels.namespace }} is only {{ $value | humanizePercentage }} free."
+
+    - alert: KubePersistentVolumeFillingUp
+      # The 4-day predictive companion to the rule above, same exclusion.
+      expr: |-
+        (
+          kubelet_volume_stats_available_bytes{job="kubelet", metrics_path="/metrics", persistentvolumeclaim!~"volsync-.*-(src|dst)"}
+            /
+          kubelet_volume_stats_capacity_bytes{job="kubelet", metrics_path="/metrics", persistentvolumeclaim!~"volsync-.*-(src|dst)"}
+        ) < 0.15
+        and
+        kubelet_volume_stats_used_bytes{job="kubelet", metrics_path="/metrics", persistentvolumeclaim!~"volsync-.*-(src|dst)"} > 0
+        and
+        predict_linear(kubelet_volume_stats_available_bytes{job="kubelet", metrics_path="/metrics", persistentvolumeclaim!~"volsync-.*-(src|dst)"}[6h], 4 * 24 * 3600) < 0
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: "PersistentVolume is expected to fill up within four days."
+        description: "The volume claimed by {{ $labels.persistentvolumeclaim }} in {{ $labels.namespace }} is {{ $value | humanizePercentage }} free and trending to zero."
+
+  - name: retuned.apiserver.rules
+    rules:
+
+    - alert: KubeAPIHighErrorRate
+      # REPLACES: KubeAPIErrorBudgetBurn x4 (defaultRules.rules.kubeApiserverSlos: false).
+      #
+      # The upstream rules are multi-window multi-burn-rate SLO alerts. That technique
+      # assumes a busy apiserver where an error RATIO is statistically meaningful. This
+      # apiserver serves a low, bursty volume (ArgoCD watches, 3 kubelets, a few
+      # controllers), so a handful of 5xx moves the ratio by whole percentage points and
+      # "blows the error budget" without an incident. It was pending at 3.4e-02 against a
+      # 1.0e-02 threshold during the audit.
+      #
+      # A flat 5% 5xx rate over 10m, sustained 15m, is the honest version of the same
+      # question on a cluster this size. Disabling the SLO group also removes ~325 lines
+      # of burnrate recording rules whose only consumer was those alerts -- a real saving
+      # on a Prometheus with an OOM history.
+      expr: |-
+        sum(rate(apiserver_request_total{job="apiserver", code=~"5.."}[10m]))
+        / sum(rate(apiserver_request_total{job="apiserver"}[10m])) > 0.05
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Kubernetes API server is returning 5xx at an elevated rate."
+        description: "{{ $value | humanizePercentage }} of apiserver requests are failing with 5xx over the last 10 minutes."
+
+  - name: retuned.workload.rules
+    rules:
+
+    - alert: KubePodRestartingFrequently
+      # NEW -- fills a real gap, does not replace anything.
+      #
+      # KubePodCrashLooping requires kube_pod_container_status_waiting_reason
+      # {reason="CrashLoopBackOff"} to hold for 15 minutes. A pod that restarts steadily
+      # but comes back quickly never accumulates 15 minutes of CrashLoopBackOff, so it
+      # never alerts. Observed during the audit, all unalerted:
+      #
+      #   prometheus-prometheus-node-exporter-25s4f   3078 restarts
+      #   prometheus-prometheus-node-exporter-zcfjz   3000 restarts
+      #   prometheus-kube-state-metrics                 56 restarts
+      #   prometheus-grafana                            24 restarts
+      #
+      # Restart RATE is the signal CrashLoopBackOff state misses.
+      expr: |-
+        increase(kube_pod_container_status_restarts_total{job="kube-state-metrics"}[1h]) > 5
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: "Container {{ $labels.container }} is restarting frequently."
+        description: "{{ $labels.namespace }}/{{ $labels.pod }} restarted {{ printf \"%.0f\" $value }} times in the last hour without ever entering a sustained CrashLoopBackOff."

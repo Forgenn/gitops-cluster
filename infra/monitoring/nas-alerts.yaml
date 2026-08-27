@@ -1,0 +1,157 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: nas-alerts
+  labels:
+    app: kube-prometheus-stack
+    release: prometheus
+spec:
+  groups:
+  - name: nas.rules
+    # WHY THIS FILE EXISTS
+    #
+    # dolores is not a k8s node, so the chart's node-exporter DaemonSet never reaches it.
+    # It is scraped by a static target declared in values.yaml under
+    # prometheus.prometheusSpec.additionalScrapeConfigs, as:
+    #
+    #     job_name: dolores-node-exporter
+    #
+    # Every single upstream node-exporter alert pins job="node-exporter". dolores
+    # therefore matches NONE of them: no filesystem alerting, no inode alerting, no
+    # memory, no clock, no file descriptor, no systemd unit alerting. The machine holding
+    # every PersistentVolume in the cluster had zero node-level coverage.
+    #
+    # THE ALTERNATIVE, and why it was not taken: renaming the static job to
+    # "node-exporter" is a one-line change that would make every upstream node alert apply
+    # to dolores immediately. It was rejected as the default because
+    # kube-prometheus-node-recording.rules aggregates by job, so dolores would be folded
+    # into cluster-wide node aggregates on the Grafana dashboards despite not being a k8s
+    # node, and TargetDown would group it with the DaemonSet targets. If you would rather
+    # have breadth than dashboard purity, delete this file and rename the job instead.
+    # See GAP-2 in docs/plans/2026-08-27-alerting-redesign.md.
+    #
+    # This file covers the subset that actually matters for a NAS. Thresholds mirror
+    # upstream so behaviour is predictable; only the job selector differs.
+    rules:
+
+    - alert: NasExporterDown
+      # Everything else here, plus every rule in zfs-alerts.yaml, depends on this target
+      # being scraped. Guard it explicitly rather than relying on TargetDown, whose
+      # `by (cluster, job, namespace, service)` grouping is a poor fit for a static
+      # target with no namespace or service label.
+      expr: up{job="dolores-node-exporter"} == 0
+      for: 10m
+      labels:
+        severity: critical
+        instance: dolores
+      annotations:
+        summary: "node_exporter on dolores is unreachable."
+        description: "The NAS holding every cluster PVC is unmonitored, including all ZFS pool health alerting."
+
+    # --- filesystem space --------------------------------------------------------
+    #
+    # mountpoint!~"/revachol-pool.*" excludes the 56 ZFS datasets deliberately: ZFS
+    # capacity is percentage-meaningless per dataset and is handled properly, once, in
+    # zfs-alerts.yaml. What is left is dolores' own root and boot filesystems, where a
+    # percentage threshold is correct.
+
+    - alert: NasFilesystemAlmostOutOfSpace
+      expr: |-
+        node_filesystem_avail_bytes{job="dolores-node-exporter", fstype!="", fstype!="zfs", mountpoint!~"/revachol-pool.*"}
+          / node_filesystem_size_bytes{job="dolores-node-exporter", fstype!="", fstype!="zfs", mountpoint!~"/revachol-pool.*"} * 100 < 10
+        and
+        node_filesystem_readonly{job="dolores-node-exporter", fstype!="", fstype!="zfs"} == 0
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Filesystem {{ $labels.mountpoint }} on dolores is nearly full."
+        description: "{{ printf \"%.1f\" $value }}% space left on {{ $labels.device }} ({{ $labels.mountpoint }})."
+
+    - alert: NasFilesystemCriticallyOutOfSpace
+      expr: |-
+        node_filesystem_avail_bytes{job="dolores-node-exporter", fstype!="", fstype!="zfs", mountpoint!~"/revachol-pool.*"}
+          / node_filesystem_size_bytes{job="dolores-node-exporter", fstype!="", fstype!="zfs", mountpoint!~"/revachol-pool.*"} * 100 < 3
+        and
+        node_filesystem_readonly{job="dolores-node-exporter", fstype!="", fstype!="zfs"} == 0
+      for: 15m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Filesystem {{ $labels.mountpoint }} on dolores is critically full."
+        description: "Only {{ printf \"%.1f\" $value }}% space left on {{ $labels.device }}."
+
+    - alert: NasFilesystemReadOnly
+      # This is exactly the failure mode that took Prometheus down during the audit, one
+      # layer lower. A root filesystem flipping read-only is silent until something tries
+      # to write, and on a NAS that means silent data loss.
+      expr: node_filesystem_readonly{job="dolores-node-exporter", fstype!=""} == 1
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Filesystem {{ $labels.mountpoint }} on dolores has gone read-only."
+        description: "Device {{ $labels.device }} remounted read-only -- usually an IO error. Check dmesg."
+
+    - alert: NasFilesystemAlmostOutOfFiles
+      expr: |-
+        node_filesystem_files_free{job="dolores-node-exporter", fstype!="", fstype!="zfs"}
+          / node_filesystem_files{job="dolores-node-exporter", fstype!="", fstype!="zfs"} * 100 < 10
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: "Filesystem {{ $labels.mountpoint }} on dolores is low on inodes."
+        description: "{{ printf \"%.1f\" $value }}% of inodes free on {{ $labels.device }}."
+
+    # --- memory ------------------------------------------------------------------
+
+    - alert: NasMemoryHighUtilization
+      # Threshold is 94%, not the upstream 90%, on purpose: this is a ZFS box. The ARC is
+      # not counted in MemAvailable on Linux, so a healthy ZFS NAS reads as
+      # high-memory-utilisation permanently -- dolores sits at ~84% used with nothing
+      # wrong. 90%/15m would be a false-positive generator here.
+      expr: |-
+        100 - (node_memory_MemAvailable_bytes{job="dolores-node-exporter"}
+          / node_memory_MemTotal_bytes{job="dolores-node-exporter"} * 100) > 94
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: "dolores is running out of memory."
+        description: "Memory is {{ printf \"%.1f\" $value }}% used. Note the ZFS ARC is not counted as available, so a high baseline is normal here."
+
+    # --- host health -------------------------------------------------------------
+
+    - alert: NasClockNotSynchronising
+      # dolores serves NFS/iSCSI to the cluster. Clock drift breaks NFS attribute caching
+      # and TLS validation in ways that look like unrelated application bugs.
+      expr: |-
+        min_over_time(node_timex_sync_status{job="dolores-node-exporter"}[5m]) == 0
+        and
+        node_timex_maxerror_seconds{job="dolores-node-exporter"} >= 16
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Clock on dolores is not synchronising."
+        description: "NTP is not disciplining the clock. NFS attribute caching and TLS validation both depend on this."
+
+    # UNVERIFIED -- see OQ-8. node_exporter's `systemd` collector is NOT enabled by
+    # default, so node_systemd_unit_state may not exist for dolores at all, in which case
+    # this rule is a silent no-op (harmless, but not coverage). Prometheus was in
+    # CrashLoopBackOff at the end of the audit so this could not be checked live. Confirm
+    # with:
+    #   curl -s dolores.home:9100/metrics | grep -c node_systemd_unit_state
+    # If it returns 0, either add `--collector.systemd` to node_exporter's flags in
+    # dolores' NixOS config (services.prometheus.exporters.node.enabledCollectors), or
+    # delete this rule. The same caveat applies to the upstream NodeSystemdServiceFailed
+    # and NodeSystemdServiceCrashlooping rules for the k8s nodes.
+    - alert: NasSystemdServiceFailed
+      expr: node_systemd_unit_state{job="dolores-node-exporter", state="failed"} == 1
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: "systemd unit {{ $labels.name }} has failed on dolores."
+        description: "Run `systemctl status {{ $labels.name }}` on dolores."

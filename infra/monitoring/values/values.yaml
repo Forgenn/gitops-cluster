@@ -3,14 +3,106 @@
 # default ServiceMonitors expect (upstream kubeadm-style clusters). These three alerts
 # were permanently firing false positives since day one, not real outages -- disabling
 # their ServiceMonitor + PrometheusRule pair rather than silencing in Alertmanager, since
-# there's nothing real to monitor here. kubeEtcd and kubeApiServer stay enabled -- k3s
-# does expose those in a scrapable way and their alerts were not firing. Found via audit.
+# there's nothing real to monitor here. kubeApiServer stays enabled -- k3s does expose it
+# in a scrapable way (job="apiserver" is up). Found via audit.
+#
+# CORRECTION 2026-08-27: the earlier note claimed kubeEtcd also works "and their alerts
+# were not firing". It does not work. `kubectl get endpoints -n monitoring
+# prometheus-kube-prometheus-kube-etcd` returns <none>, so all 17 etcd alerts evaluate
+# against nothing -- they are silent because there is no data, not because etcd is
+# healthy. Two causes: (1) kustomization.yaml's blanket `namespace: monitoring` rewrites
+# the chart's kube-system Service into monitoring while the ServiceMonitor still selects
+# namespace kube-system; (2) k3s does not serve etcd metrics on :2381 without
+# --etcd-expose-metrics=true on each server. Left ENABLED on purpose: on a 3-node
+# embedded-etcd control plane these are the alerts you most want, so the fix is to
+# repair the scrape, not to delete the rules. See docs/plans/2026-08-27-alerting-redesign.md
+# GAP-1. The same namespace-rewrite bug leaves CoreDNS entirely unscraped.
 kubeControllerManager:
   enabled: false
 kubeScheduler:
   enabled: false
 kubeProxy:
   enabled: false
+
+# Upstream kube-prometheus-stack ships ~149 alerting rules tuned for a generic,
+# multi-tenant, kubeadm-style production cluster. The blocks below prune the ones that
+# are either inapplicable to a 3-node k3s homelab or permanently-true statements about
+# how this cluster is deliberately configured. Rationale for every entry is in
+# docs/plans/2026-08-27-alerting-redesign.md section 1.3.
+#
+# Two knobs, with different powers -- worth knowing which is which:
+#   defaultRules.rules.<group>   turns an entire rule group off
+#   defaultRules.disabled.<Name> turns one alert off, by alertname
+#   customRules.<Name>.{for,severity}  overrides ONLY those two fields
+# There is no knob for overriding a threshold. Retuning a threshold therefore means
+# disabling the upstream rule and re-declaring it -- that is what retuned-alerts.yaml is.
+defaultRules:
+  rules:
+    # No Windows nodes. Whole group is dead weight.
+    windows: false
+    # KubeAPIErrorBudgetBurn x4. Multi-window burn-rate SLO alerting assumes a busy
+    # apiserver where an error *ratio* is statistically meaningful. This apiserver serves
+    # a low, bursty volume (ArgoCD watches, 3 kubelets, a few controllers), so a handful
+    # of 5xx moves the ratio by whole percentage points and "blows the error budget"
+    # without an incident having happened. Was pending at 3.4e-02 against a 1.0e-02
+    # threshold during the audit. Replaced by KubeAPIHighErrorRate in retuned-alerts.yaml.
+    kubeApiserverSlos: false
+    # ~325 lines of recording rules whose only consumer is kubeApiserverSlos above.
+    # Removing them is also a real memory/CPU saving on a Prometheus with an OOM history.
+    # NOTE: kubeApiserverAvailability and kubeApiserverHistogram stay ON -- those feed the
+    # Grafana apiserver dashboard and are not tied to the SLO alerts.
+    kubeApiserverBurnrate: false
+
+  disabled:
+    # Plumbing alert whose only purpose is to be an inhibit-rule source for info alerts.
+    # Under the severity model in alertmanager.config.route below, info alerts never
+    # notify at all, so the mechanism is dead weight -- and it was showing up as a
+    # permanently-firing "InfoInhibitor" row in Grafana's alert list (one series per
+    # namespace) plus, because the old route only muted Watchdog and ArgoAppNotSynced,
+    # being delivered to Telegram. This is the "InfoInhibited clutter" complaint.
+    InfoInhibitor: true
+    # >25% CFS throttling for 15m. Every container here runs under a tight CPU limit, so
+    # this is permanently true. It is a "your limits are too low" tuning signal -- a
+    # Grafana panel, not an alert.
+    CPUThrottlingHigh: true
+    # "Cluster has overcommitted CPU requests and cannot tolerate node failure." CPU is
+    # compressible and the overcommit here is deliberate. Permanent-true.
+    # KubeMemoryOvercommit stays enabled: memory overcommit is a genuine OOM risk.
+    KubeCPUOvercommit: true
+    # Only loomie-sandbox has a ResourceQuota, and that quota is an intentional cap.
+    # "You are near the cap you set" is not an incident. KubeQuotaExceeded stays enabled
+    # -- that one means workloads are actually being rejected.
+    KubeQuotaAlmostFull: true
+    KubeQuotaFullyUsed: true
+    # load1/core > 2 for 15m. That is a dedicated-production-node threshold. Routine work
+    # here (volsync/restic runs, Longhorn replica rebuilds, image pulls, media indexing)
+    # parks load/core between 2 and 4 for tens of minutes -- dubois was at 2.84 during the
+    # audit with nothing wrong. Re-declared at > 6 for 30m in retuned-alerts.yaml.
+    NodeSystemSaturation: true
+    # Fires critical on VolSync's own ReplicationSource clone PVCs, which are sized to the
+    # source data and are therefore ~100% full by construction. Was pending critical on
+    # opencloud/volsync-opencloud-data-backup-src at 1.19% free. Upstream has no PVC-name
+    # exclusion knob, so both variants are re-declared with a volsync exclusion in
+    # retuned-alerts.yaml.
+    KubePersistentVolumeFillingUp: true
+
+# customRules can only override `for` and `severity` -- see the note above.
+customRules:
+  # >90% memory used for 15m. Current usage: katsuragi 75%, dubois 81%, dolores 84%, so
+  # 15m trips on transient spikes. The actionable memory signal is KubeNodePressure
+  # (MemoryPressure is what actually triggers evictions), promoted to warning below.
+  NodeMemoryHighUtilization:
+    for: 30m
+  # On a 3-node cluster, losing a node is not a heads-up -- it is a third of the control
+  # plane and a third of the etcd quorum.
+  KubeNodeNotReady:
+    severity: critical
+  KubeNodeUnreachable:
+    severity: critical
+  # Ships as info, which under the new route tree means it would never be seen.
+  # Memory/Disk/PIDPressure is directly actionable and precedes pod evictions.
+  KubeNodePressure:
+    severity: warning
 
 alertmanager:
   enabled: true
@@ -51,43 +143,179 @@ alertmanager:
   config:
     global:
       resolve_timeout: 5m
+
+    # Already the chart default, but re-stated explicitly so the wiring does not depend
+    # on Helm's map-merge behaviour surviving a future chart bump. Each key under
+    # alertmanager.templateFiles below becomes a key in the alertmanager config Secret,
+    # which the operator mounts at /etc/alertmanager/config/.
+    templates:
+      - '/etc/alertmanager/config/*.tmpl'
+
     inhibit_rules:
-      - source_matchers: ['severity = critical']
-        target_matchers: ['severity =~ warning|info']
+      # A critical about an object silences the warning/info about the same object.
+      - source_matchers: ['severity = "critical"']
+        target_matchers: ['severity =~ "warning|info"']
         equal: ['namespace', 'alertname']
-      - source_matchers: ['severity = warning']
-        target_matchers: ['severity = info']
+      - source_matchers: ['severity = "warning"']
+        target_matchers: ['severity = "info"']
         equal: ['namespace', 'alertname']
-      - source_matchers: ['alertname = InfoInhibitor']
-        target_matchers: ['severity = info']
-        equal: ['namespace']
-      - target_matchers: ['alertname = Watchdog']
+      # A node that is gone explains everything else scoped to that node. Without this,
+      # losing one of three nodes produces a burst of ~20 derived alerts, all of which
+      # say the same thing.
+      - source_matchers: ['alertname =~ "KubeNodeNotReady|KubeNodeUnreachable"']
+        target_matchers: ['severity =~ "warning|info"']
+        equal: ['node']
+      # A dead kubelet explains the scrape failures that follow from it.
+      - source_matchers: ['alertname = "KubeletDown"']
+        target_matchers: ['alertname =~ "TargetDown|KubeNodeNotReady"']
+        equal: ['node']
+      #
+      # REMOVED, deliberately:
+      #  - the InfoInhibitor source rule: obsolete now that info never notifies and the
+      #    InfoInhibitor alert itself is disabled in defaultRules.disabled above.
+      #  - `- target_matchers: ['alertname = Watchdog']` with no source_matchers and no
+      #    equal. An empty source matcher list matches EVERY alert, so it read as "any
+      #    firing alert anywhere inhibits Watchdog". Inert only because Watchdog was
+      #    already routed to null -- and it would silently break a dead-man's-switch
+      #    receiver if one is ever wired up (see the marked slot in the route below).
+
     route:
-      group_by: ['namespace']
+      # Group by alertname as well as namespace. With namespace-only grouping a single
+      # Telegram message can mix a crashlooping pod and a full disk under one title.
+      group_by: ['alertname', 'namespace']
       group_wait: 30s
       group_interval: 5m
-      repeat_interval: 12h
-      receiver: telegram
+      repeat_interval: 24h
+
+      # FAIL CLOSED. Anything that does not match a route below is dropped.
+      #
+      # This is the core change from the previous config, which defaulted to `telegram`
+      # and muted by exception. Two reasons:
+      #   1. Muting-by-exception does not scale -- it grows a list of `alertname = X`
+      #      entries and never a model.
+      #   2. With a telegram default, bumping the chart version silently enrols every
+      #      newly-added upstream alert into paging you.
+      #
+      # INVARIANT this introduces: every locally-authored alerting rule MUST carry a
+      # severity label of critical, warning or info, or it will be silently dropped.
+      # All rules in argocd-alerts.yaml, zfs-alerts.yaml, nas-alerts.yaml and
+      # retuned-alerts.yaml do. Check any new rule against this before adding it.
+      receiver: 'null'
+
       routes:
-        - matchers: ['alertname = Watchdog']
-          receiver: 'null'
-        # 8 apps (hermes-agent, infisical, karakeep, pocket-id, seaweedfs,
-        # sparky-fitness, vaultwarden, zot) are permanently OutOfSync from a known,
-        # already-fixed-in-git cosmetic ArgoCD diff (StatefulSet volumeClaimTemplates
-        # server-side defaults) that hasn't gone live yet -- it's k3s-addon-managed and
-        # needs a supervised `nh os switch` on dubois, not a live kubectl patch (already
-        # tried and reverted once). Muting until that lands rather than paging on a
-        # known non-issue every repeat_interval. Remove this route once the switch
-        # happens and re-verify these actually clear.
-        - matchers: ['alertname = ArgoAppNotSynced']
-          receiver: 'null'
+        # 1. Pipeline plumbing. Never notifies.
+        #    Watchdog is the always-firing heartbeat; it is only useful pointed at an
+        #    EXTERNAL dead-man's-switch, because an in-cluster receiver dies with the
+        #    cluster. Nothing currently verifies the pipeline end to end -- during this
+        #    audit Prometheus was in CrashLoopBackOff and produced no notification at all.
+        #    See OQ-2 in docs/plans/2026-08-27-alerting-redesign.md; when a heartbeat URL
+        #    is chosen, change this receiver and add repeat_interval: 5m.
+        - receiver: 'null'
+          matchers: ['alertname =~ "Watchdog|InfoInhibitor"']
+
+        # 2. Everything informational: visible in Grafana and the Alertmanager UI,
+        #    delivered nowhere.
+        #    This replaces the old one-off `alertname = ArgoAppNotSynced` mute.
+        #    ArgoAppOutOfSync is declared severity=info in argocd-alerts.yaml, so it
+        #    lands here by model rather than by exception -- no per-alert mute needed,
+        #    and nothing to remember to remove later.
+        - receiver: 'null'
+          matchers: ['severity =~ "info|none"']
+
+        # 3. Critical: out fast, reminded often.
+        - receiver: 'telegram'
+          matchers: ['severity = "critical"']
+          group_wait: 10s
+          group_interval: 5m
+          repeat_interval: 1h
+
+        # 4. Warning: batched, reminded quietly.
+        - receiver: 'telegram'
+          matchers: ['severity = "warning"']
+          group_wait: 2m
+          group_interval: 10m
+          repeat_interval: 24h
+
     receivers:
       - name: 'null'
       - name: telegram
         telegram_configs:
           - bot_token_file: /etc/alertmanager/secrets/telegram-bot-credentials/BOT_TOKEN
             chat_id: 7850573137
+            # parse_mode stays '' (plain text) DELIBERATELY. Alert values routinely
+            # contain _ * ` < >, and under HTML/MarkdownV2 Telegram rejects the entire
+            # message with a 400 -- the notification is then silently lost. Plain text
+            # cannot fail that way. The template compensates with structure, not markup.
             parse_mode: ''
+            message: '{{ template "telegram.short" . }}'
+            # Off by default for Telegram, which means a critical never tells you it
+            # cleared and the only way to know is to go and look.
+            send_resolved: true
+
+  # Rendered into the alertmanager config Secret by the chart
+  # (templates/alertmanager/secret.yaml ranges over this map) and mounted at
+  # /etc/alertmanager/config/, where the `templates:` glob above picks it up.
+  # No ConfigMap and no extra alertmanagerSpec.secrets entry are needed.
+  templateFiles:
+    telegram.tmpl: |-
+      {{/*
+        Succinct Telegram notification template.
+
+        Replaces Alertmanager's default, which dumps every label and every annotation
+        for every alert in the group. Shape, per alert: one title line, then at most
+        two lines of context.
+
+            AlertName
+              <summary, collapsed to one line, truncated>
+              <the one thing that is affected>
+
+        Constraints encoded here:
+          - Telegram caps a message at 4096 chars and DROPS an over-length message
+            entirely, so at most 5 alerts are rendered per group.
+          - Truncation uses printf "%.110s", not `slice`: Go's fmt string precision
+            counts runes and so cannot split a UTF-8 sequence, whereas slice counts
+            bytes and can.
+          - Alertmanager's template funcs have no arithmetic (no add/sub), which is why
+            the overflow line says "and more" rather than a count.
+      */}}
+
+      {{/* The single most decision-relevant "what is affected" string for one alert. */}}
+      {{ define "tg.subject" -}}
+      {{- if .Labels.persistentvolumeclaim -}}pvc {{ .Labels.namespace }}/{{ .Labels.persistentvolumeclaim }}
+      {{- else if .Labels.zpool -}}zpool {{ .Labels.zpool }} on {{ .Labels.instance }}
+      {{- else if .Labels.pod -}}pod {{ .Labels.namespace }}/{{ .Labels.pod }}
+      {{- else if .Labels.deployment -}}deploy {{ .Labels.namespace }}/{{ .Labels.deployment }}
+      {{- else if .Labels.statefulset -}}sts {{ .Labels.namespace }}/{{ .Labels.statefulset }}
+      {{- else if .Labels.daemonset -}}ds {{ .Labels.namespace }}/{{ .Labels.daemonset }}
+      {{- else if .Labels.node -}}node {{ .Labels.node }}
+      {{- else if .Labels.mountpoint -}}{{ .Labels.instance }}:{{ .Labels.mountpoint }}
+      {{- else if .Labels.instance -}}{{ .Labels.instance }}
+      {{- else if .Labels.namespace -}}ns {{ .Labels.namespace }}
+      {{- else -}}cluster
+      {{- end -}}
+      {{- end }}
+
+      {{/* One line of prose: summary if present, else description, newlines collapsed. */}}
+      {{ define "tg.line" -}}
+      {{- if .Annotations.summary -}}
+      {{ printf "%.110s" (reReplaceAll "\\s+" " " .Annotations.summary) | trimSpace }}
+      {{- else -}}
+      {{ printf "%.110s" (reReplaceAll "\\s+" " " .Annotations.description) | trimSpace }}
+      {{- end -}}
+      {{- end }}
+
+      {{ define "telegram.short" -}}
+      [{{ .Status | toUpper }}] {{ with .CommonLabels.severity }}{{ . | toUpper }}{{ else }}ALERT{{ end }}
+      {{- with .CommonLabels.namespace }} - {{ . }}{{ end }}
+      {{ range $i, $a := .Alerts }}{{ if lt $i 5 }}
+      {{ $a.Labels.alertname }}
+        {{ template "tg.line" $a }}
+        {{ template "tg.subject" $a }}
+      {{ end }}{{ end }}
+      {{- if gt (len .Alerts) 5 }}
+      (and more - open Alertmanager for the full group)
+      {{- end }}
+      {{- end }}
 
 grafana:
   enabled: true
@@ -184,6 +412,12 @@ prometheus:
       volumeClaimTemplate:
         spec:
           storageClassName: longhorn
+          # RWO, not RWX -- this crashed Prometheus hard mid-session (real I/O error at
+          # the Longhorn NFS-share-manager layer, "panic: Unable to create mmap-ed
+          # active query log"). Prometheus is a single-writer StatefulSet and never
+          # needed multi-attach. Fixed live (PVC deleted+recreated) and in git
+          # independently by hermes-agent around the same time this was found; see
+          # docs/plans/2026-08-27-alerting-redesign.md section 0.1 (OQ-1 resolved).
           accessModes: ["ReadWriteOnce"]
           resources:
             requests:
