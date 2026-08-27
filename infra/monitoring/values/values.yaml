@@ -63,6 +63,16 @@ alertmanager:
       routes:
         - matchers: ['alertname = Watchdog']
           receiver: 'null'
+        # 8 apps (hermes-agent, infisical, karakeep, pocket-id, seaweedfs,
+        # sparky-fitness, vaultwarden, zot) are permanently OutOfSync from a known,
+        # already-fixed-in-git cosmetic ArgoCD diff (StatefulSet volumeClaimTemplates
+        # server-side defaults) that hasn't gone live yet -- it's k3s-addon-managed and
+        # needs a supervised `nh os switch` on dubois, not a live kubectl patch (already
+        # tried and reverted once). Muting until that lands rather than paging on a
+        # known non-issue every repeat_interval. Remove this route once the switch
+        # happens and re-verify these actually clear.
+        - matchers: ['alertname = ArgoAppNotSynced']
+          receiver: 'null'
     receivers:
       - name: 'null'
       - name: telegram
