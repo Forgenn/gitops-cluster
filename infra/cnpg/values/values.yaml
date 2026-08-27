@@ -1,2 +1,8 @@
-replicaCount: 1
+# Was single-replica with no PDB. The operator's webhook validates every Cluster/
+# Backup/ScheduledBackup change for all 6 Postgres clusters in this repo -- if it's
+# down during a node drain, that admission fails cluster-wide. Uses leader election
+# (standard operator pattern), so 2 replicas is safe. This chart has no native
+# podDisruptionBudget field, so the PDB is a plain core resource (pdb.yaml). Found via
+# the Opus 5 audit.
+replicaCount: 2
       

@@ -3,6 +3,9 @@ kind: Kustomization
 
 namespace: cnpg
 
+resources:
+  - pdb.yaml
+
 helmCharts:
   - name: cloudnative-pg
     repo: https://cloudnative-pg.github.io/charts

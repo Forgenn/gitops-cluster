@@ -1,0 +1,12 @@
+# Targets the operator's own pod labels directly -- the chart has no native
+# podDisruptionBudget field. See values/values.yaml for why this matters.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cnpg-operator
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: cngp
+      app.kubernetes.io/name: cloudnative-pg
