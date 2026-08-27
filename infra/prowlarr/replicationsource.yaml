@@ -9,8 +9,9 @@ spec:
   restic:
     copyMethod: Direct
     moverSecurityContext:
-      runAsUser: 0
-      runAsGroup: 0
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
     pruneIntervalDays: 7
     cacheCapacity: 5Gi
     repository: prowlarr-config-restic-config
