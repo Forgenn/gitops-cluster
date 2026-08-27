@@ -5,6 +5,16 @@ metadata:
   namespace: vaultwarden
 spec:
   instances: 3
+  # Requests keep this out of BestEffort QoS (first to be OOM-killed under node
+  # pressure) -- sized off actual usage (~30m CPU, ~120Mi RSS observed). Limits leave
+  # headroom for backup/vacuum spikes. Found via the Opus 5 audit.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
   backup:
     barmanObjectStore:
       # URL to hetzner S3 services

@@ -5,6 +5,17 @@ metadata:
 spec:
   instances: 1
 
+  # Requests keep this out of BestEffort QoS (first to be OOM-killed under node
+  # pressure) -- sized off actual usage (~5m CPU, ~60Mi RSS observed). Limits leave
+  # headroom for backup/vacuum spikes. Found via the Opus 5 audit.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
   # Bootstrap from backup
   bootstrap:
     recovery:

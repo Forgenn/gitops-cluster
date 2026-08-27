@@ -5,6 +5,16 @@ metadata:
   namespace: sparky-fitness
 spec:
   instances: 1
+  # Requests keep this out of BestEffort QoS (first to be OOM-killed under node
+  # pressure) -- sized off actual usage (~6m CPU, ~77Mi RSS observed). Limits leave
+  # headroom for backup/vacuum spikes. Found via the Opus 5 audit.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
   storage:
     storageClass: zfs-generic-nfs-csi
     size: 5Gi
