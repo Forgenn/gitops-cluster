@@ -5,6 +5,7 @@ namespace: monitoring
 
 resources:
   - argocd-alerts.yaml
+  - zfs-alerts.yaml
   - argocd-dashboard.yaml
   - grafana-admin-externalsecret.yaml
   - grafana-oidc-externalsecret.yaml

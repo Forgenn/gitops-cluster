@@ -1,0 +1,23 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: zfs-alerts
+  labels:
+    app: kube-prometheus-stack
+    release: prometheus
+spec:
+  groups:
+  - name: zfs.rules
+    rules:
+    - alert: ZfsPoolNotHealthy
+      # dolores' revachol-pool sat DEGRADED for ~5 months, entirely unnoticed, before the
+      # NAS migration -- nothing was watching pool state. node_exporter's ZFS collector
+      # doesn't expose per-vdev checksum/read/write error counts, only overall pool state,
+      # but state is exactly what would have caught that incident.
+      expr: node_zfs_zpool_state{state="online"} == 0
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "ZFS pool {{ $labels.zpool }} is not ONLINE"
+        description: "Pool {{ $labels.zpool }} on {{ $labels.instance }} has left the online state. Check `zpool status {{ $labels.zpool }}` immediately."
