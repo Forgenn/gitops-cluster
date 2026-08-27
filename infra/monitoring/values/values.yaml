@@ -14,7 +14,15 @@ kubeProxy:
 
 alertmanager:
   enabled: true
+  # Was single-replica with no PDB. Alertmanager has real gossip-based clustering
+  # support (unlike Prometheus, which would need Thanos for meaningful HA) -- 2
+  # replicas properly dedupe notifications and share silence/inhibition state, not
+  # just two independent instances. Found via the Opus 5 audit.
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
   alertmanagerSpec:
+    replicas: 2
     storage:
       volumeClaimTemplate:
         spec:
