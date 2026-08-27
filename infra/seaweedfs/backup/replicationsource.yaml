@@ -1,0 +1,68 @@
+# None of seaweedfs's 3 volumes had any backup. It's the in-cluster S3-compatible
+# backing store -- currently near-empty (opencloud's S3 integration is still
+# commented out in infra/opencloud/values/values.yaml), but provisioned for real use.
+# Found via the Opus 5 audit.
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: seaweedfs-master
+  namespace: seaweedfs
+spec:
+  sourcePVC: data-seaweedfs-seaweedfs-master-0
+  trigger:
+    schedule: "0 9 * * *"
+  restic:
+    copyMethod: Direct
+    pruneIntervalDays: 14
+    cacheCapacity: 5Gi
+    repository: seaweedfs-master-restic-config
+    moverSecurityContext:
+      runAsUser: 0
+      runAsGroup: 0
+    retain:
+      daily: 7
+      within: 3d
+---
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: seaweedfs-filer
+  namespace: seaweedfs
+spec:
+  sourcePVC: data-filer-seaweedfs-filer-0
+  trigger:
+    schedule: "0 9 * * *"
+  restic:
+    copyMethod: Direct
+    pruneIntervalDays: 14
+    cacheCapacity: 5Gi
+    repository: seaweedfs-filer-restic-config
+    moverSecurityContext:
+      runAsUser: 0
+      runAsGroup: 0
+    retain:
+      daily: 7
+      within: 3d
+---
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: seaweedfs-volume
+  namespace: seaweedfs
+spec:
+  # 1Ti PVC, currently ~147MB used -- cacheCapacity sized for today's usage, not the
+  # full provisioned capacity. Revisit if this ever actually fills up.
+  sourcePVC: data1-seaweedfs-volume-0
+  trigger:
+    schedule: "0 9 * * *"
+  restic:
+    copyMethod: Direct
+    pruneIntervalDays: 14
+    cacheCapacity: 10Gi
+    repository: seaweedfs-volume-restic-config
+    moverSecurityContext:
+      runAsUser: 0
+      runAsGroup: 0
+    retain:
+      daily: 7
+      within: 3d
