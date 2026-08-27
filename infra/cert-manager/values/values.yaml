@@ -6,3 +6,25 @@ config:
   apiVersion: controller.config.cert-manager.io/v1alpha1
   kind: ControllerConfiguration
   enableGatewayAPI: true
+
+# All 3 components were single-replica with no PDB -- the sharpest risk being the
+# webhook: if it's down during a node drain, ALL Certificate admission fails
+# cluster-wide, not just for whatever's on that node. controller and cainjector use
+# leader election so >1 replica is safe (one active, rest standby). Found via the
+# Opus 5 audit.
+replicaCount: 2
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+webhook:
+  replicaCount: 2
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+cainjector:
+  replicaCount: 2
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
