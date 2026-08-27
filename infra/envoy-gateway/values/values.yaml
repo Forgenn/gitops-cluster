@@ -1,3 +1,16 @@
+# Controller itself was single-replica with no PDB (separate from the data-plane
+# proxy HA'd earlier -- see envoy-proxy.yaml). Uses leader election like every other
+# controller-runtime operator in this cluster, so 2 replicas is safe. These are true
+# top-level chart values (unlike config.envoyGateway.* below, which is the
+# EnvoyGateway static config file) -- verified against `helm show values` for this
+# exact chart/version before writing, given the earlier wrong-schema mistake on this
+# same chart. Found via the Opus 5 audit.
+podDisruptionBudget:
+  minAvailable: 1
+
+deployment:
+  replicas: 2
+
 provider:
   kubernetes:
     envoyService:
