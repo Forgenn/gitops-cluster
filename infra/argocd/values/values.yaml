@@ -7,6 +7,79 @@ configs:
     server.insecure: true
   cm:
     url: https://argocd.monederobox.dev
+    # Cluster-wide SSA default-field + controller-annotation ignore set.
+    # Git never specifies these on Deployments/StatefulSets, yet the API server
+    # (SSA) adds them at apply time; ArgoCD flags them as OutOfSync forever even
+    # though desired==live. This makes the 5 chronically-OutOfSync apps
+    # (infisical, pocket-id, sparky-fitness, vaultwarden, hermes-agent) reconcile
+    # to Synced. Covers: imagePullPolicy, probe threshold defaults, DNS/restart/
+    # scheduler policy, rollingUpdate strategy, revisionHistoryLimit, PV retention
+    # policy (STS), plus controller-managed annotations (updatedAt, restartedAt,
+    # deployment revision, helm checksum). This is the same drift the nixos-bootstrap
+    # argocd-cm tried to patch but gets overwritten by this chart on every sync.
+    resource.customizations.ignoreDifferences.apps_Deployment: |
+      jsonPointers:
+      - /metadata/annotations/updatedAt
+      - /metadata/annotations/deployment.kubernetes.io~1revision
+      - /metadata/annotations/kubectl.kubernetes.io~1restartedAt
+      - /spec/strategy/rollingUpdate
+      - /spec/progressDeadlineSeconds
+      - /spec/revisionHistoryLimit
+      - /spec/template/metadata/annotations/updatedAt
+      - /spec/template/metadata/annotations/deployment.kubernetes.io~1revision
+      - /spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt
+      - /spec/template/metadata/annotations/checksum~1config
+      - /spec/template/metadata/annotations/checksum~1secret
+      - /spec/template/spec/containers/*/imagePullPolicy
+      - /spec/template/spec/containers/*/terminationMessagePath
+      - /spec/template/spec/containers/*/terminationMessagePolicy
+      - /spec/template/spec/containers/*/ports/*/protocol
+      - /spec/template/spec/containers/*/livenessProbe/scheme
+      - /spec/template/spec/containers/*/livenessProbe/successThreshold
+      - /spec/template/spec/containers/*/livenessProbe/failureThreshold
+      - /spec/template/spec/containers/*/livenessProbe/timeoutSeconds
+      - /spec/template/spec/containers/*/readinessProbe/scheme
+      - /spec/template/spec/containers/*/readinessProbe/successThreshold
+      - /spec/template/spec/containers/*/readinessProbe/failureThreshold
+      - /spec/template/spec/containers/*/readinessProbe/timeoutSeconds
+      - /spec/template/spec/containers/*/startupProbe/scheme
+      - /spec/template/spec/containers/*/startupProbe/successThreshold
+      - /spec/template/spec/containers/*/startupProbe/failureThreshold
+      - /spec/template/spec/containers/*/startupProbe/timeoutSeconds
+      - /spec/template/spec/dnsPolicy
+      - /spec/template/spec/restartPolicy
+      - /spec/template/spec/schedulerName
+      - /spec/template/spec/terminationGracePeriodSeconds
+    resource.customizations.ignoreDifferences.apps_StatefulSet: |
+      jsonPointers:
+      - /metadata/annotations/updatedAt
+      - /metadata/annotations/deployment.kubernetes.io~1revision
+      - /spec/podManagementPolicy
+      - /spec/revisionHistoryLimit
+      - /spec/persistentVolumeClaimRetentionPolicy
+      - /spec/volumeClaimTemplates
+      - /spec/template/metadata/annotations/updatedAt
+      - /spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt
+      - /spec/template/spec/containers/*/imagePullPolicy
+      - /spec/template/spec/containers/*/terminationMessagePath
+      - /spec/template/spec/containers/*/terminationMessagePolicy
+      - /spec/template/spec/containers/*/ports/*/protocol
+      - /spec/template/spec/containers/*/livenessProbe/scheme
+      - /spec/template/spec/containers/*/livenessProbe/successThreshold
+      - /spec/template/spec/containers/*/livenessProbe/failureThreshold
+      - /spec/template/spec/containers/*/livenessProbe/timeoutSeconds
+      - /spec/template/spec/containers/*/readinessProbe/scheme
+      - /spec/template/spec/containers/*/readinessProbe/successThreshold
+      - /spec/template/spec/containers/*/readinessProbe/failureThreshold
+      - /spec/template/spec/containers/*/readinessProbe/timeoutSeconds
+      - /spec/template/spec/containers/*/startupProbe/scheme
+      - /spec/template/spec/containers/*/startupProbe/successThreshold
+      - /spec/template/spec/containers/*/startupProbe/failureThreshold
+      - /spec/template/spec/containers/*/startupProbe/timeoutSeconds
+      - /spec/template/spec/dnsPolicy
+      - /spec/template/spec/restartPolicy
+      - /spec/template/spec/schedulerName
+      - /spec/template/spec/terminationGracePeriodSeconds
     oidc.config: |
       name: PocketID
       issuer: https://pocket-id.monederobox.dev
