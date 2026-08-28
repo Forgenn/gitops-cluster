@@ -87,11 +87,11 @@ configs:
     # sparky-fitness, vaultwarden, hermes-agent) perpetually OutOfSync despite being
     # Healthy. Ignore ONLY operator-owned status + annotations -- NOT spec/data --
     # so real config drift still surfaces.
-    resource.customizations.ignoreDifferences.postgresql_cnpg_io_Cluster: |
+    resource.customizations.ignoreDifferences.postgresql.cnpg.io_Cluster: |
       jqPathExpressions:
       - '.status'
       - '.metadata.annotations'
-    resource.customizations.ignoreDifferences.external-secrets_io_ExternalSecret: |
+    resource.customizations.ignoreDifferences.external-secrets.io_ExternalSecret: |
       jqPathExpressions:
       - '.status'
       - '.metadata.annotations'
