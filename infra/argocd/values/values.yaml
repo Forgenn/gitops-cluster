@@ -80,6 +80,25 @@ configs:
       - /spec/template/spec/restartPolicy
       - /spec/template/spec/schedulerName
       - /spec/template/spec/terminationGracePeriodSeconds
+    # Operator-managed resources (CNPG Cluster / ExternalSecret / Secret): the
+    # controller continuously rewrites `status` (and controller annotations), so
+    # ArgoCD's SSA apply succeeds but the CR flips OutOfSync on the next reconcile.
+    # This is the loop that keeps the 5 DB-backed apps (infisical, pocket-id,
+    # sparky-fitness, vaultwarden, hermes-agent) perpetually OutOfSync despite being
+    # Healthy. Ignore ONLY operator-owned status + annotations -- NOT spec/data --
+    # so real config drift still surfaces.
+    resource.customizations.ignoreDifferences.postgresql_cnpg_io_Cluster: |
+      jqPathExpressions:
+      - '.status'
+      - '.metadata.annotations'
+    resource.customizations.ignoreDifferences.external-secrets_io_ExternalSecret: |
+      jqPathExpressions:
+      - '.status'
+      - '.metadata.annotations'
+    resource.customizations.ignoreDifferences._Secret: |
+      jqPathExpressions:
+      - '.status'
+      - '.metadata.annotations'
     oidc.config: |
       name: PocketID
       issuer: https://pocket-id.monederobox.dev
