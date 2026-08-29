@@ -16,6 +16,27 @@ data:
       # smart = human-in-the-loop for destructive commands. `serve` clients get
       # an approval prompt in the desktop app.
       mode: smart
+      # On gateway (Telegram) surfaces, a dangerous command is sent to the chat and
+      # waits for the user to reply yes/no — manual approval. Add rules so the guardian
+      # ESCALATES the most destructive cluster commands to that manual prompt, while
+      # everything else stays auto-approved. Read-only commands flow freely.
+      smart_policy: |
+        Always ESCALATE (never auto-approve or deny on your own) any command that
+        mutates the homelab cluster rather than reading it. Specifically every command
+        using kubectl or k3s kubectl that deletes (delete pvc/ns/pod --force/--all,
+        drain, cordon, scale-to-0), patches or force-applies (patch, apply --force,
+        replace --force), or restarts/recreates workloads (rollout restart, delete pods
+        to force-recreate); any nixos-rebuild switch / nh os switch on a cluster node;
+        and any read or write of Kubernetes secrets (get/create secrets, helm secrets).
+        ESCALATE those to the human operator. Commands that only READ state (get,
+        describe, list, logs, top, diff --selector) may be APPROVED.
+      # Hard-block the unambiguously catastrophic cluster ops unconditionally — even a
+      # manual approval prompt cannot run these from the agent:
+      deny:
+        - "kubectl delete namespace*"
+        - "k3s kubectl delete namespace*"
+        - "*kubectl* --all --force*"
+        - "*k3s kubectl* --all --force*"
     desktop:
       repo_scan_enabled: false
   # Mounted at /root/.ssh/config. Not sensitive on its own -- just host aliases and
