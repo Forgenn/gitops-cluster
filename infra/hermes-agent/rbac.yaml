@@ -9,6 +9,55 @@ metadata:
   namespace: hermes
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: hermes-agent-observe
+  # Read/observe scope that goes beyond the built-in `view` ClusterRole so hermes-agent
+  # can actually DIAGNOSE the cluster it monitors (the daily exception report + incident
+  # investigation). `view` only shows standard built-ins; it omits the operator CRs we
+  # keep hitting blind-spots on (CNPG Cluster, ExternalSecret, Application/ApplicationSet,
+  # and secrets contents for reading volumes/replication). This role is READ-ONLY.
+  # Write stays in a separate, deliberately narrow role (hermes-agent-remediate) that is
+  # bound only if the operator opts in.
+rules:
+  # Standard worklois + built-ins (superset of view that view misses)
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps", "secrets", "endpoints",
+                "persistentvolumeclaims", "events", "replicationcontrollers",
+                "serviceaccounts", "limitranges", "resourcequotas", "namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets", "replicasets", "controllerrevisions"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs", "pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies", "ingresses", "ingressclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["postgresql.cnpg.io"]
+    resources: ["clusters"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["external-secrets.io"]
+    resources: ["externalsecrets", "secretstores", "clustersecretstores"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["argoproj.io"]
+    resources: ["applications", "applicationsets", "appprojects"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["gateways", "httproutes", "tlsroutes", "tcproutes", "udproutes", "referencegrants", "backendpolicies"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["monitoring.coreos.com"]
+    resources: ["prometheuses", "prometheusrules", "servicemonitors", "podmonitors", "alertmanagers"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["kustomize.toolkit.fluxcd.io", "helm.toolkit.fluxcd.io"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: hermes-agent-view
@@ -18,5 +67,5 @@ subjects:
     namespace: hermes
 roleRef:
   kind: ClusterRole
-  name: view
+  name: hermes-agent-observe
   apiGroup: rbac.authorization.k8s.io
