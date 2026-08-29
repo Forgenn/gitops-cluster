@@ -48,6 +48,16 @@ data:
       IdentitiesOnly yes
       StrictHostKeyChecking accept-new
 
+    # nixos-config repo uses its OWN deploy key (GitHub deploy keys are per-repo).
+    # Match on the unique host, so pushes to this repo use the nixos key and pushes
+    # to gitops-cluster still use git_deploy_key.
+    Host github.com-nixos
+      HostName github.com
+      User git
+      IdentityFile /root/.ssh/nixos_deploy_key
+      IdentitiesOnly yes
+      StrictHostKeyChecking accept-new
+
     Host dolores.home dubois.home cuno.home katsuragi.home
       User hermes-agent
       IdentityFile /root/.ssh/fleet_ssh_key

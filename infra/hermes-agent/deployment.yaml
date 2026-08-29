@@ -58,13 +58,17 @@ spec:
             - |
               cp /secrets/git-deploy-key/GIT_DEPLOY_KEY /ssh-keys/git_deploy_key
               cp /secrets/fleet-ssh-key/FLEET_SSH_KEY /ssh-keys/fleet_ssh_key
-              chmod 600 /ssh-keys/git_deploy_key /ssh-keys/fleet_ssh_key
+              cp /secrets/nixos-deploy-key/NIXOS_DEPLOY_KEY /ssh-keys/nixos_deploy_key
+              chmod 600 /ssh-keys/git_deploy_key /ssh-keys/fleet_ssh_key /ssh-keys/nixos_deploy_key
           volumeMounts:
             - name: git-deploy-key
               mountPath: /secrets/git-deploy-key
               readOnly: true
             - name: fleet-ssh-key
               mountPath: /secrets/fleet-ssh-key
+              readOnly: true
+            - name: nixos-deploy-key
+              mountPath: /secrets/nixos-deploy-key
               readOnly: true
             - name: ssh-keys
               mountPath: /ssh-keys
@@ -181,3 +185,10 @@ spec:
             items:
               - key: FLEET_SSH_KEY
                 path: FLEET_SSH_KEY
+        - name: nixos-deploy-key
+          secret:
+            secretName: hermes-secrets
+            defaultMode: 0400
+            items:
+              - key: NIXOS_DEPLOY_KEY
+                path: NIXOS_DEPLOY_KEY
