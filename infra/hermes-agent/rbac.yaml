@@ -53,6 +53,11 @@ rules:
   - apiGroups: ["monitoring.coreos.com"]
     resources: ["prometheuses", "prometheusrules", "servicemonitors", "podmonitors", "alertmanagers"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: ["longhorn.io"]
+    resources: ["nodes", "volumes", "replicas", "engines", "backups", "settings",
+                "snapshots", "recurringjobs", "instancemanagers", "orphans",
+                "supportbundles", "backuptargets", "backingimages"]
+    verbs: ["get", "list", "watch"]
   - apiGroups: ["kustomize.toolkit.fluxcd.io", "helm.toolkit.fluxcd.io"]
     resources: ["*"]
     verbs: ["get", "list", "watch"]
