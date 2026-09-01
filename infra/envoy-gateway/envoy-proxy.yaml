@@ -1,10 +1,23 @@
-# Controls the data-plane Envoy proxy Deployment (the one that actually terminates all
-# cluster ingress traffic) via GatewayClass.spec.parametersRef below. It was single-
-# replica with no PodDisruptionBudget -- one node drain or eviction would take down all
-# external access. Verified field paths against api/v1alpha1/envoyproxy_types.go for
-# v1.5.1 before writing this (envoyDeployment.replicas, envoyPDB.minAvailable) since an
-# earlier attempt at this via the EnvoyGateway static config (wrong resource entirely)
-# was silently ignored -- this alpha API has no schema validation on unknown fields.
+# Controls the data-plane Envoy proxy that terminates all cluster ingress traffic, via
+# GatewayClass.spec.parametersRef below. Verified field paths against
+# api/v1alpha1/envoyproxy_types.go for v1.5.1 (envoyDaemonSet, envoyPDB.minAvailable);
+# this alpha API has no schema validation on unknown fields, so an unrecognised key is
+# silently ignored rather than rejected.
+#
+# Why a DaemonSet (was: envoyDeployment replicas: 2):
+#   The internal SecurityPolicies (e.g. argocd/internal-argocd-route) allow by client
+#   CIDR (100.64.0.0/10, 192.168.1.0/24) with defaultAction: Deny. That only works if
+#   Envoy sees the REAL client source IP. Remote access enters the LAN via a Tailscale
+#   subnet router running on a NixOS host (currently cuno; dubois/katsuragi/dolores are
+#   also configured to advertise 192.168.1.0/24 and can become the approved/primary
+#   router). With a 2-replica Deployment the ingress node often has NO local Envoy pod,
+#   so kube-proxy SNATs the source to the node pod-network address (observed: 10.42.2.0,
+#   cuno's podCIDR) before the packet reaches Envoy -> the allowlist can never match and
+#   EVERY request gets `RBAC: access denied`. Running Envoy as a DaemonSet puts a proxy
+#   pod on every k3s node, so whichever node is the ingress/MetalLB-ARP owner has a local
+#   endpoint; combined with the Service's externalTrafficPolicy: Local, kube-proxy
+#   delivers locally WITHOUT SNAT and the true source IP survives to the RBAC filter.
+#   Also gives better ingress HA than 2 replicas.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:
@@ -14,7 +27,6 @@ spec:
   provider:
     type: Kubernetes
     kubernetes:
-      envoyDeployment:
-        replicas: 2
+      envoyDaemonSet: {}
       envoyPDB:
         minAvailable: 1
