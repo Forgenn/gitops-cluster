@@ -25,7 +25,7 @@ controllers:
 immich:
   persistence:
     library:
-      existingClaim: immich-library
+      existingClaim: immich-library-zfs
   configuration: {}
   configurationKind: ConfigMap
 
