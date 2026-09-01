@@ -10,3 +10,20 @@ spec:
     requests:
       storage: 100Gi
   storageClassName: longhorn
+---
+# New ZFS-backed RWX claim for the immich library (content tier). Migrating immich
+# photos off Longhorn (state tier) per the Longhorn=config/small-DBs / ZFS=content split.
+# Kept longhorn library above until the rsync copy + app verify pass; then repoint
+# existingClaim here and free the old longhorn PV (Retain → data recoverable).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-library-zfs
+  namespace: immich
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 120Gi
+  storageClassName: zfs-generic-nfs-csi

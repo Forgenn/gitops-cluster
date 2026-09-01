@@ -42,8 +42,8 @@ defaultSettings:
   # ever promising more than raw capacity across all 3 nodes in the worst-case scenario
   # (max observed real usage ~57%), just gives realistic headroom for legitimate new PVC
   # growth instead of hitting a scheduling wall every time something new is added.
-  storageOverProvisioningPercentage: "130"
-  storageMinimalAvailablePercentage: "5"
+  storageOverProvisioningPercentage: "150"
+  storageMinimalAvailablePercentage: "20"
   storageReservedPercentageForDefaultDisk: "15" # Match your reserved space
 
   # Node scheduling
