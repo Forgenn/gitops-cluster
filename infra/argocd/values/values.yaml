@@ -1,5 +1,8 @@
 redis-ha:
-  enabled: false
+  # TEMPORARY: match the bootstrap topology so the ownership cutover is version+topology
+  # neutral (the k3s helm-controller installed redis-ha: true). Unpin to false AFTER the
+  # cutover is green, as a separate commit.
+  enabled: true
 
 # We terminate TLS at the gateway
 configs:
