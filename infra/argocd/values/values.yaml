@@ -14,6 +14,9 @@ configs:
     controller.diff.server.side: "true"
   cm:
     url: https://argocd.monederobox.dev
+    # kustomize.buildOptions moved here from the (removed) NixOS argocd-cm writer so
+    # ArgoCD can inflate helmCharts via kustomize regardless of which owner is active.
+    kustomize.buildOptions: --enable-helm
     # Cluster-wide SSA default-field + controller-annotation ignore set.
     # Git never specifies these on Deployments/StatefulSets, yet the API server
     # (SSA) adds them at apply time; ArgoCD flags them as OutOfSync forever even
