@@ -14,3 +14,8 @@ helmCharts:
     version: "8.6.0"
     namespace: argocd
     valuesFile: values/values.yaml
+    # ArgoCD must own its own CRDs (Application/ApplicationSet/AppProject). kustomize's
+    # helmCharts generator defaults includeCRDs to FALSE, so without this the CRDs are
+    # only installed by the k3s helm-controller's bootstrap argo-cd — a second owner that
+    # becomes unowned when that bootstrap is removed. Tracked here so the cutover is safe.
+    includeCRDs: true
