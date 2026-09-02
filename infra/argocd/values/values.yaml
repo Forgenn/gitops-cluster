@@ -5,6 +5,13 @@ redis-ha:
 configs:
   params:
     server.insecure: true
+    # Enable ArgoCD Server-Side Diff (stable since v3.1.0). The default Structured-Merge
+    # diff explicitly struggles with CRDs that define defaults / operators that rewrite
+    # fields (CNPG Cluster, ESO ExternalSecret), so those apps stay OutOfSync even when
+    # Healthy. Server-Side Diff does a dry-run SSA and compares the predicted result, so
+    # API-server and CRD-schema defaults never appear as drift. This is the canonical fix
+    # for the 5 CNPG/ESO-database apps and makes most of the ignore-list below unnecessary.
+    controller.diff.server.side: "true"
   cm:
     url: https://argocd.monederobox.dev
     # Cluster-wide SSA default-field + controller-annotation ignore set.
