@@ -135,7 +135,7 @@ spec:
     spec:
       containers:
         - name: sparky-fitness-frontend
-          image: codewithcj/sparkyfitness:v0.15.9.7
+          image: codewithcj/sparkyfitness:v0.15.9.9
           ports:
             - containerPort: 80
           env:
