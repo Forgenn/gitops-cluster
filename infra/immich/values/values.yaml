@@ -85,6 +85,11 @@ machine-learning:
   enabled: true
   controllers:
     main:
+      # replicas=1 on a ReadWriteOnce longhorn cache PVC: the default
+      # RollingUpdate starts a second pod before releasing the first, which then
+      # blocks on the volume if it lands on another node while maxUnavailable=0
+      # keeps the old pod alive. Recreate makes rollouts deterministic.
+      strategy: Recreate
       containers:
         main:
           image:
