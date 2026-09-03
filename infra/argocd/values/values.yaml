@@ -20,24 +20,32 @@ configs:
     # Cluster-wide SSA default-field + controller-annotation ignore set.
     # Git never specifies these on Deployments/StatefulSets, yet the API server
     # (SSA) adds them at apply time; ArgoCD flags them as OutOfSync forever even
-    # though desired==live. This makes the 5 chronically-OutOfSync apps
-    # (infisical, pocket-id, sparky-fitness, vaultwarden, hermes-agent) reconcile
-    # to Synced. Covers: imagePullPolicy, probe threshold defaults, DNS/restart/
-    # scheduler policy, rollingUpdate strategy, revisionHistoryLimit, PV retention
-    # policy (STS), plus controller-managed annotations (updatedAt, restartedAt,
-    # deployment revision, helm checksum). This is the same drift the nixos-bootstrap
-    # argocd-cm tried to patch but gets overwritten by this chart on every sync.
+    # though desired==live. Covers: DNS/restart/scheduler policy,
+    # progressDeadlineSeconds, revisionHistoryLimit, plus controller-managed
+    # annotations (updatedAt, deployment revision, helm checksum). This is the
+    # same drift the nixos-bootstrap argocd-cm tried to patch but gets
+    # overwritten by this chart on every sync.
+    #
+    # Two pointers removed here -- same ServerSideDiff class as the StatefulSet
+    # ones dropped in e00f143 (argo-cd #17362):
+    #   /spec/strategy/rollingUpdate: stripping a subfield of spec.strategy while
+    #     retaining `type` makes ArgoCD emit `spec.strategy.$retainKeys`, which
+    #     SSA's typed parser rejects -> sync fails on every RollingUpdate
+    #     Deployment. Redundant under SSD: dry-run apply returns defaulted values.
+    #   restartedAt: on a rollout-restarted Deployment it is the only key in
+    #     .spec.template.metadata.annotations, so stripping it leaves
+    #     `annotations: {}` vs no annotations key in git -> permanent OutOfSync.
+    #     managedFieldsManagers ignores it at the SSA ownership level instead.
     resource.customizations.ignoreDifferences.apps_Deployment: |
+      managedFieldsManagers:
+      - kubectl-rollout
       jsonPointers:
       - /metadata/annotations/updatedAt
       - /metadata/annotations/deployment.kubernetes.io~1revision
-      - /metadata/annotations/kubectl.kubernetes.io~1restartedAt
-      - /spec/strategy/rollingUpdate
       - /spec/progressDeadlineSeconds
       - /spec/revisionHistoryLimit
       - /spec/template/metadata/annotations/updatedAt
       - /spec/template/metadata/annotations/deployment.kubernetes.io~1revision
-      - /spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt
       - /spec/template/spec/dnsPolicy
       - /spec/template/spec/restartPolicy
       - /spec/template/spec/schedulerName
