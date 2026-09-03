@@ -5,6 +5,14 @@ database:
 
 replicas: 1
 
+# replicas=1 on a ReadWriteOnce longhorn volume: the default RollingUpdate
+# (maxSurge 25% -> 1, maxUnavailable 25% -> 0) starts a second pod before
+# releasing the first, and if it schedules onto another node it blocks forever
+# on the volume while the old pod is never torn down. Recreate is what every
+# other single-replica RWO app here uses.
+strategy:
+  type: Recreate
+
 storage:
   data:
     name: "vaultwarden-data"
