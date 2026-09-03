@@ -5,6 +5,7 @@ namespace: vaultwarden
 resources:
   - httproute-internal.yaml
   - externalsecret.yaml
+  - admin-externalsecret.yaml
   - smtp-externalsecret.yaml
   - db
   - backup
