@@ -13,7 +13,7 @@ storage:
     accessMode: "ReadWriteOnce"
 
 adminToken:
-  existingSecret: "vaultwarden"
+  existingSecret: "vaultwarden-admin"
   existingSecretKey: "ADMIN_TOKEN"
   value: ""
 
