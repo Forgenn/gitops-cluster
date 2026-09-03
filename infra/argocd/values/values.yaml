@@ -50,17 +50,35 @@ configs:
       - /spec/template/spec/restartPolicy
       - /spec/template/spec/schedulerName
       - /spec/template/spec/terminationGracePeriodSeconds
+      # Residual argo-cd#7513 guard. managedFieldsManagers covers annotations
+      # owned by another controller (restartedAt <- kubectl-rollout), but not
+      # ones argocd-controller applies itself -- e.g. the `updatedAt` stamp some
+      # charts render, which must stay ignored because it changes every render.
+      # When such a key is the only annotation, stripping it leaves {} on the
+      # live side vs no annotations key in the predicted state. This ignores the
+      # map only when it is empty, so real annotation drift still surfaces.
+      jqPathExpressions:
+      - .metadata.annotations | select(. == {})
+      - .spec.template.metadata.annotations | select(. == {})
+    # Mirrors apps_Deployment. restartedAt moved from jsonPointers to
+    # managedFieldsManagers for the same reason it was moved there: stripping the
+    # only pod-template annotation leaves an empty map. loomie-env-9eb6132a is
+    # currently the one StatefulSet in that shape.
     resource.customizations.ignoreDifferences.apps_StatefulSet: |
+      managedFieldsManagers:
+      - kubectl-rollout
       jsonPointers:
       - /metadata/annotations/updatedAt
       - /metadata/annotations/deployment.kubernetes.io~1revision
       - /spec/revisionHistoryLimit
       - /spec/template/metadata/annotations/updatedAt
-      - /spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt
       - /spec/template/spec/dnsPolicy
       - /spec/template/spec/restartPolicy
       - /spec/template/spec/schedulerName
       - /spec/template/spec/terminationGracePeriodSeconds
+      jqPathExpressions:
+      - .metadata.annotations | select(. == {})
+      - .spec.template.metadata.annotations | select(. == {})
     # Operator-managed resources (CNPG Cluster / ExternalSecret / Secret): the
     # controller continuously rewrites `status` (and controller annotations), so
     # ArgoCD's SSA apply succeeds but the CR flips OutOfSync on the next reconcile.
