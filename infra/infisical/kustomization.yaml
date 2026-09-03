@@ -19,25 +19,3 @@ helmCharts:
     namespace: infisical
     valuesFile: values/values.yaml
 
-# Anchor annotation for argo-cd#7513 (open since 2021): the chart stamps a fresh
-# `updatedAt` timestamp on every render, so it must stay in ignoreDifferences --
-# but it is the ONLY pod-template annotation, and stripping the last key leaves
-# `annotations: {}` on the live side vs no annotations key in the predicted
-# state, which ArgoCD reports as a permanent diff. A second, stable annotation
-# keeps the map non-empty after `updatedAt` is stripped, so both sides match.
-patches:
-  - target:
-      group: apps
-      version: v1
-      kind: Deployment
-      name: infisical-infisical-standalone-infisical
-    patch: |-
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: infisical-infisical-standalone-infisical
-      spec:
-        template:
-          metadata:
-            annotations:
-              monederobox.dev/diff-anchor: "argo-cd-7513"
