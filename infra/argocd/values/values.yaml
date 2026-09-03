@@ -46,10 +46,7 @@ configs:
       jsonPointers:
       - /metadata/annotations/updatedAt
       - /metadata/annotations/deployment.kubernetes.io~1revision
-      - /spec/podManagementPolicy
       - /spec/revisionHistoryLimit
-      - /spec/persistentVolumeClaimRetentionPolicy
-      - /spec/volumeClaimTemplates
       - /spec/template/metadata/annotations/updatedAt
       - /spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt
       - /spec/template/spec/dnsPolicy
