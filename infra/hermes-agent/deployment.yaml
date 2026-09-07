@@ -41,7 +41,7 @@ spec:
       # shell/coreutils, verified live before picking it.
       initContainers:
         - name: kubectl-copy
-          image: alpine/k8s:1.35.6
+          image: alpine/k8s:1.35.8
           command: ["cp", "/usr/bin/kubectl", "/kubectl-bin/kubectl"]
           volumeMounts:
             - name: kubectl-bin
@@ -51,7 +51,7 @@ spec:
         # refuses a group-readable private key. Copy the keys into a plain writable
         # emptyDir and chmod there, where fsGroup's floor doesn't apply.
         - name: ssh-key-perms
-          image: alpine/k8s:1.35.6
+          image: alpine/k8s:1.35.8
           command:
             - sh
             - -c
