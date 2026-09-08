@@ -49,7 +49,12 @@ spec:
         # The pod's fsGroup (needed by the app itself) forces group-read onto
         # Secret-mounted files no matter what defaultMode says -- SSH categorically
         # refuses a group-readable private key. Copy the keys into a plain writable
-        # emptyDir and chmod there, where fsGroup's floor doesn't apply.
+        # emptyDir, chmod AND chown there (the fsGroup floor doesn't apply), so the
+        # app user (uid/gid 10000) can actually read them. These land in
+        # /opt/data/home/.ssh (the app's literal HOME), NOT /root/.ssh: the gateway
+        # runs as uid 10000 with HOME=/opt/data/home, and /root is drwx------ root-only,
+        # so a /root mount was never readable by the process doing git -- the durable
+        # fix is to serve the identity from the app's real home on the shared PVC.
         - name: ssh-key-perms
           image: alpine/k8s:1.35.6
           command:
@@ -59,6 +64,7 @@ spec:
               cp /secrets/git-deploy-key/GIT_DEPLOY_KEY /ssh-keys/git_deploy_key
               cp /secrets/fleet-ssh-key/FLEET_SSH_KEY /ssh-keys/fleet_ssh_key
               cp /secrets/nixos-deploy-key/NIXOS_DEPLOY_KEY /ssh-keys/nixos_deploy_key
+              chown 10000:10000 /ssh-keys/git_deploy_key /ssh-keys/fleet_ssh_key /ssh-keys/nixos_deploy_key
               chmod 600 /ssh-keys/git_deploy_key /ssh-keys/fleet_ssh_key /ssh-keys/nixos_deploy_key
           volumeMounts:
             - name: git-deploy-key
@@ -72,6 +78,28 @@ spec:
               readOnly: true
             - name: ssh-keys
               mountPath: /ssh-keys
+        # Install Claude Code into a writable emptyDir at boot (same pattern as the
+        # kubectl-copy initContainer above). The pod image is frozen and not customised,
+        # so a tool that isn't in the image is injected this way -- emptyDir is
+        # re-populated on every pod start, so `claude` is always present and needs no
+        # manual in-pod npm install after a restart. Mounted into the main container
+        # at /opt/tools and prepended to PATH (see env below). Node already ships in the
+        # base image, so the claude node CLI runs as-is. Files are chowned to the app
+        # user (uid/gid 10000) so the gateway can execute them.
+        - name: claude-install
+          image: node:24.20.0-alpine3.24
+          command:
+            - sh
+            - -c
+            - |
+              export PATH=/usr/local/bin:/usr/bin:/bin
+              mkdir -p /opt/tools
+              npm install -g --prefix /opt/tools @anthropic-ai/claude-code >/dev/null 2>&1 || true
+              chown -R 10000:10000 /opt/tools/lib /opt/tools/bin 2>/dev/null || true
+              chmod -R a+rX /opt/tools 2>/dev/null || true
+          volumeMounts:
+            - name: claude-tools
+              mountPath: /opt/tools
       containers:
         - name: hermes-agent
           image: nousresearch/hermes-agent:v2026.8.19
@@ -92,6 +120,11 @@ spec:
               value: "10000"
             - name: HERMES_GID
               value: "10000"
+            # Claude Code is installed by the claude-install initContainer into an
+            # emptyDir at /opt/tools (pinned node npm prefix install). Prepend it to
+            # PATH so the gateway and any spawned shells can call `claude` directly.
+            - name: PATH
+              value: "/opt/tools/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games"
           envFrom:
             - secretRef:
                 name: hermes-secrets
@@ -112,17 +145,32 @@ spec:
               mountPath: /usr/local/bin/kubectl
               subPath: kubectl
               readOnly: true
+            # Claude Code install (populated by the claude-install initContainer).
+            - name: claude-tools
+              mountPath: /opt/tools
+            # SSH identity for git: served from the app user's real HOME
+            # (/opt/data/home, which the gateway runs under as uid 10000). The
+            # ssh_config content and key files are written/mounted fresh here rather
+            # than into /root/.ssh (root-only, unreadable by uid 10000 -- where this
+            # used to point, which is why git "kept breaking" every restart).
             - name: ssh-config
-              mountPath: /root/.ssh/config
+              mountPath: /opt/data/home/.ssh/config
               subPath: ssh_config
               readOnly: true
             - name: ssh-keys
-              mountPath: /root/.ssh/git_deploy_key
+              mountPath: /opt/data/home/.ssh/git_deploy_key
               subPath: git_deploy_key
               readOnly: true
             - name: ssh-keys
-              mountPath: /root/.ssh/fleet_ssh_key
+              mountPath: /opt/data/home/.ssh/fleet_ssh_key
               subPath: fleet_ssh_key
+              readOnly: true
+            # nixos-config uses its own per-repo deploy key (already copied into the
+            # same ssh-keys emptyDir by the initContainer above) -- mount it too so
+            # pushes to that repo work. Previously it was never mounted at all.
+            - name: ssh-keys
+              mountPath: /opt/data/home/.ssh/nixos_deploy_key
+              subPath: nixos_deploy_key
               readOnly: true
           resources:
             requests:
@@ -165,6 +213,8 @@ spec:
         - name: shm
           emptyDir: {}
         - name: kubectl-bin
+          emptyDir: {}
+        - name: claude-tools
           emptyDir: {}
         - name: ssh-keys
           emptyDir: {}
