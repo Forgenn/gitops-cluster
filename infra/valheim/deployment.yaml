@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: valheim
+  namespace: valheim
+spec:
+  replicas: 1 # single authoritative instance — see README; do NOT scale
+  selector:
+    matchLabels:
+      app: valheim
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: valheim
+    spec:
+      containers:
+        - name: valheim
+          image: ghcr.io/community-valheim-tools/valheim-server:latest
+          envFrom:
+            - configMapRef:
+                name: valheim-config
+          env:
+            - name: SERVER_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: valheim-secrets
+                  key: SERVER_PASS
+          ports:
+            - containerPort: 2456
+              name: game
+              protocol: UDP
+            - containerPort: 2457
+              name: query
+              protocol: UDP
+            - containerPort: 2458
+              name: query2
+              protocol: UDP
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          volumeMounts:
+            - name: data
+              mountPath: /config
+              subPath: config
+            - name: server
+              # subPath keeps the ~1GB downloaded server binary persisted on
+              # the same PVC without clobbering /config (separate directory)
+              mountPath: /opt/valheim
+              subPath: server
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: valheim-data
+            readOnly: false
+        - name: server
+          persistentVolumeClaim:
+            claimName: valheim-data

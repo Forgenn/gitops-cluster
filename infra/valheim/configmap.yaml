@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: valheim-config
+  namespace: valheim
+data:
+  SERVER_NAME: "Hereslag Hyldet Smedje" # TODO: pick a real server name
+  WORLD_NAME: "Hereslag" # TODO: world name = base of world.db/world.fwl
+  SERVER_PORT: "2456"
+  SERVER_PUBLIC: "true" # list in Steam community browser when idle
+  # Auto-update: check Steam for a newer dedicated-server build every 15min,
+  # but only apply when no players are connected (updates + restarts alone).
+  # This is what picks up Valheim 1.0 tomorrow automatically.
+  UPDATE_CRON: "*/15 * * * *"
+  UPDATE_IF_IDLE: "true"
+  RESTART_CRON: "0 5 * * *" # daily 05:00 idle restart (server file refresh)
+  BACKUPS: "false" # in-container backups off; volsync handles world backup
+  TZ: "UTC"

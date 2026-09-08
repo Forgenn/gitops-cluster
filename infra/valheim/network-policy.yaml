@@ -1,0 +1,21 @@
+# NetworkPolicy — game + query UDP only. Posture: default-deny, then allow the
+# game client ports inbound from anywhere (LAN + tailnet + Steam relays for
+# crossplay). Egress left open (SteamCMD update download + crossplay backend).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: valheim-ingress-game
+  namespace: valheim
+spec:
+  podSelector:
+    matchLabels:
+      app: valheim
+  policyTypes: [Ingress]
+  ingress:
+    - ports:
+        - protocol: UDP
+          port: 2456 # game
+        - protocol: UDP
+          port: 2457 # status/query
+        - protocol: UDP
+          port: 2458 # extended query
