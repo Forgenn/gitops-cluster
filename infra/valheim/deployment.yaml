@@ -15,11 +15,6 @@ spec:
       labels:
         app: valheim
     spec:
-      nodeSelector:
-        # dubois is currently down in Longhorn (manager pod not running since
-        # 2026-09-07), so it cannot attach the PVC. Pin to a Longhorn-ready
-        # node (same convention as navidrome).
-        kubernetes.io/hostname: cuno
       containers:
         - name: valheim
           image: ghcr.io/community-valheim-tools/valheim-server:latest
