@@ -11,7 +11,7 @@ spec:
   trigger:
     schedule: "0 8 * * *"
   restic:
-    copyMethod: Snapshot
+    copyMethod: Direct
     pruneIntervalDays: 14
     cacheCapacity: 1Gi
     repository: valheim-restic-config
