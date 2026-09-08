@@ -26,6 +26,9 @@ rules:
                 "persistentvolumeclaims", "events", "replicationcontrollers",
                 "serviceaccounts", "limitranges", "resourcequotas", "namespaces"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
   - apiGroups: ["apps"]
     resources: ["deployments", "statefulsets", "daemonsets", "replicasets", "controllerrevisions"]
     verbs: ["get", "list", "watch"]
