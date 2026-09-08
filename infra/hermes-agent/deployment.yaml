@@ -86,8 +86,15 @@ spec:
         # at /opt/tools and prepended to PATH (see env below). Node already ships in the
         # base image, so the claude node CLI runs as-is. Files are chowned to the app
         # user (uid/gid 10000) so the gateway can execute them.
+        #
+        # MUST be a GLIBC node image (trixie-slim), NOT alpine/musl. claude-code's
+        # postinstall builds a native binary matched to the install platform: installed
+        # on alpine it produces a musl-linked claude.exe (interpreter
+        # /lib/ld-musl-x86_64.so.1) that the hermes main container (Debian/glibc)
+        # cannot exec -- "cannot execute: required file not found". Built on glibc, the
+        # resulting binary runs on the Debian pod.
         - name: claude-install
-          image: node:24.20.0-alpine3.24
+          image: node:24.20.0-trixie-slim
           command:
             - sh
             - -c
