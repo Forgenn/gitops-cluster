@@ -16,3 +16,14 @@ data:
   RESTART_CRON: "0 5 * * *" # daily 05:00 idle restart (server file refresh)
   BACKUPS: "false" # in-container backups off; volsync handles world backup
   TZ: "UTC"
+  # World modifiers, applied as CLI args on every server start.
+  #   Resources most  -> 3x drop rate (the scale runs 0.5x..3x; "more" is only 1.5x).
+  #                      Applies to kills, mining, foraging and destructibles;
+  #                      does NOT affect fish, trophies or boss drops.
+  #   Portals casual  -> "portal items": everything teleports, metals/ores included.
+  # Deliberately no -preset: a preset overwrites individual modifiers set before
+  # it, and everything else stays Normal. Both of these are difficulty settings,
+  # not cheats, so Steam achievements remain eligible -- only Hammer preset and
+  # -setkey nobuildcost trip the (reversible) cheat lockout, and devcommands
+  # like `spawn` are the permanent one. See valheim.com/support/valheim-1-0-faq/
+  SERVER_ARGS: "-modifier Resources most -modifier Portals casual"
