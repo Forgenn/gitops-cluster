@@ -21,9 +21,12 @@ data:
   #                      Applies to kills, mining, foraging and destructibles;
   #                      does NOT affect fish, trophies or boss drops.
   #   Portals casual  -> "portal items": everything teleports, metals/ores included.
+  #   DeathPenalty casual -> skill loss per death 1% (Normal is 5%) and equipped
+  #                      gear is kept; unequipped inventory still drops. 1% is the
+  #                      floor -- no vanilla modifier removes skill loss entirely.
   # Deliberately no -preset: a preset overwrites individual modifiers set before
-  # it, and everything else stays Normal. Both of these are difficulty settings,
+  # it, and everything else stays Normal. All three are difficulty settings,
   # not cheats, so Steam achievements remain eligible -- only Hammer preset and
   # -setkey nobuildcost trip the (reversible) cheat lockout, and devcommands
   # like `spawn` are the permanent one. See valheim.com/support/valheim-1-0-faq/
-  SERVER_ARGS: "-modifier Resources most -modifier Portals casual"
+  SERVER_ARGS: "-modifier Resources most -modifier Portals casual -modifier DeathPenalty casual"
