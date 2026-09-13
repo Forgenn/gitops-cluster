@@ -39,6 +39,14 @@ data:
         - "*k3s kubectl* --all --force*"
     desktop:
       repo_scan_enabled: false
+    # Serve named profiles from the one gateway. Required for a bot's own cron:
+    # without multiplex only the root cron store ticks, so a profile routine runs
+    # as the ROOT agent with the root persona (cron/scheduler_provider.py).
+    # Allowlisted, so each new bot is an explicit, reviewed addition.
+    gateway:
+      multiplex_profiles: true
+      multiplex_profile_allowlist:
+        - monitor
   # Mounted at /opt/data/home/.ssh/config (the app user's HOME, uid 10000), where
   # the gateway-running user can actually read it. Not sensitive on its own -- just
   # host aliases and identity-file paths; the actual keys come from the hermes-secrets
