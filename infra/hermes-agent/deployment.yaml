@@ -61,11 +61,31 @@ spec:
             - sh
             - -c
             - |
+              # The three keys below are load-bearing for the agent's own git work.
+              # `set -e` makes their absence fail this container LOUDLY and
+              # immediately -- that is deliberate and must not be relaxed.
+              set -e
               cp /secrets/git-deploy-key/GIT_DEPLOY_KEY /ssh-keys/git_deploy_key
               cp /secrets/fleet-ssh-key/FLEET_SSH_KEY /ssh-keys/fleet_ssh_key
               cp /secrets/nixos-deploy-key/NIXOS_DEPLOY_KEY /ssh-keys/nixos_deploy_key
               chown 10000:10000 /ssh-keys/git_deploy_key /ssh-keys/fleet_ssh_key /ssh-keys/nixos_deploy_key
               chmod 600 /ssh-keys/git_deploy_key /ssh-keys/fleet_ssh_key /ssh-keys/nixos_deploy_key
+              set +e
+              # PLDER_DEPLOY_KEY is OPTIONAL and handled separately on purpose. It
+              # only feeds the profile-sync config clone, which is designed to
+              # soft-fail. If it were treated like the three above, a missing key
+              # would crash-loop this initContainer and, with strategy: Recreate,
+              # take the operator's only conversational interface offline -- for a
+              # config problem. The volume carries `optional: true` for the same
+              # reason (without it kubelet fails MountVolume.SetUp and the pod
+              # never leaves ContainerCreating).
+              if cp /secrets/plder-deploy-key/PLDER_DEPLOY_KEY /ssh-keys/plder_deploy_key 2>/dev/null; then
+                chown 10000:10000 /ssh-keys/plder_deploy_key
+                chmod 600 /ssh-keys/plder_deploy_key
+              else
+                echo "[ssh-key-perms] no plder key yet; config sync will soft-fail"
+              fi
+              exit 0
           volumeMounts:
             - name: git-deploy-key
               mountPath: /secrets/git-deploy-key
@@ -76,8 +96,58 @@ spec:
             - name: nixos-deploy-key
               mountPath: /secrets/nixos-deploy-key
               readOnly: true
+            - name: plder-deploy-key
+              mountPath: /secrets/plder-deploy-key
+              readOnly: true
             - name: ssh-keys
               mountPath: /ssh-keys
+        # Applies the declarative behaviour config: clones the plder repo at a pinned
+        # commit (AGENT_CONFIG_REF) over the shared PVC, same idea as claude-install's
+        # "reapply on every boot" pattern below. Must run AFTER ssh-key-perms -- it
+        # authenticates with the plder_deploy_key that container just copied into the
+        # shared ssh-keys emptyDir, using the github.com-plder alias from the
+        # ssh-config ConfigMap (mirrors the main container's mounts for both). HOME is
+        # set to the app's real home (/opt/data/home) so git actually finds
+        # $HOME/.ssh/config -- without it the alias never resolves and the clone fails
+        # with a confusing auth error instead of a clear "no such host". Clones into
+        # /staging (a scratch emptyDir, not the PVC itself) so a bad checkout never
+        # touches /opt/data directly; sync.py stages first, then applies. Runs as the
+        # app's own uid/gid (10000) like ssh-key-perms' chown target, not root --
+        # anything sync.py writes onto the PVC has to stay readable/writable by the
+        # gateway afterwards.
+        - name: profile-sync
+          image: nousresearch/hermes-agent:v2026.8.19
+          command: ["/opt/hermes/.venv/bin/python", "/sync/sync.py"]
+          securityContext:
+            runAsUser: 10000
+            runAsGroup: 10000
+          env:
+            - name: HERMES_HOME
+              value: /opt/data
+            - name: HOME
+              value: /opt/data/home
+            - name: AGENT_CONFIG_REF
+              value: "8ac43fb"
+            - name: AGENT_IMAGE
+              value: "nousresearch/hermes-agent:v2026.8.19"
+            - name: PYTHONPATH
+              value: /sync
+          volumeMounts:
+            - name: data
+              mountPath: /opt/data
+            - name: staging
+              mountPath: /staging
+            - name: sync-scripts
+              mountPath: /sync
+              readOnly: true
+            - name: ssh-keys
+              mountPath: /opt/data/home/.ssh/plder_deploy_key
+              subPath: plder_deploy_key
+              readOnly: true
+            - name: ssh-config
+              mountPath: /opt/data/home/.ssh/config
+              subPath: ssh_config
+              readOnly: true
         # Install Claude Code into a writable emptyDir at boot (same pattern as the
         # kubectl-copy initContainer above). The pod image is frozen and not customised,
         # so a tool that isn't in the image is injected this way -- emptyDir is
@@ -223,6 +293,17 @@ spec:
           emptyDir: {}
         - name: claude-tools
           emptyDir: {}
+        # Scratch clone target for profile-sync -- sync.py clones plder here before
+        # applying it onto the data PVC, so a bad checkout never lands directly on
+        # /opt/data. Reset on every pod start like the other emptyDirs above.
+        - name: staging
+          emptyDir: {}
+        # Scripts run by profile-sync (see initContainers above), sourced from the
+        # configMapGenerator so the pod rolls when sync.py or cron_upsert.py change.
+        - name: sync-scripts
+          configMap:
+            name: hermes-sync-scripts
+            defaultMode: 0555
         - name: ssh-keys
           emptyDir: {}
         - name: ssh-config
@@ -249,3 +330,19 @@ spec:
             items:
               - key: NIXOS_DEPLOY_KEY
                 path: NIXOS_DEPLOY_KEY
+        # `optional: true` is REQUIRED here, unlike the three keys above. With an
+        # `items:` selector and no `optional`, kubelet refuses to mount the volume
+        # at all when the key is missing from hermes-secrets -- MountVolume.SetUp
+        # fails and the pod sits in ContainerCreating forever. Combined with
+        # strategy: Recreate (the healthy pod is already gone) that is a total
+        # outage of the agent, caused by a config-only credential. The sync is
+        # built to degrade quietly instead: no key -> clone soft-fails -> last-good
+        # or untouched config -> the gateway still starts.
+        - name: plder-deploy-key
+          secret:
+            secretName: hermes-secrets
+            defaultMode: 0400
+            optional: true
+            items:
+              - key: PLDER_DEPLOY_KEY
+                path: PLDER_DEPLOY_KEY

@@ -2,3 +2,10 @@
 # sync time via each app's helmCharts entry -- these are never committed, just clutter
 # git status. Found via the Opus 5 audit.
 infra/*/charts/
+
+# pytest byproducts from the hermes-agent sync unit tests, which are run in-tree
+# (`cd infra/hermes-agent/sync && python -m pytest`). __pycache__ in particular
+# must never be committed: the directory sits next to sync.py and cron_upsert.py,
+# which kustomize's configMapGenerator reads by filename.
+infra/hermes-agent/sync/__pycache__/
+infra/hermes-agent/sync/.pytest_cache/
