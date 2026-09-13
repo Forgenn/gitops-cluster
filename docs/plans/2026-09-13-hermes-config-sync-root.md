@@ -723,25 +723,58 @@ git commit -m "hermes: add profile-sync initContainer"
 
 **Gates:** two, both blocking, both checked *before* the merge in Step 3.
 
-1. **`PLDER_DEPLOY_KEY` must already be in the `hermes-secrets` Secret** (Step 1).
-   Merging without it takes the agent offline, it does not merely skip the sync.
+1. **`PLDER_DEPLOY_KEY` must already exist in Infisical** at `/hermes/PLDER_DEPLOY_KEY`
+   (Step 1). Note this is an Infisical check, **not** a Kubernetes Secret check —
+   see the correction in Step 1 for why the obvious version of this gate is circular.
 2. **The `hermes-data` volsync backup must be working again** (Step 2) — a
    `lastSyncTime` newer than its `lastSyncStartTime`. This task restarts the pod,
    and the last good snapshot predates the 2026-09-08 corruption.
 
 **Files:** none — verification only.
 
-- [ ] **Step 1: Confirm the plder deploy key actually landed in the Secret**
+- [ ] **Step 1: Confirm the plder deploy key exists in Infisical**
+
+⚠️ **Correction (2026-09-13).** An earlier version of this step checked the
+Kubernetes Secret:
+
+```bash
+kubectl get secret hermes-secrets -n hermes -o jsonpath='{.data.PLDER_DEPLOY_KEY}' | wc -c
+```
+
+**That gate is circular and can never pass before the merge.** The
+`PLDER_DEPLOY_KEY` entry in `externalsecret.yaml` ships *with this branch*, so
+External Secrets has no instruction to fetch a 13th key until the manifest is
+applied. Verified live: ESO reports `SecretSynced True` while syncing 12 keys and
+no `PLDER_DEPLOY_KEY`, purely because the merge has not happened.
+
+The real precondition is the **value in Infisical**, which no `kubectl` command
+can see. Confirm by hand:
+
+- project `revachol-cluster-a82f`, environment `prod`, path `/hermes/PLDER_DEPLOY_KEY`
+- the value is the full private key including the `-----BEGIN/END OPENSSH PRIVATE KEY-----`
+  lines **and the trailing newline** (a missing final newline makes ssh reject the
+  key with an error that points nowhere near the cause)
+
+Also confirm the matching GitHub deploy key is **read-only**:
+
+```bash
+gh repo deploy-key list --repo Forgenn/plder
+```
+
+A `read-write` entry must be deleted and re-added without write access — that
+credential exists only to read config, and a writable one lets the pod rewrite
+the repo that defines every bot's behaviour, outside the review path.
+
+Run the Secret check **after** Step 3's push instead, as a confirmation:
 
 ```bash
 kubectl get secret hermes-secrets -n hermes \
   -o jsonpath='{.data.PLDER_DEPLOY_KEY}' | wc -c
 ```
 
-Expected: a number in the low thousands. **If it prints `0`, STOP.** The key is
-not there — almost certainly because it was stored at the wrong Infisical path
-(`/hermes-agent/…` instead of `/hermes/…`, see Task 6 Step 3, which is where
-External Secrets actually looks). Go back and fix that before merging anything.
+Expected then: a number in the low thousands. If it prints `0` after the sync,
+the value is missing from Infisical or sits at the wrong path (`/hermes-agent/…`
+instead of `/hermes/…` — see Task 6 Step 3).
 
 Why this is a hard gate and not a warning: with the key missing, the
 `plder-deploy-key` volume has nothing to select. It carries `optional: true`
@@ -958,10 +991,22 @@ kubectl logs -n hermes $POD -c hermes-agent | grep -c "config-migrate"
 Expected: **non-zero**, and that is correct for this phase. The warning comes
 from `config.yaml` being a read-only ConfigMap mount with no `_config_version`,
 and this plan deliberately leaves that mount in place — the sync copies `SOUL.md`
-only (Task 5 Step 3). `_config_version: 12` is already pinned in the declared
-`config.yaml` (Task 2 Step 3), so the warning disappears on the day the ConfigMap
-mount is retired. That retirement is listed under "Out of scope" below and is
-gated on this sync being proven first.
+only (Task 5 Step 3).
+
+⚠️ **Correction (2026-09-13).** An earlier version of this step claimed
+`_config_version: 12` "is already pinned in the declared `config.yaml`". **It is
+not.** Task 2 Step 3 was deliberately skipped during execution: the live warning
+says the config predates version 12 and can no longer be auto-migrated, while the
+monitor profile on the same volume carries `_config_version: 38` — so pinning 12
+asserts a schema age that is probably wrong, and pinning 38 claims a currency the
+vendor-example file may not have. Verified: plder `8ac43fb` (the SHA this branch
+pins) contains no `_config_version` line.
+
+Consequence for whoever retires the ConfigMap mount: **the warning will not
+disappear on its own.** Decide the correct value then — by reading what the
+running image actually migrates to, not by guessing — and pin it as part of that
+work. The retirement is listed under "Out of scope" below and is gated on this
+sync being proven first.
 
 ---
 
