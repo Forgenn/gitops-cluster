@@ -61,6 +61,13 @@ rules:
                 "snapshots", "recurringjobs", "instancemanagers", "orphans",
                 "supportbundles", "backuptargets", "backingimages"]
     verbs: ["get", "list", "watch"]
+  # volsync backup state, for the monitor's BACKUP FRESHNESS check. Without this the
+  # check fails every morning while looking healthy -- the same silent-failure class it
+  # exists to catch. Verified 2026-09-13 with `kubectl auth can-i` before adding: the
+  # ServiceAccount could not list either resource.
+  - apiGroups: ["volsync.backube"]
+    resources: ["replicationsources", "replicationdestinations"]
+    verbs: ["get", "list", "watch"]
   - apiGroups: ["kustomize.toolkit.fluxcd.io", "helm.toolkit.fluxcd.io"]
     resources: ["*"]
     verbs: ["get", "list", "watch"]
