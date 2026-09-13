@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -27,6 +28,9 @@ REPO_URL = os.environ.get("AGENT_CONFIG_REPO", "git@github.com-plder:Forgenn/pld
 REF = os.environ.get("AGENT_CONFIG_REF", "")
 IMAGE = os.environ.get("AGENT_IMAGE", "")
 VENV_PY = "/opt/hermes/.venv/bin/python"
+HERMES_BIN = "/opt/hermes/.venv/bin/hermes"
+# Same shape Hermes itself enforces for profile names: lowercase, digits, dashes.
+_PROFILE_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 
 
 def log(msg: str) -> None:
@@ -154,6 +158,59 @@ def copy_root_files(staged: Path) -> bool:
         return False
 
 
+def install_profiles(staged: Path) -> tuple[list[str], bool]:
+    """Install every declared profile distribution, then apply its cron.
+
+    A declared profile is a directory under staged/hermes/profiles/ containing a
+    distribution.yaml. `hermes profile install --force` copies only the paths the
+    manifest lists and never touches user-owned data (memories, sessions, .env).
+    Returns (installed profile names, all_ok). Never raises.
+    """
+    root = staged / "hermes" / "profiles"
+    installed: list[str] = []
+    ok = True
+    try:
+        candidates = sorted(p for p in root.iterdir() if p.is_dir()) if root.is_dir() else []
+    except Exception as exc:
+        log(f"WARNING could not list declared profiles in {root}: {exc}")
+        return installed, False
+
+    for src in candidates:
+        name = src.name
+        if not (src / "distribution.yaml").is_file():
+            continue
+        if not _PROFILE_NAME_RE.match(name):
+            log(f"WARNING skipping declared profile with an invalid name: {name!r}")
+            ok = False
+            continue
+        try:
+            subprocess.run(
+                [HERMES_BIN, "profile", "install", str(src), "--name", name, "--force", "-y"],
+                env={**os.environ, "HERMES_HOME": str(HERMES_HOME)},
+                check=True, capture_output=True, timeout=180,
+            )
+        except subprocess.CalledProcessError as exc:
+            detail = (exc.stderr or b"").decode(errors="replace").strip()[:300]
+            log(f"WARNING profile install failed for {name}: {detail}")
+            ok = False
+            continue
+        except Exception as exc:
+            log(f"WARNING profile install failed for {name}: {type(exc).__name__}: {str(exc)[:300]}")
+            ok = False
+            continue
+
+        installed.append(name)
+        log(f"installed profile {name}")
+        home = HERMES_HOME / "profiles" / name
+        ok = apply_cron(home, src / "cron" / "jobs.json") and ok
+        # Log-only, for the same reason as the root call in main(): a transient
+        # skills failure must not flip result to "partial" and force a re-clone
+        # on every restart. Unlike root, profiles get NO sync from stage2-hook,
+        # so this call is what finally keeps their bundled skills current.
+        sync_skills(home)
+    return installed, ok
+
+
 def main() -> int:
     try:
         # Early guard: no REF means nothing is declared to apply
@@ -230,12 +287,18 @@ def main() -> int:
         # network reachability for no benefit. Log-only, matching the hook.
         sync_skills(HERMES_HOME)
 
+        # Profiles run AFTER the root cron apply on purpose: moving a job from the
+        # root declaration to a profile's must retire it from the root store and
+        # create it in the profile store within the same run.
+        profiles, profiles_ok = install_profiles(STAGING)
+        steps_ok = profiles_ok and steps_ok
+
         result = "ok" if steps_ok else "partial"
         try:
             APPLIED.write_text(json.dumps({
                 "ref": applied_ref, "image": IMAGE,
                 "applied_at": datetime.now(timezone.utc).isoformat(),
-                "profiles": [], "result": result,
+                "profiles": profiles, "result": result,
             }, indent=2))
             log(f"applied ref {applied_ref} (result: {result})")
         except Exception as exc:
