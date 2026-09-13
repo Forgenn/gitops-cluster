@@ -66,7 +66,7 @@ data:
     Host github.com-plder
       HostName github.com
       User git
-      IdentityFile /opt/data/home/.ssh/plder_deploy_key
+      IdentityFile /opt/data/home/.ssh/plder_deploy_key_read
       IdentitiesOnly yes
       StrictHostKeyChecking accept-new
 

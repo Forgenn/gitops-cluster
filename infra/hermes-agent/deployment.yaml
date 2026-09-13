@@ -71,7 +71,7 @@ spec:
               chown 10000:10000 /ssh-keys/git_deploy_key /ssh-keys/fleet_ssh_key /ssh-keys/nixos_deploy_key
               chmod 600 /ssh-keys/git_deploy_key /ssh-keys/fleet_ssh_key /ssh-keys/nixos_deploy_key
               set +e
-              # PLDER_DEPLOY_KEY is OPTIONAL and handled separately on purpose. It
+              # PLDER_DEPLOY_KEY_READ is OPTIONAL and handled separately on purpose. It
               # only feeds the profile-sync config clone, which is designed to
               # soft-fail. If it were treated like the three above, a missing key
               # would crash-loop this initContainer and, with strategy: Recreate,
@@ -79,9 +79,9 @@ spec:
               # config problem. The volume carries `optional: true` for the same
               # reason (without it kubelet fails MountVolume.SetUp and the pod
               # never leaves ContainerCreating).
-              if cp /secrets/plder-deploy-key/PLDER_DEPLOY_KEY /ssh-keys/plder_deploy_key 2>/dev/null; then
-                chown 10000:10000 /ssh-keys/plder_deploy_key
-                chmod 600 /ssh-keys/plder_deploy_key
+              if cp /secrets/plder-deploy-key-read/PLDER_DEPLOY_KEY_READ /ssh-keys/plder_deploy_key_read 2>/dev/null; then
+                chown 10000:10000 /ssh-keys/plder_deploy_key_read
+                chmod 600 /ssh-keys/plder_deploy_key_read
               else
                 echo "[ssh-key-perms] no plder key yet; config sync will soft-fail"
               fi
@@ -96,15 +96,15 @@ spec:
             - name: nixos-deploy-key
               mountPath: /secrets/nixos-deploy-key
               readOnly: true
-            - name: plder-deploy-key
-              mountPath: /secrets/plder-deploy-key
+            - name: plder-deploy-key-read
+              mountPath: /secrets/plder-deploy-key-read
               readOnly: true
             - name: ssh-keys
               mountPath: /ssh-keys
         # Applies the declarative behaviour config: clones the plder repo at a pinned
         # commit (AGENT_CONFIG_REF) over the shared PVC, same idea as claude-install's
         # "reapply on every boot" pattern below. Must run AFTER ssh-key-perms -- it
-        # authenticates with the plder_deploy_key that container just copied into the
+        # authenticates with the plder_deploy_key_read that container just copied into the
         # shared ssh-keys emptyDir, using the github.com-plder alias from the
         # ssh-config ConfigMap (mirrors the main container's mounts for both). HOME is
         # set to the app's real home (/opt/data/home) so git actually finds
@@ -141,8 +141,8 @@ spec:
               mountPath: /sync
               readOnly: true
             - name: ssh-keys
-              mountPath: /opt/data/home/.ssh/plder_deploy_key
-              subPath: plder_deploy_key
+              mountPath: /opt/data/home/.ssh/plder_deploy_key_read
+              subPath: plder_deploy_key_read
               readOnly: true
             - name: ssh-config
               mountPath: /opt/data/home/.ssh/config
@@ -338,11 +338,11 @@ spec:
         # outage of the agent, caused by a config-only credential. The sync is
         # built to degrade quietly instead: no key -> clone soft-fails -> last-good
         # or untouched config -> the gateway still starts.
-        - name: plder-deploy-key
+        - name: plder-deploy-key-read
           secret:
             secretName: hermes-secrets
             defaultMode: 0400
             optional: true
             items:
-              - key: PLDER_DEPLOY_KEY
-                path: PLDER_DEPLOY_KEY
+              - key: PLDER_DEPLOY_KEY_READ
+                path: PLDER_DEPLOY_KEY_READ

@@ -268,7 +268,7 @@ def test_fallback_restores_last_good_into_an_already_existing_staging(
     assert staging.is_dir(), "fixture must model the mount point"
     (staging / "leftover.txt").write_text("from a previous boot")
 
-    # The clone fails: offline, or PLDER_DEPLOY_KEY absent.
+    # The clone fails: offline, or PLDER_DEPLOY_KEY_READ absent.
     monkeypatch.setattr(sync_module, "clone", lambda dest: None)
     monkeypatch.setattr("subprocess.run", MagicMock(return_value=MagicMock(returncode=0)))
 
