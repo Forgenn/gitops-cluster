@@ -52,8 +52,8 @@ def clone(dest: Path) -> str | None:
                        check=True, capture_output=True, timeout=180)
         shutil.rmtree(dest / ".git", ignore_errors=True)
         return REF
-    except subprocess.TimeoutExpired as exc:
-        log(f"WARNING clone timed out after 180s")
+    except subprocess.TimeoutExpired:
+        log("WARNING clone timed out after 180s")
         return None
     except subprocess.CalledProcessError as exc:
         log(f"WARNING clone failed: {exc.stderr.decode(errors='replace').strip()[:300]}")
@@ -63,12 +63,34 @@ def clone(dest: Path) -> str | None:
         return None
 
 
+def sanitize_declared(declared: list) -> list:
+    """Drop malformed declarations instead of aborting the whole cron apply.
+
+    Two shapes are handled, both of which used to be silently destructive:
+    a job with no ``id`` raised KeyError inside the upsert and killed the entire
+    cron step (every other declared job lost, result flipped to "partial"), and
+    a duplicate id produced two entries for the same job in jobs.json.
+    """
+    clean: list = []
+    seen: set = set()
+    for entry in declared:
+        if not isinstance(entry, dict) or not entry.get("id"):
+            log(f"WARNING skipping declared job with no id: {str(entry)[:120]}")
+            continue
+        if entry["id"] in seen:
+            log(f"WARNING skipping duplicate declared job id: {entry['id']}")
+            continue
+        seen.add(entry["id"])
+        clean.append(entry)
+    return clean
+
+
 def apply_cron(home: Path, declared_file: Path) -> bool:
     """Merge declared jobs into home/cron/jobs.json by id. Returns True on success."""
     if not declared_file.is_file():
         return True  # Nothing to do is success
     try:
-        declared = json.loads(declared_file.read_text()).get("jobs", [])
+        declared = sanitize_declared(json.loads(declared_file.read_text()).get("jobs", []))
         live_file = home / "cron" / "jobs.json"
         live = json.loads(live_file.read_text()) if live_file.is_file() else {}
         merged, conflicts = upsert_jobs_with_conflicts(live, declared)
@@ -100,10 +122,28 @@ def sync_skills(home: Path) -> bool:
         return False
 
 
+# DELIBERATELY EXCLUDES config.yaml. It stays ConfigMap-owned until this sync is
+# proven in production, for two reasons:
+#
+#   1. Copying it here does nothing. The main container bind-mounts the
+#      hermes-config ConfigMap read-only over /opt/data/config.yaml via subPath,
+#      so a file written here is masked and the agent never reads it.
+#   2. Copying it here actively breaks the sync. The copy target is the
+#      kubelet-created subPath stub, owned by root; shutil.copy2 as uid 10000
+#      raises PermissionError, copy_root_files returns False, result becomes
+#      "partial", should_skip therefore never fires, and every single restart
+#      re-clones from GitHub.
+#
+# Retiring the ConfigMap mount is the right end state and is tracked in the plan,
+# but not in this phase: if the clone soft-fails on a fresh PVC there would then
+# be no config.yaml at all and the agent would boot unconfigured.
+ROOT_FILES: tuple[str, ...] = ("SOUL.md",)
+
+
 def copy_root_files(staged: Path) -> bool:
     """Copy root files from staged tree. Returns True on success."""
     try:
-        for name in ("SOUL.md", "config.yaml"):
+        for name in ROOT_FILES:
             src = staged / "hermes" / "root" / name
             if src.is_file():
                 shutil.copy2(src, HERMES_HOME / name)
@@ -136,6 +176,13 @@ def main() -> int:
         applied_ref = clone(STAGING)
 
         if applied_ref:
+            # No dirs_exist_ok here, on purpose. LAST_GOOD is an ordinary
+            # directory on the PVC, so the rmtree above really does remove it --
+            # it does not have STAGING's mount-point problem. If the rmtree ever
+            # DID fail, merging a new tree into the remains of an older one would
+            # produce a hybrid last-good that a future offline boot would apply.
+            # Failing here instead degrades safely: we lose the fallback tree for
+            # this boot and still apply the fresh clone.
             shutil.rmtree(LAST_GOOD, ignore_errors=True)
             try:
                 shutil.copytree(STAGING, LAST_GOOD)
@@ -148,7 +195,13 @@ def main() -> int:
             log("falling back to last-good tree")
             shutil.rmtree(STAGING, ignore_errors=True)
             try:
-                shutil.copytree(LAST_GOOD, STAGING)
+                # dirs_exist_ok is MANDATORY here: /staging is an emptyDir MOUNT
+                # POINT. rmtree empties it but cannot remove the directory itself
+                # (EBUSY, swallowed by ignore_errors), so the directory always
+                # still exists at this line. Without dirs_exist_ok this raised
+                # FileExistsError every time and the whole offline-resilience
+                # path was dead code.
+                shutil.copytree(LAST_GOOD, STAGING, dirs_exist_ok=True)
             except Exception as exc:
                 log(f"WARNING failed to restore last-good tree: {exc}")
                 # Delete partial tree to avoid corruption
@@ -166,7 +219,16 @@ def main() -> int:
         steps_ok = True
         steps_ok = copy_root_files(STAGING) and steps_ok
         steps_ok = apply_cron(HERMES_HOME, STAGING / "hermes" / "root" / "cron" / "jobs.json") and steps_ok
-        steps_ok = sync_skills(HERMES_HOME) and steps_ok
+        # DELIBERATELY NOT part of steps_ok. docker/stage2-hook.sh already runs
+        # this exact command for the root home on every container start and
+        # treats failure as `|| warn`; this phase has no profile homes, so the
+        # call here is a redundant repeat kept only for symmetry with the
+        # profile-aware version to come. Letting it vote would be actively
+        # harmful: should_skip requires result == "ok", so a single transient
+        # failure would write result: "partial" and every restart from then on
+        # would re-clone from GitHub -- making the agent's boot depend on
+        # network reachability for no benefit. Log-only, matching the hook.
+        sync_skills(HERMES_HOME)
 
         result = "ok" if steps_ok else "partial"
         try:

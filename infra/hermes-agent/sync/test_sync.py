@@ -10,12 +10,11 @@ cannot accidentally call main() unsafely.
 """
 import json
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 from sync import should_skip, main
 import shutil
 import pytest
 import sync as sync_module
-import subprocess
 
 
 def _write(tmp_path: Path, ref: str, image: str, result: str = "ok") -> Path:
@@ -25,19 +24,48 @@ def _write(tmp_path: Path, ref: str, image: str, result: str = "ok") -> Path:
 
 
 @pytest.fixture(autouse=True)
-def isolated_main(tmp_path, monkeypatch):
+def isolated_main(tmp_path, tmp_path_factory, monkeypatch):
     """Fixture that isolates main() to use tmp_path instead of live system paths.
 
     AUTOUSE: This fixture automatically applies to every test in this module.
     Monkeypatches all module-level path globals so tests are hermetic and cannot
     accidentally modify the operator's live Hermes installation.
+
+    STAGING MODELS AN emptyDir MOUNT POINT, which is what /staging is in the pod:
+
+      * it already exists before sync.py runs (the fixture used to point STAGING
+        at a path that did not exist, which is exactly why the dead last-good
+        fallback went unnoticed);
+      * it is a separate filesystem from /opt/data, so it is created outside
+        tmp_path and tests asserting "main() created nothing under HERMES_HOME"
+        still mean that;
+      * shutil.rmtree can EMPTY it but can never REMOVE it -- the final rmdir
+        gets EBUSY, which ignore_errors=True swallows, so the directory is
+        still standing afterwards. Without this last part a test cannot
+        reproduce the FileExistsError that made the fallback dead code on every
+        real boot, because a plain tmp directory really does get removed.
     """
     state_dir = tmp_path / ".agent-config"
+    staging = tmp_path_factory.mktemp("staging-mount")
     monkeypatch.setattr(sync_module, "HERMES_HOME", tmp_path)
     monkeypatch.setattr(sync_module, "STATE_DIR", state_dir)
     monkeypatch.setattr(sync_module, "APPLIED", state_dir / "applied")
     monkeypatch.setattr(sync_module, "LAST_GOOD", state_dir / "last-good")
-    monkeypatch.setattr(sync_module, "STAGING", tmp_path / "staging")
+    monkeypatch.setattr(sync_module, "STAGING", staging)
+
+    real_rmtree = shutil.rmtree
+
+    def mount_point_aware_rmtree(path, *args, **kwargs):
+        if Path(path) == staging and staging.is_dir():
+            for child in staging.iterdir():
+                if child.is_dir() and not child.is_symlink():
+                    real_rmtree(child, *args, **kwargs)
+                else:
+                    child.unlink()
+            return  # the mount point itself survives, as in the pod
+        return real_rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "rmtree", mount_point_aware_rmtree)
     return main
 
 
@@ -181,3 +209,133 @@ def test_main_with_successful_clone_creates_applied_record(isolated_main, tmp_pa
     assert rec["ref"] == "abc123"
     assert rec["image"] == "img:v1"
     assert rec["result"] == "ok"
+
+
+def test_config_yaml_is_not_copied_onto_the_home(isolated_main, tmp_path, monkeypatch):
+    """config.yaml stays ConfigMap-owned in this phase; SOUL.md is the only copy.
+
+    Writing config.yaml here is at best a no-op (the main container bind-mounts
+    the ConfigMap read-only over /opt/data/config.yaml via subPath, masking it)
+    and at worst fatal to the skip gate: the copy target is the root-owned
+    kubelet subPath stub, so copy2 as uid 10000 raises PermissionError,
+    copy_root_files returns False and result becomes "partial" forever.
+    """
+    monkeypatch.setattr(sync_module, "REF", "abc123")
+    monkeypatch.setattr(sync_module, "IMAGE", "img:v1")
+
+    def mock_clone(dest):
+        hermes_root = dest / "hermes" / "root"
+        hermes_root.mkdir(parents=True, exist_ok=True)
+        (hermes_root / "SOUL.md").write_text("# SOUL")
+        (hermes_root / "config.yaml").write_text("config: value")
+        return "abc123"
+
+    monkeypatch.setattr(sync_module, "clone", mock_clone)
+    monkeypatch.setattr("subprocess.run", MagicMock(return_value=MagicMock(returncode=0)))
+
+    assert isolated_main() == 0
+
+    assert (tmp_path / "SOUL.md").read_text() == "# SOUL"
+    assert not (tmp_path / "config.yaml").exists(), "config.yaml must not be copied in this phase"
+    assert json.loads(sync_module.APPLIED.read_text())["result"] == "ok"
+
+
+def test_fallback_restores_last_good_into_an_already_existing_staging(
+    isolated_main, tmp_path, monkeypatch
+):
+    """The offline path must actually work with STAGING already present.
+
+    This is the regression guard for the dead fallback: /staging is an emptyDir
+    mount point, so it always exists and rmtree cannot remove it. Without
+    dirs_exist_ok=True the copytree raised FileExistsError on every real boot and
+    nothing was ever restored.
+    """
+    monkeypatch.setattr(sync_module, "REF", "newsha")
+    monkeypatch.setattr(sync_module, "IMAGE", "img:v1")
+
+    # A previous successful sync left a last-good tree and an applied record.
+    declared_dir = sync_module.LAST_GOOD / "hermes" / "root" / "cron"
+    declared_dir.mkdir(parents=True)
+    (sync_module.LAST_GOOD / "hermes" / "root" / "SOUL.md").write_text("# LAST GOOD SOUL")
+    (declared_dir / "jobs.json").write_text(json.dumps(
+        {"jobs": [{"id": "j1", "name": "daily report", "managed_by": "plder"}]}))
+    sync_module.APPLIED.write_text(json.dumps(
+        {"ref": "oldsha", "image": "img:v0", "result": "ok"}))
+
+    # STAGING exists already, as the emptyDir mount point always does, and
+    # carries junk from an earlier boot.
+    staging = sync_module.STAGING
+    assert staging.is_dir(), "fixture must model the mount point"
+    (staging / "leftover.txt").write_text("from a previous boot")
+
+    # The clone fails: offline, or PLDER_DEPLOY_KEY absent.
+    monkeypatch.setattr(sync_module, "clone", lambda dest: None)
+    monkeypatch.setattr("subprocess.run", MagicMock(return_value=MagicMock(returncode=0)))
+
+    assert isolated_main() == 0
+
+    # The staged tree actually landed in STAGING...
+    assert (staging / "hermes" / "root" / "SOUL.md").read_text() == "# LAST GOOD SOUL"
+    # ...and was applied onto the home.
+    assert (tmp_path / "SOUL.md").read_text() == "# LAST GOOD SOUL"
+    jobs = json.loads((tmp_path / "cron" / "jobs.json").read_text())
+    assert [j["id"] for j in jobs["jobs"]] == ["j1"]
+
+    # The record names the ref that actually landed (the previous one), so the
+    # next boot does not skip and retries the new ref.
+    rec = json.loads(sync_module.APPLIED.read_text())
+    assert rec["ref"] == "oldsha"
+    assert should_skip(sync_module.APPLIED, "newsha", "img:v1") is False
+
+
+def test_skills_sync_failure_does_not_flip_the_result_to_partial(
+    isolated_main, tmp_path, monkeypatch
+):
+    """sync_skills is log-only: stage2-hook.sh already runs it with `|| warn`.
+
+    If it voted, one transient failure would write result: "partial", and since
+    should_skip requires result == "ok" every later restart would re-clone from
+    GitHub -- making the agent's boot depend on network reachability.
+    """
+    monkeypatch.setattr(sync_module, "REF", "abc123")
+    monkeypatch.setattr(sync_module, "IMAGE", "img:v1")
+
+    def mock_clone(dest):
+        (dest / "hermes" / "root").mkdir(parents=True, exist_ok=True)
+        (dest / "hermes" / "root" / "SOUL.md").write_text("# SOUL")
+        return "abc123"
+
+    monkeypatch.setattr(sync_module, "clone", mock_clone)
+    monkeypatch.setattr(sync_module, "sync_skills", lambda home: False)
+
+    assert isolated_main() == 0
+    assert json.loads(sync_module.APPLIED.read_text())["result"] == "ok"
+
+
+def test_apply_cron_skips_a_declared_job_with_no_id(tmp_path):
+    """A declaration missing `id` used to raise KeyError and abort the whole apply."""
+    declared = tmp_path / "declared.json"
+    declared.write_text(json.dumps({"jobs": [
+        {"name": "typo, no id"},
+        {"id": "good", "name": "fine"},
+    ]}))
+
+    assert sync_module.apply_cron(tmp_path, declared) is True
+
+    jobs = json.loads((tmp_path / "cron" / "jobs.json").read_text())["jobs"]
+    assert [j["id"] for j in jobs] == ["good"]
+
+
+def test_apply_cron_skips_duplicate_declared_ids(tmp_path):
+    """Duplicate declared ids used to produce two entries for the same job."""
+    declared = tmp_path / "declared.json"
+    declared.write_text(json.dumps({"jobs": [
+        {"id": "dup", "name": "first wins"},
+        {"id": "dup", "name": "second is dropped"},
+    ]}))
+
+    assert sync_module.apply_cron(tmp_path, declared) is True
+
+    jobs = json.loads((tmp_path / "cron" / "jobs.json").read_text())["jobs"]
+    assert [j["id"] for j in jobs] == ["dup"]
+    assert jobs[0]["name"] == "first wins"
