@@ -4,7 +4,7 @@
 
 **Goal:** Make the Cluster Monitor a real Hermes bot — its daily report runs inside the `monitor` profile, under that profile's own persona, model and skill curation — instead of a root-agent job that merely carries the `[bot:monitor]` name.
 
-**Architecture:** Turn on gateway multiplex so the single gateway ticks the `monitor` profile's cron store. Declare the monitor profile as a distribution in plder and extend `sync.py` to install declared profiles with `hermes profile install --force`. Move the daily job from the root cron declaration to the monitor's, so the root store retires it (it is `managed_by: plder`) and the profile store receives it with the same id, in one pod start.
+**Architecture:** Turn on gateway multiplex so the single gateway serves the `monitor` profile and ticks its cron store. Multiplex also changes how every served profile (root included) resolves credentials, so it ships together with per-profile credential delivery (see Verified facts and "Incident 2026-09-13"). Declare the monitor profile as a distribution in plder and extend `sync.py` to install declared profiles with `hermes profile install --force`. Move the daily job from the root cron declaration to the monitor's, so the root store retires it (it is `managed_by: plder`) and the profile store receives it with the same id, in one pod start.
 
 **Tech Stack:** Kubernetes (k3s) + Kustomize + ArgoCD v3.1.8; Python 3.13 (`/opt/hermes/.venv`); pytest; Hermes Agent v2026.8.19 (hermes_cli 0.20.5).
 
@@ -29,9 +29,19 @@ Read from the running image's source on 2026-09-13; re-verify if the image chang
 
 - Multiplex: `gateway.multiplex_profiles: true` and `gateway.multiplex_profile_allowlist: [...]` are both read from the nested `gateway:` section (`gateway/config.py` ~1187-1213, ~1418-1432). Env `GATEWAY_MULTIPLEX_PROFILES` overrides config. The default profile is always served; with an allowlist, only listed named profiles are added (`hermes_cli/profiles.py::profiles_to_serve`).
 - With multiplex on, the ticker ticks each served profile's cron store (`cron/scheduler_provider.py` ~526-531). With it off, only the root store ticks — which is why the monitor's routine has so far run as the root agent.
+- **Multiplex is not only about cron and serving: it changes credential resolution for every served profile, root included.** With `gateway.multiplex_profiles: true`, `agent/secret_scope.get_secret` treats each profile's secret scope as authoritative and does NOT fall back to `os.environ`. The scope is built by `build_profile_secret_scope(home)` from `<home>/.env` plus external secret sources. A credential that exists only in the pod env (`envFrom: hermes-secrets`) is therefore invisible to agent turns, and every LLM turn fails "No LLM provider configured". Found by the final review after the 2026-09-13 deploy.
+- Credentials must reach each served profile through a secret source. The `secrets.command` source runs its helper with the **profile's private environment, NOT the pod env**: an env-reading helper was tested live and yielded an empty value. A file-reading helper that uses only shell builtins (`for`, `read`, `printf`, parameter expansion) was tested under `env -i` (no `PATH`) and populated the scope correctly. The fix mounts the credentials as files at `/etc/hermes-profile-secrets` (mode `0440`, readable via the pod's `fsGroup: 10000`) and gives every served profile's `config.yaml` this block:
+  ```yaml
+  secrets:
+    command:
+      enabled: true
+      command: 'for f in /etc/hermes-profile-secrets/*; do IFS= read -r v < "$f" || [ -n "$v" ]; printf "%s=%s\n" "${f##*/}" "$v"; done'
+  ```
+  Parse-check the helper string after every edit: YAML quoting of `$`, `"` and `\n` is where a transcription slip silently breaks it.
+- A CLI process (`hermes -z`, `hermes chat`) is not multiplexed and does not exercise the scoped secret path. It proves nothing about what the gateway's agent turns can see.
 - A cron job in a profile store executes under that profile's `HERMES_HOME` and `SOUL.md` (proven by a live spike, 2026-09-12).
 - `hermes profile install <dir> --name N --force -y` on an existing profile bootstraps missing user dirs and copies only `distribution_owned` paths with `preserve_config=False`; user-owned paths are excluded (`hermes_cli/profile_distribution.py`).
-- `deliver: telegram` resolves `TELEGRAM_HOME_CHANNEL` from env (`cron/scheduler.py` ~511). **Unverified:** whether the monitor profile's own 24 KB `.env` (a vendor-example copy) shadows the shared value in profile scope. Task 6 tests this live.
+- `deliver: telegram` resolves `TELEGRAM_HOME_CHANNEL` from env (`cron/scheduler.py` ~511). Verified live in Task 6 (2026-09-13): a `--no-agent` probe in the monitor store delivered to Telegram under multiplex. That proves delivery only, not agent turns (see the credential facts above).
 - `hermes-config` is a plain ConfigMap mounted by `subPath`, so editing it neither rolls the pod nor live-updates the mounted file. Config changes land only when the pod restarts — which is why Task 6 ships them in the same commit as the `AGENT_CONFIG_REF` bump.
 
 ---
@@ -451,6 +461,8 @@ git commit -m "hermes: install declared profiles in config sync"
 **Interfaces:**
 - Produces: a gateway that serves `default` plus `monitor`, and therefore ticks the monitor's cron store.
 
+> **Multiplex alone breaks every agent turn.** Enabling it makes each served profile's secret scope authoritative, so this task is incomplete without per-profile credential delivery: the `profile-secrets` Secret volume mounted at `/etc/hermes-profile-secrets` on the main container, and the `secrets.command` block from "Verified facts" in the ConfigMap's `config.yaml`, in `plder/hermes/root/config.yaml`, and in every served profile's distribution-owned `config.yaml`. All of it ships in the same push as multiplex. See "Incident 2026-09-13".
+
 - [ ] **Step 1: Add the gateway section to the ConfigMap**
 
 In `infra/hermes-agent/configmap.yaml`, inside the `config.yaml: |` block, append at the same indentation as `model:`:
@@ -483,9 +495,9 @@ gateway:
 cd /c/Users/Pol/projects/gitops-check
 python - <<'PY'
 import yaml
-cm = yaml.safe_load(open("infra/hermes-agent/configmap.yaml"))
+cm = yaml.safe_load(open("infra/hermes-agent/configmap.yaml", encoding="utf-8"))
 live = yaml.safe_load(cm["data"]["config.yaml"])["gateway"]
-declared = yaml.safe_load(open("/c/Users/Pol/projects/plder/hermes/root/config.yaml"))["gateway"]
+declared = yaml.safe_load(open("C:/Users/Pol/projects/plder/hermes/root/config.yaml", encoding="utf-8"))["gateway"]
 assert live == declared == {"multiplex_profiles": True, "multiplex_profile_allowlist": ["monitor"]}, (live, declared)
 print("OK: ConfigMap and plder root config agree:", live)
 PY
@@ -520,43 +532,81 @@ cd /c/Users/Pol/projects/plder && git push origin master && git rev-parse --shor
 
 Record that SHA as `NEWREF`.
 
-- [ ] **Step 2: Rehearse inside the pod**
+- [ ] **Step 2: Rehearse in a throwaway pod (never in the live container)**
 
-Replace `NEWREF` with the SHA from Step 1.
+**Why not the live container:** the main `hermes-agent` container runs s6 with a writable `/run/service`, and Hermes registers per-profile s6 service slots at runtime. Running `hermes profile install --name monitor` there, even against a scratch `HERMES_HOME`, can register or overwrite the REAL monitor profile's service slot inside the running agent. The initContainer being rehearsed runs without s6, so a separate pod with the same image and the command overridden to `sleep` is both safer and a more faithful replica. (This is how Task 5 actually ran on 2026-09-13.)
+
+The pod: same image, command `sleep` (so s6 never starts, and the sleep caps its lifetime if cleanup fails), `runAsUser`/`runAsGroup` 10000, no volumes. Every input is staged into it with `kubectl exec -i`. The pod is ALWAYS deleted, via `trap`, even when a command fails. Replace `NEWREF` with the SHA from Step 1.
 
 ```bash
 export MSYS_NO_PATHCONV=1
 NEWREF=REPLACE_WITH_SHA_FROM_STEP_1
-POD=$(kubectl get pods -n hermes --no-headers | grep hermes-agent | awk '{print $1}' | head -1)
+NS=hermes; P=sync-rehearsal
+cleanup() {
+  kubectl delete pod "$P" -n "$NS" --ignore-not-found --wait=true
+  kubectl get pod "$P" -n "$NS" 2>&1 | tail -1   # expect: NotFound
+}
+trap cleanup EXIT
+
+kubectl apply -f - <<'YAML'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sync-rehearsal
+  namespace: hermes
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsUser: 10000
+    runAsGroup: 10000
+  containers:
+    - name: rehearsal
+      image: nousresearch/hermes-agent:v2026.8.19
+      command: ["sleep", "1200"]
+      env:
+        - name: HOME
+          value: /tmp/home
+YAML
+kubectl wait --for=condition=Ready "pod/$P" -n "$NS" --timeout=300s
+
+# Stage the inputs. The deploy key goes straight from the Secret into the pod
+# and never touches the local disk.
 cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/sync
-tar cf - sync.py cron_upsert.py | kubectl exec -i -n hermes $POD -c hermes-agent -- \
-  sh -c 'rm -rf /dev/shm/sync && mkdir -p /dev/shm/sync && tar xf - -C /dev/shm/sync && chown -R 10000:10000 /dev/shm/sync'
-kubectl get secret hermes-secrets -n hermes -o jsonpath='{.data.PLDER_DEPLOY_KEY_READ}' | base64 -d \
-| kubectl exec -i -n hermes $POD -c hermes-agent -- sh -c "
-umask 077; cat > /dev/shm/k; chown 10000:10000 /dev/shm/k
-rm -rf /dev/shm/stg /dev/shm/fh; mkdir /dev/shm/stg; chmod 777 /dev/shm/stg
-mkdir -p /dev/shm/fh; chown 10000:10000 /dev/shm/fh
-cat > /dev/shm/run.py <<PY
-import sys; sys.path.insert(0, '/dev/shm/sync')
+tar cf - sync.py cron_upsert.py | kubectl exec -i -n "$NS" "$P" -- \
+  sh -c 'mkdir -p /tmp/sync /tmp/home /tmp/stg /tmp/fh && tar xf - -C /tmp/sync && md5sum /tmp/sync/*.py'
+md5sum sync.py cron_upsert.py   # must match the in-pod hashes above
+kubectl get configmap hermes-config -n "$NS" -o jsonpath='{.data.ssh_config}' \
+  | kubectl exec -i -n "$NS" "$P" -- sh -c 'cat > /tmp/ssh_config'
+kubectl get secret hermes-secrets -n "$NS" -o jsonpath='{.data.PLDER_DEPLOY_KEY_READ}' | base64 -d \
+  | kubectl exec -i -n "$NS" "$P" -- sh -c 'umask 077; cat > /tmp/k'
+sed "s/__NEWREF__/$NEWREF/" <<'PY' | kubectl exec -i -n "$NS" "$P" -- sh -c 'cat > /tmp/run.py && cat /tmp/run.py'
+import sys; sys.path.insert(0, '/tmp/sync')
 from pathlib import Path
 import sync as s
-s.HERMES_HOME = Path('/dev/shm/fh'); s.STATE_DIR = s.HERMES_HOME / '.agent-config'
+s.HERMES_HOME = Path('/tmp/fh'); s.STATE_DIR = s.HERMES_HOME / '.agent-config'
 s.APPLIED = s.STATE_DIR / 'applied'; s.LAST_GOOD = s.STATE_DIR / 'last-good'
-s.STAGING = Path('/dev/shm/stg'); s.REF = '$NEWREF'; s.IMAGE = 'nousresearch/hermes-agent:v2026.8.19'
-print('main() returned', s.main())
+s.STAGING = Path('/tmp/stg'); s.REF = '__NEWREF__'; s.IMAGE = 'nousresearch/hermes-agent:v2026.8.19'
+print('main() returned', s.main(), flush=True)
 PY
-chown 10000:10000 /dev/shm/run.py
-cd /tmp && /command/s6-setuidgid hermes env HOME=/opt/data/home HERMES_HOME=/dev/shm/fh \
-  GIT_SSH_COMMAND='ssh -F /opt/data/home/.ssh/config -i /dev/shm/k -o IdentitiesOnly=yes' \
-  GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0=/dev/shm/stg \
-  /opt/hermes/.venv/bin/python /dev/shm/run.py 2>&1 | tail -15
+
+# Run the real sync, then collect results. The script is fed on stdin, so no
+# nested quoting.
+kubectl exec -i -n "$NS" "$P" -- sh -s <<'SH'
+cd /tmp
+env HERMES_HOME=/tmp/fh \
+  GIT_SSH_COMMAND="ssh -F /tmp/ssh_config -i /tmp/k -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" \
+  GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0=/tmp/stg \
+  /opt/hermes/.venv/bin/python /tmp/run.py 2>&1 | tail -20
 echo '--- scratch results ---'
-cat /dev/shm/fh/.agent-config/applied 2>&1 | tr -d '\n'; echo
-ls /dev/shm/fh/profiles/monitor 2>&1 | tr '\n' ' '; echo
-/opt/hermes/.venv/bin/python -c \"import json;print('root jobs', len(json.load(open('/dev/shm/fh/cron/jobs.json'))['jobs']))\" 2>&1
-/opt/hermes/.venv/bin/python -c \"import json;j=json.load(open('/dev/shm/fh/profiles/monitor/cron/jobs.json'))['jobs'];print('monitor jobs', [x['id'] for x in j])\" 2>&1
-rm -rf /dev/shm/stg /dev/shm/fh /dev/shm/sync /dev/shm/k /dev/shm/run.py; echo 'scratch cleaned'
-"
+cat /tmp/fh/.agent-config/applied; echo
+ls /tmp/fh/profiles/monitor
+/opt/hermes/.venv/bin/python - <<'PY'
+import json
+print('root jobs', len(json.load(open('/tmp/fh/cron/jobs.json'))['jobs']))
+print('monitor jobs', [x['id'] for x in json.load(open('/tmp/fh/profiles/monitor/cron/jobs.json'))['jobs']])
+PY
+SH
+# The EXIT trap deletes the pod here.
 ```
 
 Expected, all of:
@@ -564,6 +614,9 @@ Expected, all of:
 - the applied record shows `"profiles": ["monitor"]` and `"result": "ok"`
 - `/dev/shm/fh/profiles/monitor` lists `SOUL.md`, `config.yaml`, `assets`, `cron`
 - `root jobs 0` and `monitor jobs ['6270d3f018f2']`
+- the trap's final line reports the pod `NotFound`, and the live `hermes-agent` pod's restart count is unchanged
+
+The throwaway pod's `/tmp/stg` is owned by uid 10000, so it does not re-exercise the root-owned `/staging` `safe.directory` path; that path is proven in production. The pod also cannot see the gateway, so this step says nothing about serving, ticking or credentials; Task 6 proves those live.
 
 The scratch root store starts empty, so `root jobs 0` checks only the empty declaration here. Retirement from a populated root store is covered by the unit test `test_main_moves_a_job_from_root_to_a_profile_and_records_it` and verified live in Task 6.
 
@@ -589,9 +642,9 @@ kubectl exec -n hermes $POD -c hermes-agent -- sh -c \
 
 Save the output. Step 4 compares against it.
 
-- [ ] **Step 2: Pin the new plder SHA and push, in ONE commit with Task 4**
+- [ ] **Step 2: Pin the new plder SHA and push, in the same push as Task 4**
 
-The ConfigMap is subPath-mounted and does not live-update, so multiplex takes effect only on the pod restart this ref bump causes. Enabling multiplex and moving the job must land in the same restart, or the report has no ticking store in between.
+The ConfigMap is subPath-mounted and does not live-update, so multiplex takes effect only on the pod restart this ref bump causes. Enabling multiplex and moving the job must land in the same restart, or the report has no ticking store in between. Separate commits are fine: ArgoCD reconciles the pushed HEAD, so one push means one sync and one restart. The credential delivery from Task 4's note must be in that same push too.
 
 ```bash
 cd /c/Users/Pol/projects/gitops-check
@@ -669,9 +722,52 @@ kubectl exec -n hermes $POD -c hermes-agent -- sh -c \
 
 Expected: `PROBE_HOME=/opt/data/profiles/monitor` and `PROBE_SOUL=` followed by the first 40 characters of the monitor's own `SOUL.md` ("You monitor this homelab k3s cluster dai"), **not** the vendor-default root persona.
 
-- [ ] **Step 6: Prove a monitor job can deliver to Telegram**
+- [ ] **Step 6: Prove agent turns work in EVERY served profile, then prove Telegram delivery**
 
-This resolves the one unverified fact: whether the monitor profile's own `.env` shadows `TELEGRAM_HOME_CHANNEL` in profile scope. **It sends one test message to Telegram.**
+**`--no-agent` probes never resolve an LLM credential. They prove nothing about agent turns.** Step 5's probe and the Telegram probe below are both `--no-agent`. On 2026-09-13 both passed while every agent turn on both profiles was failing "No LLM provider configured" (see "Incident 2026-09-13"). Multiplex is not verified until an agent-mode probe has passed in every served profile's store.
+
+**6a. Agent-mode probe, one per served profile.** A real prompt, `--deliver local`, executed by the gateway's own ticker via `cron run`. Served profiles are the root home plus every name in `gateway.multiplex_profile_allowlist`; list each one in `HOMES`.
+
+```bash
+export MSYS_NO_PATHCONV=1
+POD=$(kubectl get pods -n hermes --no-headers | grep hermes-agent | awk '{print $1}' | head -1)
+kubectl exec -i -n hermes $POD -c hermes-agent -- sh -s <<'SH'
+H=/opt/hermes/.venv/bin/hermes
+HOMES="/opt/data /opt/data/profiles/monitor"   # root + every allowlisted profile
+for M in $HOMES; do
+  /command/s6-setuidgid hermes env HERMES_HOME=$M $H cron create "0 4 1 1 *" \
+    "Reply with exactly AGENT_PROBE_OK and nothing else." \
+    --name "agent turn probe" --deliver local 2>&1 | grep -E "Created job"
+  ID=$(/command/s6-setuidgid hermes env HERMES_HOME=$M $H cron list 2>&1 | grep -B1 "agent turn probe" | grep -oE "^ *[0-9a-f]{12}" | tr -d " ")
+  /command/s6-setuidgid hermes env HERMES_HOME=$M $H cron run $ID 2>&1 | head -1
+  echo "$M probe id: $ID"
+done
+SH
+```
+
+Wait 2 minutes (the ticker runs every 60 seconds), then:
+
+```bash
+export MSYS_NO_PATHCONV=1
+POD=$(kubectl get pods -n hermes --no-headers | grep hermes-agent | awk '{print $1}' | head -1)
+kubectl exec -i -n hermes $POD -c hermes-agent -- sh -s <<'SH'
+for M in /opt/data /opt/data/profiles/monitor; do
+/opt/hermes/.venv/bin/python - "$M" <<'PY'
+import glob, json, os, sys
+home = sys.argv[1]
+job = [j for j in json.load(open(home + "/cron/jobs.json"))["jobs"] if j.get("name") == "agent turn probe"][0]
+outs = sorted(glob.glob(f"{home}/cron/output/{job['id']}/*.md"), key=os.path.getmtime)
+text = open(outs[-1], encoding="utf-8").read() if outs else ""
+print(home, "| last_status", job.get("last_status"), "| last_error", job.get("last_error"),
+      "| reply ok:", "AGENT_PROBE_OK" in text)
+PY
+done
+SH
+```
+
+Expected, for EVERY home: `last_status ok`, `last_error None`, `reply ok: True`. **If any home fails, STOP: multiplex is not verified and the operator's agent is likely down. Roll back first, diagnose second.**
+
+**6b. Telegram delivery probe (a separate check).** This proves delivery only. **It sends one test message to Telegram.**
 
 ```bash
 export MSYS_NO_PATHCONV=1
@@ -698,24 +794,29 @@ for j in json.load(open('/opt/data/profiles/monitor/cron/jobs.json'))['jobs']:
 
 Expected: `telegram delivery probe | last_status ok | delivery_error None`, and the message arrives in Telegram.
 
-**If delivery fails, STOP — do not guess a fix.** The likely cause is that the monitor profile's own `.env` (a vendor-example copy) shadows `TELEGRAM_HOME_CHANNEL` in profile scope, but this plan has not verified how profile scope resolves secrets. First read how `agent/secret_scope.py` and `cron/scheduler.py` (~511) resolve the home channel for a profile-scoped job, confirm the actual cause from the job's `last_delivery_error`, and only then choose a fix. Two constraints on whatever fix follows: do not hand-edit the profile `.env` (it is user-owned and no distribution installs it, so a hand edit is lost on a fresh volume), and do not invent a `config.yaml` key without finding it in the source. Leave the probe in place until the fix is verified, and note that the daily report will fail delivery the same way.
+**If delivery fails, STOP — do not guess a fix.** Under multiplex the profile's secret scope is authoritative (see Verified facts), so a value present only in the pod env, or shadowed by the monitor profile's own `.env` (a vendor-example copy), can be missing in profile scope. First read how `agent/secret_scope.py` and `cron/scheduler.py` (~511) resolve the home channel for a profile-scoped job, confirm the actual cause from the job's `last_delivery_error`, and only then choose a fix. Two constraints on whatever fix follows: do not hand-edit the profile `.env` (it is user-owned and no distribution installs it, so a hand edit is lost on a fresh volume), and do not invent a `config.yaml` key without finding it in the source. Leave the probe in place until the fix is verified, and note that the daily report will fail delivery the same way.
 
-- [ ] **Step 7: Remove both probes**
+- [ ] **Step 7: Remove every probe**
+
+`hermes cron remove` takes the id only; there is no `-y` flag.
 
 ```bash
 export MSYS_NO_PATHCONV=1
 POD=$(kubectl get pods -n hermes --no-headers | grep hermes-agent | awk '{print $1}' | head -1)
-kubectl exec -n hermes $POD -c hermes-agent -- sh -c '
-M=/opt/data/profiles/monitor; H=/opt/hermes/.venv/bin/hermes
-for n in "gateway tick probe" "telegram delivery probe"; do
-  ID=$(/command/s6-setuidgid hermes env HERMES_HOME=$M $H cron list 2>&1 | grep -B1 "$n" | grep -oE "^ *[0-9a-f]{12}" | tr -d " ")
-  [ -n "$ID" ] && /command/s6-setuidgid hermes env HERMES_HOME=$M $H cron remove $ID -y 2>&1 | head -1
+kubectl exec -i -n hermes $POD -c hermes-agent -- sh -s <<'SH'
+H=/opt/hermes/.venv/bin/hermes
+for M in /opt/data /opt/data/profiles/monitor; do
+  for n in "gateway tick probe" "telegram delivery probe" "agent turn probe"; do
+    ID=$(/command/s6-setuidgid hermes env HERMES_HOME=$M $H cron list 2>&1 | grep -B1 "$n" | grep -oE "^ *[0-9a-f]{12}" | tr -d " ")
+    [ -n "$ID" ] && /command/s6-setuidgid hermes env HERMES_HOME=$M $H cron remove $ID 2>&1 | head -1
+  done
+  echo "$M jobs: $(/command/s6-setuidgid hermes env HERMES_HOME=$M $H cron list 2>&1 | grep -cE '^ *[0-9a-f]{12}')"
 done
-rm -f $M/scripts/probe.sh $M/scripts/deliver-probe.sh
-/command/s6-setuidgid hermes env HERMES_HOME=$M $H cron list 2>&1 | grep -cE "^ *[0-9a-f]{12}"'
+rm -f /opt/data/profiles/monitor/scripts/probe.sh /opt/data/profiles/monitor/scripts/deliver-probe.sh
+SH
 ```
 
-Expected: the final count is `1` — only the daily report remains.
+Expected: `/opt/data jobs: 0` and `/opt/data/profiles/monitor jobs: 1` — only the daily report remains.
 
 - [ ] **Step 8: Confirm tomorrow's 09:00 report is the real proof**
 
@@ -775,13 +876,13 @@ Mirror the same block under `gateway:` in `plder/hermes/root/config.yaml`. Quote
 
 ```bash
 cd /c/Users/Pol/projects/gitops-check
-python -c "import yaml; r=yaml.safe_load(yaml.safe_load(open('infra/hermes-agent/configmap.yaml'))['data']['config.yaml'])['gateway']['profile_routes'][0]; assert r['platform']=='telegram' and r['profile']=='monitor' and isinstance(r['thread_id'], str); print('OK', r)"
+python -c "import yaml; r=yaml.safe_load(yaml.safe_load(open('infra/hermes-agent/configmap.yaml', encoding='utf-8'))['data']['config.yaml'])['gateway']['profile_routes'][0]; assert r['platform']=='telegram' and r['profile']=='monitor' and isinstance(r['thread_id'], str); print('OK', r)"
 kubectl kustomize infra/hermes-agent > /dev/null && echo "BUILD OK"
 git add infra/hermes-agent/configmap.yaml && git commit -m "hermes: route the monitor telegram topic to the monitor profile"
 cd /c/Users/Pol/projects/plder && git add hermes/root/config.yaml && git commit -m "hermes: mirror the monitor topic route" && git push origin master
 ```
 
-The ConfigMap does not roll the pod. Restart it deliberately: `kubectl rollout restart deployment/hermes-agent -n hermes`, then push gitops.
+The ConfigMap does not roll the pod. **Do NOT `rollout restart` before pushing gitops**: a restart before ArgoCD has synced comes up on the OLD ConfigMap and applies nothing. Push gitops first. If the push also bumps `AGENT_CONFIG_REF` (for example because the plder commit changed a declared job), that change to the pod template rolls the pod by itself once ArgoCD syncs; do nothing more. Only if no ref changes: push, wait until ArgoCD reports the app Synced at the new revision, then `kubectl rollout restart deployment/hermes-agent -n hermes`. Afterwards, repeat Task 6 Step 6a: any config change under multiplex needs the agent-mode probe again.
 
 - [ ] **Step 4: Verify the persona answers in the topic**
 
@@ -794,6 +895,20 @@ kubectl exec -n hermes $POD -c hermes-agent -- sh -c 'ls -t /opt/data/profiles/m
 ```
 
 Expected: a session file dated now.
+
+---
+
+## Incident 2026-09-13: multiplex broke every LLM turn
+
+**What happened.** From the 19:34 deploy (Task 6, ref `34865c3`, `gateway.multiplex_profiles: true`), every agent turn on both served profiles, root and monitor, failed "No LLM provider configured". The operator's 19:46 message in the new monitor topic was one of them. Under multiplex, `agent/secret_scope.get_secret` treats each profile's secret scope as authoritative, with no `os.environ` fallback. `OPENROUTER_API_KEY` existed only in the pod env (`envFrom: hermes-secrets`), in neither `/opt/data/.env` nor `/opt/data/profiles/monitor/.env`. The final review found it. Multiplex was rolled back (`99356b4`), and the rollback was then undone (`e469d5c`) to fix forward.
+
+**Why the checks missed it.**
+- Every Task 6 cron probe was `--no-agent`. None resolved an LLM credential. The Telegram probe proved delivery only.
+- The 19:46 failure was first put down to an older auxiliary-model payment cascade. A `hermes -z` from the root home was then taken as proof the agent worked, but a CLI process is not multiplexed and never touches the scoped secret path. The check ran beside the real path, not on it.
+
+**The fix.** The LLM credentials (`OPENROUTER_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`) are mounted as files at `/etc/hermes-profile-secrets` on the main container (Secret volume `profile-secrets`, mode `0440`, readable via `fsGroup: 10000`). Each served profile's `config.yaml` (the ConfigMap for root, the distribution-owned file for monitor, plus the plder root mirror) gets the builtins-only, file-reading `secrets.command` helper shown in Verified facts. It was proven live before it was committed: an env-reading helper yielded an empty value, because the helper runs with the profile's private environment, while the file-reading helper under `env -i` populated the scope. Telegram keys are deliberately not mounted: delivery already works, and a bot token in the monitor's scope could make it claim its own adapter.
+
+**Rule.** A multiplex change (turning it on, adding a profile to the allowlist, changing any served profile's secrets or config) is not verified until an **agent-mode** cron probe has passed in **every** served profile's store, run by the gateway's ticker (Task 6 Step 6a). `--no-agent` probes, CLI invocations and a Ready pod are not evidence for agent turns.
 
 ---
 
