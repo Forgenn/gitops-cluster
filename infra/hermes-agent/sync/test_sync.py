@@ -1,3 +1,13 @@
+"""Test suite for sync.py config sync entrypoint.
+
+CRITICAL: All tests in this module use an autouse fixture that isolates main()
+to tmp_path, rebinding module-level path globals (HERMES_HOME, STATE_DIR, etc).
+This is essential because sync.py resolves these paths at module import time,
+and a developer machine may have HERMES_HOME pointing at a real Hermes Desktop
+installation. A bare main() call without isolation would operate on the live
+system. The autouse fixture makes isolation the default — a future developer
+cannot accidentally call main() unsafely.
+"""
 import json
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -5,6 +15,7 @@ from sync import should_skip, main
 import shutil
 import pytest
 import sync as sync_module
+import subprocess
 
 
 def _write(tmp_path: Path, ref: str, image: str, result: str = "ok") -> Path:
@@ -13,10 +24,11 @@ def _write(tmp_path: Path, ref: str, image: str, result: str = "ok") -> Path:
     return p
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def isolated_main(tmp_path, monkeypatch):
     """Fixture that isolates main() to use tmp_path instead of live system paths.
 
+    AUTOUSE: This fixture automatically applies to every test in this module.
     Monkeypatches all module-level path globals so tests are hermetic and cannot
     accidentally modify the operator's live Hermes installation.
     """
@@ -125,6 +137,9 @@ def test_main_returns_zero_on_copytree_failure_with_partial_cleanup(isolated_mai
         return original_copytree(src, dst, **kwargs)
 
     monkeypatch.setattr("shutil.copytree", mock_copytree)
+
+    # Mock subprocess.run to prevent real process spawning in sync_skills
+    monkeypatch.setattr("subprocess.run", MagicMock(return_value=MagicMock(returncode=0)))
 
     result = isolated_main()
 
