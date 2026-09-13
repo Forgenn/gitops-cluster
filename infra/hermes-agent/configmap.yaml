@@ -6,7 +6,8 @@ metadata:
 data:
   # Mounted read-only at /opt/data/config.yaml. To change the model/provider,
   # edit here and restart the deployment. The API key itself never lives here —
-  # it is injected from the Infisical-backed `hermes-secrets` secret via env.
+  # it comes from the Infisical-backed `hermes-secrets` secret, via env and (for
+  # multiplexed profiles) via files read by the `secrets.command` helper below.
   config.yaml: |
     # Non-secret behaviour settings
     model:
@@ -53,6 +54,16 @@ data:
           chat_id: "7850573137"
           thread_id: "5332"
           profile: monitor
+    # Credentials for agent turns. Under multiplex a profile's secret scope is
+    # authoritative (no os.environ fallback), so the pod's envFrom is invisible to
+    # it. This helper feeds the scope from the files the Deployment mounts at
+    # /etc/hermes-profile-secrets. It runs with the profile's private environment
+    # (not the pod env, and no PATH), hence file reads and shell builtins only.
+    # Every served profile needs the same block in its own config.yaml.
+    secrets:
+      command:
+        enabled: true
+        command: 'for f in /etc/hermes-profile-secrets/*; do IFS= read -r v < "$f" || [ -n "$v" ]; printf "%s=%s\n" "${f##*/}" "$v"; done'
   # Mounted at /opt/data/home/.ssh/config (the app user's HOME, uid 10000), where
   # the gateway-running user can actually read it. Not sensitive on its own -- just
   # host aliases and identity-file paths; the actual keys come from the hermes-secrets

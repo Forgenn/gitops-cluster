@@ -269,6 +269,11 @@ spec:
               mountPath: /opt/data/home/.ssh/nixos_deploy_key
               subPath: nixos_deploy_key
               readOnly: true
+            # LLM credentials as FILES, for the gateway's multiplexed profiles. See
+            # the profile-secrets volume below for why envFrom alone is not enough.
+            - name: profile-secrets
+              mountPath: /etc/hermes-profile-secrets
+              readOnly: true
           resources:
             requests:
               cpu: 200m
@@ -350,6 +355,31 @@ spec:
             items:
               - key: NIXOS_DEPLOY_KEY
                 path: NIXOS_DEPLOY_KEY
+        # Credentials for agent turns under gateway multiplex. With
+        # gateway.multiplex_profiles on, each profile's secret scope is
+        # AUTHORITATIVE: get_secret does not fall back to os.environ, so the
+        # envFrom above is invisible to every served profile (root included) and
+        # every LLM turn fails "No LLM provider configured". Credentials reach the
+        # profiles through the `secrets.command` helper in each profile's
+        # config.yaml, which reads THESE files. The helper runs with the profile's
+        # private environment, not the pod env -- an env-reading helper was tested
+        # live 2026-09-13 and produced an empty value -- so files are the only
+        # channel. 0440 plus the pod's fsGroup: 10000 makes them readable by the
+        # gateway (uid/gid 10000).
+        #
+        # Deliberately NOT mounted: TELEGRAM_BOT_TOKEN and the other Telegram keys
+        # (delivery already works under multiplex, and a bot token in the monitor's
+        # scope could make it try to claim its own Telegram adapter), and any SSH
+        # key (multi-line, and not needed by agent turns).
+        - name: profile-secrets
+          secret:
+            secretName: hermes-secrets
+            defaultMode: 0440
+            items:
+              - key: OPENROUTER_API_KEY
+                path: OPENROUTER_API_KEY
+              - key: CLAUDE_CODE_OAUTH_TOKEN
+                path: CLAUDE_CODE_OAUTH_TOKEN
         # `optional: true` is REQUIRED here, unlike the three keys above. With an
         # `items:` selector and no `optional`, kubelet refuses to mount the volume
         # at all when the key is missing from hermes-secrets -- MountVolume.SetUp
