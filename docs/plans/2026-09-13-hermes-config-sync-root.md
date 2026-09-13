@@ -101,13 +101,18 @@ Expected: `{"isPrivate":true,"defaultBranchRef":{"name":"master"}}`
 
 ### Task 2: Capture live root config into the repo
 
-Capture **before** declaring. The sync overwrites `config.yaml` on the pod; if the repo's copy is not the live one, the first deploy silently changes the agent's behaviour.
+Capture **before** declaring. If the repo's copy is not the live one, the first deploy silently changes the agent's behaviour.
 
 **Files:**
 - Create: `plder/hermes/root/SOUL.md`, `plder/hermes/root/config.yaml`
 
 **Interfaces:**
-- Produces: the two files the sync script copies in Task 6 step 6.
+- Produces: `SOUL.md`, which the sync script copies onto the PVC, and
+  `config.yaml`, which it does **not** — see Task 5 Step 3. `config.yaml` is
+  captured now anyway so the declaration is complete and correct on the day the
+  ConfigMap mount is retired; until then the `hermes-config` ConfigMap in this
+  repo remains the one the agent actually reads, and the two must be kept in
+  step by hand.
 
 - [ ] **Step 1: Copy the live files out of the pod**
 
@@ -138,8 +143,10 @@ root persona is not part of this plan.
 
 The live `config.yaml` comes from a read-only ConfigMap mount and has no
 `_config_version`, which is why `[config-migrate] WARNING: This config predates
-version 12` appears on every boot. Pin it so the warning stops once the file is
-writable:
+version 12` appears on every boot. Pin it in the declaration now so the warning
+stops on the day the ConfigMap mount is retired and this file becomes the
+writable one the agent reads. **It will not stop in this phase** — the sync does
+not copy `config.yaml`, so the read-only ConfigMap is still what boots:
 
 ```bash
 grep -q '^_config_version:' hermes/root/config.yaml || echo '_config_version: 12' >> hermes/root/config.yaml
@@ -325,73 +332,30 @@ Expected: FAIL — `ModuleNotFoundError: No module named 'cron_upsert'`
 
 - [ ] **Step 3: Write the implementation**
 
-```python
-# infra/hermes-agent/sync/cron_upsert.py
-"""Merge declared cron jobs into a live Hermes jobs.json.
+The implementation is **not reproduced here.** The shipped module has since
+gained conflict detection (`upsert_jobs_with_conflicts`), deep-copying, and an
+inverted merge — the version originally drafted in this plan built each job from
+the declaration and copied back an allowlist of live fields, which silently
+destroyed every field Hermes writes that the repo does not declare.
 
-Hermes rewrites jobs.json on every scheduler tick (next_run_at, last_run_at,
-last_status, failure_streak, repeat.completed), and users create jobs
-conversationally from Telegram. A declarative overwrite would therefore both
-reset the scheduler and delete the user's own jobs. This merges by id instead.
-"""
-from __future__ import annotations
+**Read the shipped files:** `infra/hermes-agent/sync/cron_upsert.py` and its
+tests in `infra/hermes-agent/sync/test_cron_upsert.py`.
 
-from typing import Any, Dict, List
+What the plan pins, and what must stay true of whatever that module contains:
 
-MANAGED_BY = "plder"
-
-# Fields Hermes owns at runtime; never clobbered by a redeclaration.
-RUNTIME_FIELDS: tuple[str, ...] = (
-    "next_run_at",
-    "last_run_at",
-    "last_status",
-    "last_error",
-    "failure_streak",
-    "monitor_state",
-    "paused_at",
-    "paused_reason",
-    "created_at",
-)
-
-
-def upsert_jobs(live: Dict[str, Any], declared: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Return a merged jobs document.
-
-    - A declared job replaces its live namesake field-for-field, except that
-      RUNTIME_FIELDS and repeat.completed carry over from the live copy.
-    - ``state`` carries over too, unless the declaration sets it explicitly —
-      that is how a job is paused or resumed from git.
-    - A live job with no declaration survives untouched when it is not ours,
-      and is retired when it is (it was declared once and has since been
-      removed from the repo).
-    """
-    live_jobs = {j["id"]: j for j in (live or {}).get("jobs", [])}
-    declared_ids = {d["id"] for d in declared}
-    merged: List[Dict[str, Any]] = []
-
-    for decl in declared:
-        job = dict(decl)
-        job["managed_by"] = MANAGED_BY
-        prev = live_jobs.get(job["id"])
-        if prev is not None:
-            for field in RUNTIME_FIELDS:
-                if field in prev:
-                    job[field] = prev[field]
-            if "state" not in decl and "state" in prev:
-                job["state"] = prev["state"]
-            if "completed" in (prev.get("repeat") or {}):
-                job.setdefault("repeat", {})["completed"] = prev["repeat"]["completed"]
-        merged.append(job)
-
-    for job_id, job in live_jobs.items():
-        if job_id in declared_ids:
-            continue
-        if job.get("managed_by") == MANAGED_BY:
-            continue  # retired: we declared it once, the repo dropped it
-        merged.append(job)
-
-    return {"jobs": merged}
-```
+- `upsert_jobs(live, declared) -> dict` stays available as the pure-function
+  entry point; `upsert_jobs_with_conflicts(live, declared) -> (dict, list[str])`
+  is what `sync.apply_cron` actually calls, so it can log the skipped ids.
+- The merge starts from the LIVE job and overlays the declared keys. Never the
+  other way round: an allowlist cannot anticipate fields a future image adds.
+- Live scheduler state (`RUNTIME_FIELDS`) and live `repeat.completed` always win.
+- A declaration silent about `state` leaves the live state alone; one that sets
+  it explicitly wins — that is how a job is paused or resumed from git.
+- A declared id colliding with a live job that is **not** `managed_by: plder` is
+  refused outright: the hand-made job is left untouched and the declaration is
+  skipped and reported. Adoption is a deliberate act (delete the live job first).
+- A live `managed_by: plder` job with no declaration is retired; any other
+  undeclared live job survives.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
@@ -399,7 +363,8 @@ def upsert_jobs(live: Dict[str, Any], declared: List[Dict[str, Any]]) -> Dict[st
 python -m pytest test_cron_upsert.py -v
 ```
 
-Expected: PASS, 8 passed.
+Expected: PASS. More tests exist now than this plan was drafted with — take
+"0 failed" as the gate, not a number.
 
 - [ ] **Step 5: Commit**
 
@@ -475,149 +440,36 @@ Expected: FAIL — `ModuleNotFoundError: No module named 'sync'`
 
 - [ ] **Step 3: Write the sync script**
 
-```python
-#!/usr/bin/env python3
-# infra/hermes-agent/sync/sync.py
-"""Apply declared Hermes config from a plder checkout onto /opt/data.
+The implementation is **not reproduced here.** It has moved on materially since
+this plan was drafted — the skip gate now also requires `result == "ok"`, the
+clone has timeouts, every step reports success/failure, the last-good fallback
+passes `dirs_exist_ok=True` (without it `/staging`, an emptyDir mount point,
+made the whole fallback dead code), `copy_root_files` no longer copies
+`config.yaml`, and `sync_skills` is deliberately log-only. A stale listing in a
+plan is worse than no listing: it is what a future reader copies.
 
-Runs as an initContainer before the gateway starts. It must NEVER fail the
-pod: the agent is the operator's primary interface, and a config problem
-must not take it offline. Every failure path logs and continues.
-"""
-from __future__ import annotations
+**Read the shipped file:** `infra/hermes-agent/sync/sync.py`.
 
-import json
-import os
-import shutil
-import subprocess
-import sys
-from datetime import datetime, timezone
-from pathlib import Path
+What the plan pins, and what must stay true of whatever that file contains:
 
-from cron_upsert import upsert_jobs
-
-HERMES_HOME = Path(os.environ.get("HERMES_HOME", "/opt/data"))
-STATE_DIR = HERMES_HOME / ".agent-config"
-APPLIED = STATE_DIR / "applied"
-LAST_GOOD = STATE_DIR / "last-good"
-STAGING = Path("/staging")
-REPO_URL = os.environ.get("AGENT_CONFIG_REPO", "git@github.com-plder:Forgenn/plder.git")
-REF = os.environ.get("AGENT_CONFIG_REF", "")
-IMAGE = os.environ.get("AGENT_IMAGE", "")
-VENV_PY = "/opt/hermes/.venv/bin/python"
-
-
-def log(msg: str) -> None:
-    print(f"[profile-sync] {msg}", flush=True)
-
-
-def should_skip(applied_path: Path, ref: str, image: str) -> bool:
-    """True when the recorded ref AND image both match what we are asked for."""
-    try:
-        rec = json.loads(Path(applied_path).read_text())
-    except Exception:
-        return False
-    return rec.get("ref") == ref and rec.get("image") == image
-
-
-def clone(dest: Path) -> str | None:
-    """Clone REPO_URL at REF into dest. Returns the applied ref, or None."""
-    try:
-        subprocess.run(["git", "clone", "--no-checkout", REPO_URL, str(dest)],
-                       check=True, capture_output=True)
-        subprocess.run(["git", "-C", str(dest), "checkout", REF],
-                       check=True, capture_output=True)
-        shutil.rmtree(dest / ".git", ignore_errors=True)
-        return REF
-    except subprocess.CalledProcessError as exc:
-        log(f"WARNING clone failed: {exc.stderr.decode(errors='replace').strip()[:300]}")
-        return None
-
-
-def apply_cron(home: Path, declared_file: Path) -> None:
-    """Merge declared jobs into home/cron/jobs.json by id."""
-    if not declared_file.is_file():
-        return
-    try:
-        declared = json.loads(declared_file.read_text()).get("jobs", [])
-        live_file = home / "cron" / "jobs.json"
-        live = json.loads(live_file.read_text()) if live_file.is_file() else {}
-        merged = upsert_jobs(live, declared)
-        live_file.parent.mkdir(parents=True, exist_ok=True)
-        tmp = live_file.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(merged, indent=2))
-        tmp.replace(live_file)
-        log(f"cron: {len(merged['jobs'])} job(s) in {live_file}")
-    except Exception as exc:
-        log(f"WARNING cron upsert failed for {home}: {exc}")
-
-
-def sync_skills(home: Path) -> None:
-    """Run the bundled-skill sync for one home (root or a profile)."""
-    try:
-        subprocess.run(
-            [VENV_PY, "-c", "from tools.skills_sync import sync_skills; sync_skills()"],
-            env={**os.environ, "HERMES_HOME": str(home)},
-            cwd="/opt/hermes", check=True, capture_output=True, timeout=120,
-        )
-        log(f"skills synced for {home}")
-    except Exception as exc:
-        log(f"WARNING skills_sync failed for {home}: {exc}")
-
-
-def copy_root_files(staged: Path) -> None:
-    for name in ("SOUL.md", "config.yaml"):
-        src = staged / "hermes" / "root" / name
-        if src.is_file():
-            shutil.copy2(src, HERMES_HOME / name)
-            log(f"copied {name}")
-
-
-def main() -> int:
-    STATE_DIR.mkdir(parents=True, exist_ok=True)
-
-    if should_skip(APPLIED, REF, IMAGE):
-        log(f"ref {REF} + image already applied; skipping")
-        return 0
-
-    if STAGING.exists():
-        shutil.rmtree(STAGING, ignore_errors=True)
-    applied_ref = clone(STAGING)
-
-    if applied_ref:
-        shutil.rmtree(LAST_GOOD, ignore_errors=True)
-        shutil.copytree(STAGING, LAST_GOOD)
-    elif LAST_GOOD.is_dir():
-        log("falling back to last-good tree")
-        shutil.rmtree(STAGING, ignore_errors=True)
-        shutil.copytree(LAST_GOOD, STAGING)
-        try:
-            applied_ref = json.loads(APPLIED.read_text()).get("ref")
-        except Exception:
-            applied_ref = None
-    else:
-        log("ERROR no clone and no last-good tree; leaving config untouched")
-        return 0
-
-    copy_root_files(STAGING)
-    apply_cron(HERMES_HOME, STAGING / "hermes" / "root" / "cron" / "jobs.json")
-    sync_skills(HERMES_HOME)
-
-    APPLIED.write_text(json.dumps({
-        "ref": applied_ref, "image": IMAGE,
-        "applied_at": datetime.now(timezone.utc).isoformat(),
-        "profiles": [], "result": "ok",
-    }, indent=2))
-    log(f"applied ref {applied_ref}")
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
-```
-
-Note `applied_ref` is what actually landed — after a fallback it is the *previous*
-ref, so the next restart does not skip and will retry the new one.
+- `should_skip(applied_path, ref, image) -> bool` and `main() -> int`; the
+  container entrypoint is `python /sync/sync.py`.
+- `main()` returns 0 on every path. The initContainer must never fail the pod.
+- `applied_ref` is what actually *landed* — after a fallback it is the
+  *previous* ref, so the next restart does not skip and will retry the new one.
+- `config.yaml` is **not** copied onto the PVC in this phase. The main container
+  bind-mounts the `hermes-config` ConfigMap read-only over `/opt/data/config.yaml`
+  via `subPath`, so a copy there is masked and never read — and the copy target
+  is the root-owned kubelet subPath stub, so `copy2` as uid 10000 raises
+  PermissionError and pins `result` at `"partial"` forever. `config.yaml` stays
+  ConfigMap-owned until this sync is proven in production; retiring that mount
+  is tracked under "Out of scope" below, along with the reason it cannot happen
+  yet (a soft-failed clone would leave the PVC with no config at all).
+- `sync_skills` is log-only and must NOT vote on `result`. `docker/stage2-hook.sh`
+  already runs the same command for the root home on every container start with
+  `|| warn`. If a transient failure could set `result: "partial"`, `should_skip`
+  (which requires `"ok"`) would never fire again and every restart would re-clone
+  from GitHub.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
@@ -625,7 +477,8 @@ ref, so the next restart does not skip and will retry the new one.
 python -m pytest test_sync.py test_cron_upsert.py -v
 ```
 
-Expected: PASS, 13 passed.
+Expected: PASS. The suite has grown well past the count this plan was drafted
+with — take "0 failed" as the gate, not a number.
 
 - [ ] **Step 5: Commit**
 
@@ -665,8 +518,14 @@ initContainer only — the meta bot's future push credential must be separate.
 
 - [ ] **Step 3: Store the private key in Infisical**
 
-Add the contents of `/tmp/plder_deploy_key` at path `/hermes-agent/PLDER_DEPLOY_KEY`
+Add the contents of `/tmp/plder_deploy_key` at path `/hermes/PLDER_DEPLOY_KEY`
 in project `revachol-cluster-a82f`, environment `prod`. Then remove the local copies:
+
+> The path is `/hermes/…`, matching every sibling key in this ExternalSecret
+> (`/hermes/GIT_DEPLOY_KEY`, `/hermes/NIXOS_DEPLOY_KEY`, …). Storing it under
+> `/hermes-agent/…` puts it somewhere External Secrets never looks, so
+> `PLDER_DEPLOY_KEY` never lands in the `hermes-secrets` Secret — which is
+> precisely the condition Task 8 Step 1 gates on.
 
 ```bash
 rm -f /tmp/plder_deploy_key /tmp/plder_deploy_key.pub
@@ -680,7 +539,7 @@ existing `GIT_DEPLOY_KEY` / `NIXOS_DEPLOY_KEY` pattern exactly:
 ```yaml
     - secretKey: PLDER_DEPLOY_KEY
       remoteRef:
-        key: /hermes-agent/PLDER_DEPLOY_KEY
+        key: /hermes/PLDER_DEPLOY_KEY
 ```
 
 - [ ] **Step 5: Add the SSH host alias**
@@ -700,17 +559,35 @@ In `infra/hermes-agent/configmap.yaml`, inside the `ssh_config` block, after the
 - [ ] **Step 6: Extend the ssh-key-perms initContainer**
 
 In `infra/hermes-agent/deployment.yaml`, in the `ssh-key-perms` initContainer's
-script, add the new key alongside the existing three:
+script, add the new key — but **not** alongside the existing three. It is
+optional and must be handled separately:
 
 ```sh
-cp /secrets/plder-deploy-key/PLDER_DEPLOY_KEY /ssh-keys/plder_deploy_key
-chown 10000:10000 /ssh-keys/plder_deploy_key
-chmod 600 /ssh-keys/plder_deploy_key
+if cp /secrets/plder-deploy-key/PLDER_DEPLOY_KEY /ssh-keys/plder_deploy_key 2>/dev/null; then
+  chown 10000:10000 /ssh-keys/plder_deploy_key
+  chmod 600 /ssh-keys/plder_deploy_key
+else
+  echo "[ssh-key-perms] no plder key yet; config sync will soft-fail"
+fi
+exit 0
 ```
 
 and add the matching `plder-deploy-key` volume (secret `hermes-secrets`, key
 `PLDER_DEPLOY_KEY`, `defaultMode: 0400`) and its `volumeMounts` entry, mirroring
-`nixos-deploy-key`.
+`nixos-deploy-key` **plus `optional: true`**, which `nixos-deploy-key` does not
+have.
+
+> **Why this one is different.** The other three keys are load-bearing for the
+> agent's own git work and must fail loudly if absent — they stay under `set -e`.
+> `PLDER_DEPLOY_KEY` only feeds the config clone, which is designed to
+> soft-fail, and it is placed by hand in Infisical (Step 3), so "not there yet"
+> is a normal state. Without `optional: true` on the volume, an `items:`
+> selector naming a missing key makes kubelet fail `MountVolume.SetUp` and the
+> pod never leaves `ContainerCreating`; with `strategy: Recreate` the healthy
+> pod is already gone. Without the `2>/dev/null ||` guard, the bare `cp`
+> crash-loops `ssh-key-perms` to the same effect. Either one takes the
+> operator's only conversational interface offline over a config credential.
+> See the shipped `deployment.yaml` for the exact text.
 
 - [ ] **Step 7: Verify the manifests still build**
 
@@ -844,14 +721,40 @@ git commit -m "hermes: add profile-sync initContainer"
 
 ### Task 8: Deploy and verify live
 
-**Gate:** do not start this task until the `hermes-data` volsync ReplicationSource has
-a `lastSyncTime` newer than its `lastSyncStartTime` — i.e. the backup works again.
-This task restarts the pod, and the current last good snapshot predates the 2026-09-08
-corruption.
+**Gates:** two, both blocking, both checked *before* the merge in Step 3.
+
+1. **`PLDER_DEPLOY_KEY` must already be in the `hermes-secrets` Secret** (Step 1).
+   Merging without it takes the agent offline, it does not merely skip the sync.
+2. **The `hermes-data` volsync backup must be working again** (Step 2) — a
+   `lastSyncTime` newer than its `lastSyncStartTime`. This task restarts the pod,
+   and the last good snapshot predates the 2026-09-08 corruption.
 
 **Files:** none — verification only.
 
-- [ ] **Step 1: Confirm the backup gate**
+- [ ] **Step 1: Confirm the plder deploy key actually landed in the Secret**
+
+```bash
+kubectl get secret hermes-secrets -n hermes \
+  -o jsonpath='{.data.PLDER_DEPLOY_KEY}' | wc -c
+```
+
+Expected: a number in the low thousands. **If it prints `0`, STOP.** The key is
+not there — almost certainly because it was stored at the wrong Infisical path
+(`/hermes-agent/…` instead of `/hermes/…`, see Task 6 Step 3, which is where
+External Secrets actually looks). Go back and fix that before merging anything.
+
+Why this is a hard gate and not a warning: with the key missing, the
+`plder-deploy-key` volume has nothing to select. It carries `optional: true`
+precisely so kubelet does not fail `MountVolume.SetUp` and strand the pod in
+`ContainerCreating` — and `strategy: Recreate` means the healthy pod is already
+gone by then, so that is a full outage of the operator's only conversational
+interface, caused by a missing config credential. `optional: true` plus the
+guarded `cp` in `ssh-key-perms` turn that outage into a soft failure, but a soft
+failure still means this task verifies nothing: the clone cannot authenticate,
+every sync step is skipped, and Steps 5–9 below have nothing to assert on.
+Land the key first.
+
+- [ ] **Step 2: Confirm the backup gate**
 
 ```bash
 kubectl get replicationsource hermes-data -n hermes \
@@ -861,7 +764,7 @@ kubectl get replicationsource hermes-data -n hermes \
 Expected: `LASTSYNC` is recent (within a day) and not older than `START`. If it is
 still stale, stop — fix volsync first.
 
-- [ ] **Step 2: Merge the branch and let ArgoCD sync**
+- [ ] **Step 3: Merge the branch and let ArgoCD sync**
 
 ```bash
 cd /c/Users/Pol/projects/gitops-check
@@ -871,7 +774,7 @@ kubectl get application hermes-agent -n argocd -o jsonpath='{.status.sync.status
 
 Expected: `Synced` within a few minutes.
 
-- [ ] **Step 3: Watch the initContainer run**
+- [ ] **Step 4: Watch the initContainer run**
 
 ```bash
 kubectl wait --for=condition=Ready pod -l app=hermes-agent -n hermes --timeout=300s
@@ -879,10 +782,31 @@ POD=$(kubectl get pods -n hermes -o name | head -1 | sed 's|pod/||')
 kubectl logs -n hermes $POD -c profile-sync
 ```
 
-Expected: `copied SOUL.md`, `copied config.yaml`, `cron: 1 job(s) …`,
-`skills synced …`, `applied ref <sha>`. No `ERROR`.
+Expected, in order:
 
-- [ ] **Step 4: Verify the cron job is restored**
+```
+[profile-sync] copied SOUL.md
+[profile-sync] cron: <n> job(s) in /opt/data/cron/jobs.json
+[profile-sync] skills synced for /opt/data
+[profile-sync] applied ref <sha> (result: ok)
+```
+
+No `ERROR`, and no `WARNING` except possibly the skills one.
+
+Note there is **no** `copied config.yaml` line, and there should not be: the sync
+copies `SOUL.md` only (Task 5 Step 3). `result: ok` is the line that matters — it
+is what Step 7's skip gate depends on.
+
+Also confirm the optional-key path did the right thing:
+
+```bash
+kubectl logs -n hermes $POD -c ssh-key-perms
+```
+
+Expected: empty. `[ssh-key-perms] no plder key yet; config sync will soft-fail`
+means Step 1's gate was skipped or the key has since gone.
+
+- [ ] **Step 5: Verify the cron job is restored**
 
 ```bash
 kubectl exec -n hermes $POD -- /command/s6-setuidgid hermes \
@@ -892,7 +816,7 @@ kubectl exec -n hermes $POD -- /command/s6-setuidgid hermes \
 Expected: `[bot:monitor] daily exception report`, schedule `0 9 * * *`, next run
 tomorrow at 09:00.
 
-- [ ] **Step 5: Verify user data survived**
+- [ ] **Step 6: Verify user data survived**
 
 ```bash
 kubectl exec -n hermes $POD -- sh -c 'ls /opt/data/memories/ | head; ls /opt/data/profiles/'
@@ -900,9 +824,10 @@ kubectl exec -n hermes $POD -- sh -c 'ls /opt/data/memories/ | head; ls /opt/dat
 
 Expected: memories present; `monitor` profile still listed.
 
-- [ ] **Step 6: Verify a restart is a no-op (the skip gate)**
+- [ ] **Step 7: Verify a restart is a no-op (the skip gate)**
 
 ```bash
+kubectl exec -n hermes $POD -- cat /opt/data/.agent-config/applied
 kubectl delete pod -n hermes $POD
 kubectl wait --for=condition=Ready pod -l app=hermes-agent -n hermes --timeout=300s
 POD=$(kubectl get pods -n hermes -o name | head -1 | sed 's|pod/||')
@@ -912,36 +837,131 @@ kubectl logs -n hermes $POD -c profile-sync
 Expected: `ref <sha> + image already applied; skipping` — and nothing else. This
 proves an unplanned restart never depends on GitHub.
 
-- [ ] **Step 7: Verify the upsert preserves a hand-made job**
+The `applied` record printed first is the reason this works, and it must show
+**all three** of `ref`, `image` and `"result": "ok"`. `should_skip` requires the
+result too, not just a ref+image match. If `result` is `"partial"` the skip will
+never fire and every restart will re-clone from GitHub — read the `WARNING` lines
+in Step 4's log to find which step failed, and fix that rather than accepting the
+re-clone.
 
-Create a job from Telegram (or via the CLI), restart, and confirm it survives:
+- [ ] **Step 8: Verify the two upsert safety rules that protect the operator's data**
+
+The point of the upsert is not that unmanaged jobs survive in general — that is
+trivially true for any job the declaration never names. The two behaviours worth
+proving are the ones that can destroy or silently drop data.
+
+First create a hand-made job to stand in for one made from Telegram. Use a
+prompt-based job: `--script` requires a file under `<home>/scripts/`, which
+nothing in this plan creates, so a `--script` job would fail for the wrong reason.
 
 ```bash
 kubectl exec -n hermes $POD -- /command/s6-setuidgid hermes \
   env HERMES_HOME=/opt/data /opt/hermes/.venv/bin/hermes cron create "0 4 * * *" \
-  --name "scratch upsert probe" --script probe.sh --no-agent --deliver local
-kubectl delete pod -n hermes $POD
-kubectl wait --for=condition=Ready pod -l app=hermes-agent -n hermes --timeout=300s
-POD=$(kubectl get pods -n hermes -o name | head -1 | sed 's|pod/||')
+  --name "scratch handmade probe" --prompt "say hi" --deliver local
 kubectl exec -n hermes $POD -- /command/s6-setuidgid hermes \
   env HERMES_HOME=/opt/data /opt/hermes/.venv/bin/hermes cron list
 ```
 
-Expected: **both** jobs listed. Then remove the probe:
+Note the id the CLI assigned to `scratch handmade probe` — call it `$HANDMADE`.
+
+**(a) Tombstone retirement.** A job that was declared, synced, then removed from
+the repo must disappear on the next sync, while the hand-made job must not.
+
+In the plder clone, add a second throwaway job to `hermes/root/cron/jobs.json`
+(`"id": "scratch-decl-probe"`, `"managed_by": "plder"`, any schedule), push, bump
+`AGENT_CONFIG_REF` in `deployment.yaml` to the new SHA, push, and wait for the
+sync. `hermes cron list` must now show three jobs. Then **remove** that entry
+from `jobs.json`, push, bump `AGENT_CONFIG_REF` again, and wait.
+
+Expected after the second sync: `scratch-decl-probe` is **gone** (it carried
+`managed_by: plder`, so the upsert retires it), the real `[bot:monitor]` job is
+still there, and `scratch handmade probe` is **untouched** — same id, same
+schedule, same `next_run_at`. A hand-made job must never be collateral damage of
+a repo deletion.
+
+**(b) Id-collision refusal.** A declaration whose id matches a hand-made job must
+leave that job alone and skip itself, rather than adopting it.
+
+Add an entry to `jobs.json` using `$HANDMADE` as its `"id"` with a deliberately
+different `"name"` (e.g. `"name": "SHOULD NOT APPEAR"`), push, bump
+`AGENT_CONFIG_REF`, wait for the sync, then:
+
+```bash
+kubectl logs -n hermes $POD -c profile-sync | grep "id already used by a hand-made job"
+kubectl exec -n hermes $POD -- /command/s6-setuidgid hermes \
+  env HERMES_HOME=/opt/data /opt/hermes/.venv/bin/hermes cron list
+```
+
+Expected: the `WARNING … declared job(s) skipped — id already used by a hand-made
+job: <HANDMADE>` line is present, and the job still shows its original name, not
+`SHOULD NOT APPEAR`. The operator adopts a job deliberately, by deleting the live
+one first — never implicitly by id collision.
+
+Then clean up: remove the colliding entry from `jobs.json`, push, bump
+`AGENT_CONFIG_REF` back to a clean SHA, and delete the probe:
 
 ```bash
 kubectl exec -n hermes $POD -- /command/s6-setuidgid hermes \
-  env HERMES_HOME=/opt/data /opt/hermes/.venv/bin/hermes cron remove "scratch upsert probe" -y
+  env HERMES_HOME=/opt/data /opt/hermes/.venv/bin/hermes cron remove "scratch handmade probe" -y
 ```
 
-- [ ] **Step 8: Confirm the config-migrate warning is gone**
+- [ ] **Step 9: Verify the offline / last-good path**
+
+This is the other half of "the initContainer must never fail the pod": when
+GitHub is unreachable the agent must still boot, on the last config that worked.
+
+First confirm a last-good tree exists (Step 4's successful sync writes it):
 
 ```bash
-kubectl logs -n hermes $POD -c hermes-agent | grep -c "config-migrate" || echo "0 — warning gone"
+kubectl exec -n hermes $POD -- sh -c 'ls -la /opt/data/.agent-config/last-good/hermes/root/'
 ```
 
-Expected: `0 — warning gone`, because `config.yaml` is now a writable file carrying
-`_config_version` rather than a read-only ConfigMap mount.
+Expected: `SOUL.md` and `cron/` present. If this is empty the rest of the step
+proves nothing.
+
+Then force the clone to fail while leaving everything else intact. The least
+invasive way is to point the sync at a ref that does not exist: set
+`AGENT_CONFIG_REF` in `deployment.yaml` to `0000000`, push, and wait for the roll.
+(Breaking the SSH alias or the key would also work but risks leaving the agent's
+own git broken.)
+
+```bash
+kubectl wait --for=condition=Ready pod -l app=hermes-agent -n hermes --timeout=300s
+POD=$(kubectl get pods -n hermes -o name | head -1 | sed 's|pod/||')
+kubectl logs -n hermes $POD -c profile-sync
+```
+
+Expected:
+
+```
+[profile-sync] WARNING clone failed: …
+[profile-sync] falling back to last-good tree
+[profile-sync] copied SOUL.md
+[profile-sync] cron: <n> job(s) in /opt/data/cron/jobs.json
+[profile-sync] applied ref <PREVIOUS sha, not 0000000>
+```
+
+and — the part that actually matters — **the pod reaches Ready**. The
+initContainer exits 0 on every failure path; a `CrashLoopBackOff` or an
+`Init:Error` here is a release blocker, not a config nuisance.
+
+The recorded ref being the *previous* one is deliberate: it means the next
+restart does not skip and will retry the intended ref. Confirm that, then restore
+`AGENT_CONFIG_REF` to the real SHA, push, and verify Step 4's log again.
+
+- [ ] **Step 10: Check the config-migrate warning (expected to still be present)**
+
+```bash
+kubectl logs -n hermes $POD -c hermes-agent | grep -c "config-migrate"
+```
+
+Expected: **non-zero**, and that is correct for this phase. The warning comes
+from `config.yaml` being a read-only ConfigMap mount with no `_config_version`,
+and this plan deliberately leaves that mount in place — the sync copies `SOUL.md`
+only (Task 5 Step 3). `_config_version: 12` is already pinned in the declared
+`config.yaml` (Task 2 Step 3), so the warning disappears on the day the ConfigMap
+mount is retired. That retirement is listed under "Out of scope" below and is
+gated on this sync being proven first.
 
 ---
 
@@ -949,5 +969,14 @@ Expected: `0 — warning gone`, because `config.yaml` is now a writable file car
 
 Tracked in the spec, delivered by later plans: gateway multiplex and the monitor as a
 real bot; the `update-gitops` CI job and its validation gate; the remaining six bots;
-`skills/custom/` and meta authoring into the repo; retiring the root `config.yaml`
-ConfigMap mount once the copied file is proven.
+`skills/custom/` and meta authoring into the repo.
+
+**Retiring the root `config.yaml` ConfigMap mount.** Deliberately not in this
+phase, and the sequencing matters. The mount must come out of `deployment.yaml`
+*and* `config.yaml` must be added back to `sync.ROOT_FILES` in the same change —
+they are one atomic swap of who owns the file. Doing it early is unsafe: if the
+clone soft-fails on a fresh PVC (no deploy key, GitHub unreachable, no last-good
+tree) the agent would boot with no `config.yaml` at all. The precondition is this
+sync running clean across several restarts, with `result: "ok"` and the last-good
+fallback exercised (Task 8 Steps 7 and 9). Removing the mount is also what
+finally silences the `[config-migrate]` warning (Task 8 Step 10).
