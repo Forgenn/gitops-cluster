@@ -61,12 +61,31 @@ spec:
             - sh
             - -c
             - |
+              # The three keys below are load-bearing for the agent's own git work.
+              # `set -e` makes their absence fail this container LOUDLY and
+              # immediately -- that is deliberate and must not be relaxed.
+              set -e
               cp /secrets/git-deploy-key/GIT_DEPLOY_KEY /ssh-keys/git_deploy_key
               cp /secrets/fleet-ssh-key/FLEET_SSH_KEY /ssh-keys/fleet_ssh_key
               cp /secrets/nixos-deploy-key/NIXOS_DEPLOY_KEY /ssh-keys/nixos_deploy_key
-              cp /secrets/plder-deploy-key/PLDER_DEPLOY_KEY /ssh-keys/plder_deploy_key
-              chown 10000:10000 /ssh-keys/git_deploy_key /ssh-keys/fleet_ssh_key /ssh-keys/nixos_deploy_key /ssh-keys/plder_deploy_key
-              chmod 600 /ssh-keys/git_deploy_key /ssh-keys/fleet_ssh_key /ssh-keys/nixos_deploy_key /ssh-keys/plder_deploy_key
+              chown 10000:10000 /ssh-keys/git_deploy_key /ssh-keys/fleet_ssh_key /ssh-keys/nixos_deploy_key
+              chmod 600 /ssh-keys/git_deploy_key /ssh-keys/fleet_ssh_key /ssh-keys/nixos_deploy_key
+              set +e
+              # PLDER_DEPLOY_KEY is OPTIONAL and handled separately on purpose. It
+              # only feeds the profile-sync config clone, which is designed to
+              # soft-fail. If it were treated like the three above, a missing key
+              # would crash-loop this initContainer and, with strategy: Recreate,
+              # take the operator's only conversational interface offline -- for a
+              # config problem. The volume carries `optional: true` for the same
+              # reason (without it kubelet fails MountVolume.SetUp and the pod
+              # never leaves ContainerCreating).
+              if cp /secrets/plder-deploy-key/PLDER_DEPLOY_KEY /ssh-keys/plder_deploy_key 2>/dev/null; then
+                chown 10000:10000 /ssh-keys/plder_deploy_key
+                chmod 600 /ssh-keys/plder_deploy_key
+              else
+                echo "[ssh-key-perms] no plder key yet; config sync will soft-fail"
+              fi
+              exit 0
           volumeMounts:
             - name: git-deploy-key
               mountPath: /secrets/git-deploy-key
@@ -311,10 +330,19 @@ spec:
             items:
               - key: NIXOS_DEPLOY_KEY
                 path: NIXOS_DEPLOY_KEY
+        # `optional: true` is REQUIRED here, unlike the three keys above. With an
+        # `items:` selector and no `optional`, kubelet refuses to mount the volume
+        # at all when the key is missing from hermes-secrets -- MountVolume.SetUp
+        # fails and the pod sits in ContainerCreating forever. Combined with
+        # strategy: Recreate (the healthy pod is already gone) that is a total
+        # outage of the agent, caused by a config-only credential. The sync is
+        # built to degrade quietly instead: no key -> clone soft-fails -> last-good
+        # or untouched config -> the gateway still starts.
         - name: plder-deploy-key
           secret:
             secretName: hermes-secrets
             defaultMode: 0400
+            optional: true
             items:
               - key: PLDER_DEPLOY_KEY
                 path: PLDER_DEPLOY_KEY
