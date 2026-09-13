@@ -116,6 +116,11 @@ def copy_root_files(staged: Path) -> bool:
 
 def main() -> int:
     try:
+        # Early guard: no REF means nothing is declared to apply
+        if not REF:
+            log("no AGENT_CONFIG_REF set; nothing to apply")
+            return 0
+
         try:
             STATE_DIR.mkdir(parents=True, exist_ok=True)
         except Exception as exc:
