@@ -11,7 +11,11 @@ spec:
   restic:
     copyMethod: Direct
     pruneIntervalDays: 14
-    cacheCapacity: 1Gi
+    # Must stay >= the existing restic cache PVC (volsync-src-navidrome-data-cache),
+    # which was created at 2Gi. PVCs cannot shrink: at 1Gi every reconcile since
+    # 2026-08-27 failed "spec.resources.requests.storage: Forbidden: field can not be
+    # less than status.capacity", so this source never completed a single backup.
+    cacheCapacity: 2Gi
     repository: navidrome-restic-config
     moverSecurityContext:
       runAsUser: 1000

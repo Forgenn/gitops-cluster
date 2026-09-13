@@ -4,7 +4,14 @@ metadata:
   name: immich-library-backup
   namespace: immich
 spec:
-  sourcePVC: immich-library
+  # The library moved from Longhorn (`immich-library`) to ZFS-over-NFS on dolores
+  # (`immich-library-zfs`) around 2026-08-29, but this source kept the old name: every
+  # run since 2026-09-02 failed "PersistentVolumeClaim immich-library not found", while
+  # status.latestMoverStatus.result still read "Successful" from the last good run.
+  # dolores has no ZFS snapshots or replication, so this restic job is the ONLY backup
+  # of the photo library. Files are root-owned 644/755 (world-readable), so the mover
+  # needs no moverSecurityContext to read them.
+  sourcePVC: immich-library-zfs
   trigger:
     schedule: "0 8 * * *"
   restic:
