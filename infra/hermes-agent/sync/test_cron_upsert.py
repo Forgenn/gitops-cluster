@@ -62,3 +62,41 @@ def test_declared_jobs_are_stamped_even_if_the_file_forgot():
 def test_missing_jobs_key_is_tolerated():
     out = upsert_jobs({}, [{"id": "a"}])
     assert [j["id"] for j in out["jobs"]] == ["a"]
+
+
+def test_declared_id_collision_with_unmanaged_job_skips_declaration():
+    """FINDING 1: A declared id that collides with an unmanaged live job should skip the declaration."""
+    live = _live({"id": "shared-id", "name": "hand made by telegram"})
+    out = upsert_jobs(live, [{"id": "shared-id", "managed_by": MANAGED_BY}])
+    # The unmanaged job should remain completely untouched
+    assert len(out["jobs"]) == 1
+    assert out["jobs"][0]["id"] == "shared-id"
+    assert out["jobs"][0]["name"] == "hand made by telegram"
+    # The declared job should NOT be added
+    assert out["jobs"][0].get("managed_by") is None
+
+
+def test_runtime_fields_are_deep_copied_not_aliased():
+    """FINDING 2: Runtime fields (object-valued) must not be aliased from caller's live argument."""
+    live = _live({
+        "id": "a", "managed_by": MANAGED_BY,
+        "monitor_state": {"key": "original_value"}
+    })
+    out = upsert_jobs(live, [{"id": "a", "managed_by": MANAGED_BY}])
+    # Modify the output's monitor_state
+    out["jobs"][0]["monitor_state"]["key"] = "modified_value"
+    # The input's monitor_state should NOT have been modified
+    assert live["jobs"][0]["monitor_state"]["key"] == "original_value"
+
+
+def test_omitted_repeat_preserves_times_from_live():
+    """FINDING 3: When declaration omits 'repeat', carry over the previous repeat object's other fields."""
+    live = _live({
+        "id": "a", "managed_by": MANAGED_BY,
+        "repeat": {"times": 5, "completed": 3}
+    })
+    out = upsert_jobs(live, [{"id": "a", "managed_by": MANAGED_BY}])
+    # repeat.times should be preserved from live
+    assert out["jobs"][0]["repeat"]["times"] == 5
+    # repeat.completed should also be preserved
+    assert out["jobs"][0]["repeat"]["completed"] == 3
