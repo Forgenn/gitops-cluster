@@ -132,6 +132,20 @@ spec:
               value: /opt/data/home
             - name: GIT_SSH_COMMAND
               value: "ssh -F /opt/data/home/.ssh/config"
+            # /staging is an emptyDir MOUNT POINT owned by root, while this container
+            # runs as uid 10000, so git refuses to check out there with "detected dubious
+            # ownership" (its CVE-2022-24765 guard). Whitelisting exactly /staging is safe:
+            # it is a pod-private emptyDir this container just created, not a shared
+            # filesystem. Set via GIT_CONFIG_* env rather than `git config --global`,
+            # which would need a writable ~/.gitconfig. Verified live 2026-09-13 on
+            # git 2.47.3: without it the second deploy failed at checkout; with it the
+            # real sync.py cloned 8ac43fb and applied SOUL.md and the cron job.
+            - name: GIT_CONFIG_COUNT
+              value: "1"
+            - name: GIT_CONFIG_KEY_0
+              value: safe.directory
+            - name: GIT_CONFIG_VALUE_0
+              value: /staging
             - name: AGENT_CONFIG_REF
               value: "8ac43fb"
             - name: AGENT_IMAGE
