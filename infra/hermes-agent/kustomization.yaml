@@ -15,3 +15,13 @@ resources:
   - network-policies.yaml
   - backup-restic-config.yaml
   - backup.yaml
+
+# Ships the profile-sync scripts as a generated ConfigMap, not a plain resource:
+# the generator appends a content hash to the name, so editing sync.py or
+# cron_upsert.py actually rolls the pod (a plain ConfigMap name never changes,
+# so the initContainer would keep running stale scripts after an edit).
+configMapGenerator:
+  - name: hermes-sync-scripts
+    files:
+      - sync/sync.py
+      - sync/cron_upsert.py
