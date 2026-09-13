@@ -6,3 +6,21 @@ namespace: metallb
 resources:
   - https://raw.githubusercontent.com/metallb/metallb/v0.15.2/config/manifests/metallb-native.yaml
   - ip-pool.yaml
+
+patches:
+  # Upstream ships metallb-webhook-cert as a completely empty Secret; metallb's
+  # controller fills data.* at runtime and owns those fields. That left
+  # argocd-controller owning only its own tracking-id annotation, which ArgoCD's
+  # server-side diff excludes -- so it found "no managed fields for manager:
+  # argocd-controller" and the whole metallb app failed comparison on every refresh
+  # (silently: the error cleared between reconciles and the app showed Synced).
+  # Declaring one real field gives argocd-controller something to own, so the diff
+  # can run. It does not touch data.*, which stays owned by metallb's controller.
+  - target:
+      kind: Secret
+      name: metallb-webhook-cert
+    patch: |-
+      - op: add
+        path: /metadata/labels
+        value:
+          app.kubernetes.io/part-of: metallb
