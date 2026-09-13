@@ -397,11 +397,18 @@ def test_install_profiles_continues_after_a_failed_install(monkeypatch):
     staged = sync_module.STAGING
     _profile(staged, "monitor")
     _profile(staged, "shopper")
+    # monitor declares a job, so the assertion below is not vacuous.
+    (staged / "hermes" / "profiles" / "monitor" / "cron").mkdir()
+    (staged / "hermes" / "profiles" / "monitor" / "cron" / "jobs.json").write_text(
+        json.dumps({"jobs": [{"id": "m1", "name": "monitor job"}]}))
     calls = []
     monkeypatch.setattr(sync_module.subprocess, "run", _fake_run(calls, fail_for=("monitor",)))
     names, ok = sync_module.install_profiles(staged)
     assert names == ["shopper"]
     assert ok is False
+    # The failed profile has no directory under HERMES_HOME, so no cron store
+    # may be conjured for it.
+    assert not (sync_module.HERMES_HOME / "profiles" / "monitor" / "cron" / "jobs.json").exists()
 
 
 def test_install_profiles_survives_a_missing_binary(monkeypatch):
@@ -476,5 +483,228 @@ def test_main_moves_a_job_from_root_to_a_profile_and_records_it(monkeypatch):
     applied = json.loads(sync_module.APPLIED.read_text())
     assert root_live["jobs"] == []
     assert [j["id"] for j in prof_live["jobs"]] == ["6270d3f018f2"]
+    assert applied["profiles"] == ["monitor"]
+    assert applied["result"] == "ok"
+
+
+# ---- fix wave: failed install, orphaned profiles, unserved profiles ---------
+
+def _stage_tree(dest, root_jobs=(), profiles=(), allowlist=None):
+    """Write a staged plder tree: root cron, optional root config, profiles.
+
+    ``profiles`` is a sequence of (name, jobs) pairs.
+    """
+    (dest / "hermes" / "root" / "cron").mkdir(parents=True)
+    (dest / "hermes" / "root" / "cron" / "jobs.json").write_text(
+        json.dumps({"jobs": list(root_jobs)}))
+    if allowlist is not None:
+        lines = ["gateway:", "  multiplex_profiles: true", "  multiplex_profile_allowlist:"]
+        lines += [f"    - {name}" for name in allowlist]
+        (dest / "hermes" / "root" / "config.yaml").write_text("\n".join(lines) + "\n")
+    for name, jobs in profiles:
+        _profile(dest, name, jobs=jobs)
+
+
+def _live_store(home, name, doc):
+    d = home / "profiles" / name / "cron"
+    d.mkdir(parents=True)
+    f = d / "jobs.json"
+    f.write_text(json.dumps(doc, indent=2))
+    return f
+
+
+def _run_main(monkeypatch, fake_clone, fail_for=()):
+    monkeypatch.setattr(sync_module, "REF", "abc1234")
+    monkeypatch.setattr(sync_module, "IMAGE", "img:v1")
+    monkeypatch.setattr(sync_module, "clone", fake_clone)
+    monkeypatch.setattr(sync_module.subprocess, "run", _fake_run([], fail_for=fail_for))
+    assert main() == 0
+    return json.loads(sync_module.APPLIED.read_text())
+
+
+def test_main_failed_install_of_an_existing_profile_still_receives_a_moved_job(monkeypatch):
+    """B: root retires the job first; if the profile install then fails, the
+    profile's cron must still be applied or the job exists in neither store."""
+    job = {"id": "6270d3f018f2", "name": "[bot:monitor] daily exception report"}
+    home = sync_module.HERMES_HOME
+    (home / "cron").mkdir(parents=True)
+    (home / "cron" / "jobs.json").write_text(json.dumps({"jobs": [{**job, "managed_by": "plder"}]}))
+    (home / "profiles" / "monitor").mkdir(parents=True)  # installed on an earlier boot
+
+    def fake_clone(dest):
+        _stage_tree(dest, root_jobs=[], profiles=[("monitor", [job])])
+        return "abc1234"
+
+    applied = _run_main(monkeypatch, fake_clone, fail_for=("monitor",))
+
+    root_live = json.loads((home / "cron" / "jobs.json").read_text())
+    prof_file = home / "profiles" / "monitor" / "cron" / "jobs.json"
+    assert root_live["jobs"] == []
+    assert prof_file.is_file(), "job was retired from root and never reached the profile store"
+    assert [j["id"] for j in json.loads(prof_file.read_text())["jobs"]] == ["6270d3f018f2"]
+    assert applied["result"] == "partial"
+    assert applied["profiles"] == []
+
+
+def test_main_retires_managed_jobs_of_a_profile_removed_from_plder(monkeypatch):
+    """C: a live profile that is no longer declared loses its plder jobs only."""
+    home = sync_module.HERMES_HOME
+    _live_store(home, "oldbot", {"jobs": [
+        {"id": "managed1", "name": "declared once", "managed_by": "plder", "enabled": True},
+        {"id": "hand1", "name": "made from telegram", "enabled": True},
+    ], "updated_at": "2026-09-13T10:00:00+00:00"})
+
+    def fake_clone(dest):
+        _stage_tree(dest, profiles=[("monitor", [])])
+        return "abc1234"
+
+    _run_main(monkeypatch, fake_clone)
+
+    live = json.loads((home / "profiles" / "oldbot" / "cron" / "jobs.json").read_text())
+    assert [j["id"] for j in live["jobs"]] == ["hand1"]
+    assert live["jobs"][0] == {"id": "hand1", "name": "made from telegram", "enabled": True}
+    assert live["updated_at"] == "2026-09-13T10:00:00+00:00"
+
+
+def test_main_leaves_an_undeclared_profile_with_only_hand_made_jobs_byte_identical(monkeypatch):
+    """C: a Desktop-created bot with no plder jobs is never rewritten."""
+    home = sync_module.HERMES_HOME
+    f = _live_store(home, "desktopbot", {"jobs": [
+        {"id": "hand1", "name": "made in desktop", "enabled": True},
+    ], "updated_at": "2026-09-13T10:00:00+00:00"})
+    before_bytes = f.read_bytes()
+    before_mtime = f.stat().st_mtime_ns
+
+    def fake_clone(dest):
+        _stage_tree(dest, profiles=[("monitor", [])])
+        return "abc1234"
+
+    _run_main(monkeypatch, fake_clone)
+
+    assert f.read_bytes() == before_bytes
+    assert f.stat().st_mtime_ns == before_mtime
+
+
+def test_main_does_not_retire_the_jobs_of_a_declared_profile(monkeypatch):
+    """C: the retire pass must skip declared profiles, or it would undo their apply."""
+    job = {"id": "abc123def456", "name": "[bot:monitor] daily"}
+    home = sync_module.HERMES_HOME
+    _live_store(home, "monitor", {"jobs": [{**job, "managed_by": "plder"}]})
+    calls = []
+    real = getattr(sync_module, "retire_undeclared_profile_jobs", None)
+    if real is not None:
+        def spy(declared):
+            calls.append(set(declared))
+            return real(declared)
+        monkeypatch.setattr(sync_module, "retire_undeclared_profile_jobs", spy)
+
+    def fake_clone(dest):
+        _stage_tree(dest, profiles=[("monitor", [job])])
+        return "abc1234"
+
+    applied = _run_main(monkeypatch, fake_clone)
+
+    live = json.loads((home / "profiles" / "monitor" / "cron" / "jobs.json").read_text())
+    assert [j["id"] for j in live["jobs"]] == ["abc123def456"]
+    assert applied["result"] == "ok"
+    assert calls == [{"monitor"}], "retire pass must run exactly once, with monitor declared"
+
+
+def test_main_retires_managed_jobs_of_a_declared_profile_that_lost_its_cron_declaration(monkeypatch):
+    """C: a profile still declared but with no cron/jobs.json declares no jobs."""
+    home = sync_module.HERMES_HOME
+    _live_store(home, "monitor", {"jobs": [
+        {"id": "managed1", "managed_by": "plder"},
+        {"id": "hand1", "name": "made from telegram"},
+    ]})
+
+    def fake_clone(dest):
+        _stage_tree(dest)
+        _profile(dest, "monitor", jobs=None)  # manifest, but no cron/jobs.json
+        return "abc1234"
+
+    applied = _run_main(monkeypatch, fake_clone)
+
+    live = json.loads((home / "profiles" / "monitor" / "cron" / "jobs.json").read_text())
+    assert [j["id"] for j in live["jobs"]] == ["hand1"]
+    assert applied["profiles"] == ["monitor"]
+    assert applied["result"] == "ok"
+
+
+def test_main_leaves_a_corrupt_store_of_an_undeclared_profile_alone(monkeypatch):
+    """C: an unreadable store is nothing to do -- not rewritten, not a failure."""
+    home = sync_module.HERMES_HOME
+    d = home / "profiles" / "desktopbot" / "cron"
+    d.mkdir(parents=True)
+    (d / "jobs.json").write_text("{not json")
+
+    def fake_clone(dest):
+        _stage_tree(dest, profiles=[("monitor", [])])
+        return "abc1234"
+
+    applied = _run_main(monkeypatch, fake_clone)
+
+    assert (d / "jobs.json").read_text() == "{not json"
+    assert applied["result"] == "ok"
+
+
+def test_main_warns_about_an_unlisted_profile_with_an_enabled_job(monkeypatch, capsys):
+    """F: under multiplex an unlisted profile's jobs never run; say so."""
+    home = sync_module.HERMES_HOME
+    _live_store(home, "desktopbot", {"jobs": [{"id": "hand1", "enabled": True}]})
+
+    def fake_clone(dest):
+        _stage_tree(dest, profiles=[("monitor", [])], allowlist=["monitor"])
+        return "abc1234"
+
+    applied = _run_main(monkeypatch, fake_clone)
+
+    out = capsys.readouterr().out
+    warnings = [l for l in out.splitlines() if "WARNING" in l and "desktopbot" in l]
+    assert len(warnings) == 1, out
+    assert "multiplex_profile_allowlist" in warnings[0]
+    assert "will not run" in warnings[0]
+    assert applied["result"] == "ok"
+
+
+def test_main_does_not_warn_about_an_allowlisted_profile(monkeypatch, capsys):
+    """F: an allowlisted profile with enabled jobs is served; no warning."""
+    job = {"id": "abc123def456", "name": "[bot:monitor] daily", "enabled": True}
+
+    def fake_clone(dest):
+        _stage_tree(dest, profiles=[("monitor", [job])], allowlist=["monitor"])
+        return "abc1234"
+
+    _run_main(monkeypatch, fake_clone)
+    out = capsys.readouterr().out
+    assert "multiplex_profile_allowlist" not in out, out
+
+
+def test_main_does_not_warn_when_the_staged_root_config_is_missing(monkeypatch, capsys):
+    """F: no declared config means nothing to compare against; stay silent."""
+    home = sync_module.HERMES_HOME
+    _live_store(home, "desktopbot", {"jobs": [{"id": "hand1", "enabled": True}]})
+
+    def fake_clone(dest):
+        _stage_tree(dest, profiles=[("monitor", [])], allowlist=None)
+        return "abc1234"
+
+    applied = _run_main(monkeypatch, fake_clone)
+    out = capsys.readouterr().out
+    assert "multiplex_profile_allowlist" not in out, out
+    assert applied["result"] == "ok"
+
+
+def test_main_profile_skills_sync_failure_does_not_flip_the_result_to_partial(monkeypatch):
+    """G: per-profile skills sync is log-only, like the root call."""
+    home = sync_module.HERMES_HOME
+
+    def fake_clone(dest):
+        _stage_tree(dest, profiles=[("monitor", [])])
+        return "abc1234"
+
+    # Root succeeds, every profile home fails.
+    monkeypatch.setattr(sync_module, "sync_skills", lambda h: Path(h) == Path(home))
+    applied = _run_main(monkeypatch, fake_clone)
     assert applied["profiles"] == ["monitor"]
     assert applied["result"] == "ok"

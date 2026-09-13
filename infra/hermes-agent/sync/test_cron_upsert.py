@@ -184,3 +184,29 @@ def test_declared_repeat_onto_a_live_job_with_null_repeat():
     out = upsert_jobs(live, [{"id": "a", "managed_by": MANAGED_BY,
                               "repeat": {"times": 3, "completed": 0}}])
     assert out["jobs"][0]["repeat"] == {"times": 3, "completed": 0}
+
+
+def test_paused_live_job_stays_disabled_when_declaration_is_silent_about_state():
+    """A job paused from Telegram is live `enabled: false, state: "paused"`.
+
+    The declaration carries `"enabled": true`; overlaying it used to re-enable
+    the job on every sync while it was still labelled paused -- a silent
+    un-pause. A declaration that does not set `state` must keep live `enabled`.
+    """
+    live = _live({"id": "a", "managed_by": MANAGED_BY, "enabled": False,
+                  "state": "paused", "paused_at": "2026-09-13T10:00:00+00:00"})
+    out = upsert_jobs(live, [{"id": "a", "managed_by": MANAGED_BY, "enabled": True}])
+    job = out["jobs"][0]
+    assert job["enabled"] is False
+    assert job["state"] == "paused"
+    assert job["paused_at"] == "2026-09-13T10:00:00+00:00"
+
+
+def test_explicit_declared_state_and_enabled_resume_a_paused_job():
+    """Resuming from git is explicit: a declared `state` wins, and so does `enabled`."""
+    live = _live({"id": "a", "managed_by": MANAGED_BY, "enabled": False, "state": "paused"})
+    out = upsert_jobs(live, [{"id": "a", "managed_by": MANAGED_BY,
+                              "state": "scheduled", "enabled": True}])
+    job = out["jobs"][0]
+    assert job["state"] == "scheduled"
+    assert job["enabled"] is True

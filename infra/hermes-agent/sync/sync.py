@@ -17,7 +17,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from cron_upsert import upsert_jobs_with_conflicts
+from cron_upsert import MANAGED_BY, upsert_jobs_with_conflicts
 
 HERMES_HOME = Path(os.environ.get("HERMES_HOME", "/opt/data"))
 STATE_DIR = HERMES_HOME / ".agent-config"
@@ -158,12 +158,31 @@ def copy_root_files(staged: Path) -> bool:
         return False
 
 
+def _apply_cron_after_failed_install(name: str, src: Path) -> None:
+    """Apply a profile's declared cron even though its install just failed.
+
+    main() applies the root cron BEFORE installing profiles, so a job moved from
+    the root declaration to a profile's has already been retired from the root
+    store by now. Skipping the profile's cron on a failed install would leave
+    that job in NEITHER store. When the profile already exists on the volume
+    (installed on an earlier boot) its store is a legitimate target, so apply
+    it anyway; the caller has already marked the run not-ok. A profile with no
+    directory yet gets nothing: there is no installed profile to hold a store.
+    """
+    home = HERMES_HOME / "profiles" / name
+    if home.is_dir():
+        log(f"profile {name} already exists; applying its cron despite the failed install")
+        apply_cron(home, src / "cron" / "jobs.json")
+
+
 def install_profiles(staged: Path) -> tuple[list[str], bool]:
     """Install every declared profile distribution, then apply its cron.
 
     A declared profile is a directory under staged/hermes/profiles/ containing a
     distribution.yaml. `hermes profile install --force` copies only the paths the
     manifest lists and never touches user-owned data (memories, sessions, .env).
+    A failed install still applies the cron of a profile that already exists
+    (see _apply_cron_after_failed_install) but never counts as installed.
     Returns (installed profile names, all_ok). Never raises.
     """
     root = staged / "hermes" / "profiles"
@@ -193,10 +212,12 @@ def install_profiles(staged: Path) -> tuple[list[str], bool]:
             detail = (exc.stderr or b"").decode(errors="replace").strip()[:300]
             log(f"WARNING profile install failed for {name}: {detail}")
             ok = False
+            _apply_cron_after_failed_install(name, src)
             continue
         except Exception as exc:
             log(f"WARNING profile install failed for {name}: {type(exc).__name__}: {str(exc)[:300]}")
             ok = False
+            _apply_cron_after_failed_install(name, src)
             continue
 
         installed.append(name)
@@ -209,6 +230,135 @@ def install_profiles(staged: Path) -> tuple[list[str], bool]:
         # so this call is what finally keeps their bundled skills current.
         sync_skills(home)
     return installed, ok
+
+
+def declared_profile_names(staged: Path) -> set[str] | None:
+    """Names of the profiles whose cron this run declares, or None if unknown.
+
+    A profile counts only when it has a distribution.yaml, a valid name AND a
+    cron/jobs.json: a profile that loses its cron declaration has declared no
+    jobs, so its plder jobs must be retired like those of a removed profile.
+    None means the staged tree could not be listed; the caller must then retire
+    nothing, because an unreadable tree is not a declaration of zero profiles.
+    """
+    root = staged / "hermes" / "profiles"
+    try:
+        if not root.is_dir():
+            return set()
+        return {
+            p.name for p in root.iterdir()
+            if p.is_dir()
+            and _PROFILE_NAME_RE.match(p.name)
+            and (p / "distribution.yaml").is_file()
+            and (p / "cron" / "jobs.json").is_file()
+        }
+    except Exception as exc:
+        log(f"WARNING could not list declared profiles in {root}: {exc}")
+        return None
+
+
+def _live_profile_dirs() -> list[Path]:
+    root = HERMES_HOME / "profiles"
+    if not root.is_dir():
+        return []
+    return sorted(p for p in root.iterdir() if p.is_dir())
+
+
+def _is_managed(job) -> bool:
+    return isinstance(job, dict) and job.get("managed_by") == MANAGED_BY
+
+
+def retire_undeclared_profile_jobs(declared: set[str]) -> bool:
+    """Retire plder-managed jobs from every live profile not declared this run.
+
+    This is the empty-declaration merge (upsert_jobs_with_conflicts(live, []))
+    written as a plain filter, for two reasons: it keeps every other live job
+    exactly as it is, including entries the id-keyed merge would collapse, and
+    it keeps the store's other top-level keys (Hermes writes `updated_at`).
+    The file is rewritten ONLY when a managed job was actually removed, so an
+    undeclared profile with no plder jobs -- e.g. a bot created in Hermes
+    Desktop -- is never touched. Returns False only if a store that needed a
+    write could not be written. Never raises.
+    """
+    ok = True
+    try:
+        homes = _live_profile_dirs()
+    except Exception as exc:
+        log(f"WARNING could not list live profiles: {exc}")
+        return False
+    for home in homes:
+        if home.name in declared:
+            continue
+        live_file = home / "cron" / "jobs.json"
+        # Missing or unreadable store: nothing to do, and deliberately NOT a
+        # failure. Voting here would let one corrupt hand-made store (not ours)
+        # pin result at "partial" and force a re-clone on every boot.
+        try:
+            if not live_file.is_file():
+                continue
+            live = json.loads(live_file.read_text())
+        except Exception as exc:
+            log(f"could not read the cron store of undeclared profile {home.name}; left as is: {exc}")
+            continue
+        jobs = live.get("jobs") if isinstance(live, dict) else None
+        if not isinstance(jobs, list):
+            continue
+        retired = [j.get("id") for j in jobs if _is_managed(j)]
+        if not retired:
+            continue
+        new = dict(live)
+        new["jobs"] = [j for j in jobs if not _is_managed(j)]
+        try:
+            tmp = live_file.with_suffix(".json.tmp")
+            tmp.write_text(json.dumps(new, indent=2))
+            tmp.replace(live_file)
+            log(f"cron: retired {len(retired)} plder job(s) from undeclared profile "
+                f"{home.name}: {', '.join(str(i) for i in retired)}")
+        except Exception as exc:
+            log(f"WARNING could not retire plder jobs for undeclared profile {home.name}: {exc}")
+            ok = False
+    return ok
+
+
+def warn_unserved_profiles(staged: Path) -> None:
+    """Warn about live profiles whose enabled cron jobs will never run.
+
+    Under gateway multiplex only allowlisted profiles are served, so a profile
+    created outside git (e.g. in Hermes Desktop) shows a valid next_run_at and
+    silently never runs. The allowlist is read from the staged root config, the
+    declared mirror of the live ConfigMap. Warning only: never writes, never
+    affects the result, never raises. No config, no key, or an unreadable
+    file means no warning.
+    """
+    try:
+        # Present in the image's venv. Imported lazily so a missing module can
+        # only ever skip this warning, never stop the script from starting.
+        import yaml
+        cfg_file = staged / "hermes" / "root" / "config.yaml"
+        if not cfg_file.is_file():
+            return
+        cfg = yaml.safe_load(cfg_file.read_text(encoding="utf-8"))
+        gateway = cfg.get("gateway") if isinstance(cfg, dict) else None
+        allowlist = gateway.get("multiplex_profile_allowlist") if isinstance(gateway, dict) else None
+        if not isinstance(allowlist, list):
+            return
+        allowed = {str(name) for name in allowlist}
+        homes = _live_profile_dirs()
+    except Exception as exc:
+        log(f"could not check the multiplex allowlist: {type(exc).__name__}: {exc}")
+        return
+    for home in homes:
+        if home.name in allowed:
+            continue
+        try:
+            live = json.loads((home / "cron" / "jobs.json").read_text())
+            jobs = live.get("jobs") if isinstance(live, dict) else None
+            if isinstance(jobs, list) and any(
+                    isinstance(j, dict) and j.get("enabled") is True for j in jobs):
+                log(f"WARNING profile {home.name} has enabled cron jobs that will not run: "
+                    f"it is not in gateway.multiplex_profile_allowlist")
+        except Exception:
+            continue
 
 
 def main() -> int:
@@ -292,6 +442,17 @@ def main() -> int:
         # create it in the profile store within the same run.
         profiles, profiles_ok = install_profiles(STAGING)
         steps_ok = profiles_ok and steps_ok
+
+        # A profile removed from plder (or stripped of its manifest or cron
+        # declaration) must not keep running its plder jobs. Runs after the
+        # declared profiles so it only ever sees the leftovers.
+        declared = declared_profile_names(STAGING)
+        if declared is None:
+            log("WARNING declared profiles unknown; not retiring jobs of undeclared profiles")
+        else:
+            steps_ok = retire_undeclared_profile_jobs(declared) and steps_ok
+
+        warn_unserved_profiles(STAGING)
 
         result = "ok" if steps_ok else "partial"
         try:

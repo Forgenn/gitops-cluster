@@ -56,6 +56,9 @@ def upsert_jobs_with_conflicts(
     - ``state`` carries over unless the declaration sets it explicitly — that is
       how a job is paused or resumed from git. This now holds by construction:
       a declaration that is silent about ``state`` cannot overwrite it.
+    - A live job that is paused (``state == "paused"``) keeps its live
+      ``enabled`` unless the declaration sets ``state`` explicitly, so a sync
+      never silently un-pauses a job paused from Telegram.
     - ``repeat`` is merged key-by-key rather than replaced, and live
       ``repeat.completed`` always wins; the declared value is used only to seed
       a counter the live job does not have yet.
@@ -108,6 +111,19 @@ def upsert_jobs_with_conflicts(
             # `state`: declared wins only when the declaration sets it
             # explicitly, otherwise the live state survives. Guaranteed by the
             # overlay above -- asserted here only as documentation of intent.
+
+            # Special rule 1b: a job paused at runtime (from Telegram) is live
+            # `enabled: false, state: "paused"`, while its declaration carries
+            # `enabled: true`. Overlaying that would silently un-pause the job
+            # on every sync, leaving it enabled yet labelled paused. So while the
+            # live job is paused and the declaration is silent about `state`,
+            # live `enabled` wins. Resuming from git stays possible: declare
+            # `state` explicitly and both declared fields apply.
+            if prev.get("state") == "paused" and "state" not in decl:
+                if "enabled" in prev:
+                    job["enabled"] = copy.deepcopy(prev["enabled"])
+                else:
+                    job.pop("enabled", None)
 
             # Special rule 2: `repeat` is merged, not replaced, and live
             # `completed` takes precedence. Declared `completed` is used only to
