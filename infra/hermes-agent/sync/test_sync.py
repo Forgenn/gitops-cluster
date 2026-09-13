@@ -339,3 +339,142 @@ def test_apply_cron_skips_duplicate_declared_ids(tmp_path):
     jobs = json.loads((tmp_path / "cron" / "jobs.json").read_text())["jobs"]
     assert [j["id"] for j in jobs] == ["dup"]
     assert jobs[0]["name"] == "first wins"
+
+
+# ---- install_profiles -------------------------------------------------------
+
+def _profile(staged, name, jobs=None, manifest=True):
+    d = staged / "hermes" / "profiles" / name
+    d.mkdir(parents=True)
+    if manifest:
+        (d / "distribution.yaml").write_text(f"name: {name}\nversion: 0.1.0\n")
+    if jobs is not None:
+        (d / "cron").mkdir()
+        (d / "cron" / "jobs.json").write_text(json.dumps({"jobs": jobs}))
+    return d
+
+
+def _fake_run(calls, fail_for=(), exc=None):
+    def run(cmd, *args, **kwargs):
+        calls.append({"cmd": cmd, "env": kwargs.get("env")})
+        if cmd[1:3] == ["profile", "install"] and cmd[5] in fail_for:
+            raise exc or sync_module.subprocess.CalledProcessError(1, cmd, stderr=b"boom")
+        return MagicMock(returncode=0)
+    return run
+
+
+def _installs(calls):
+    return [c for c in calls if c["cmd"][1:3] == ["profile", "install"]]
+
+
+def test_install_profiles_installs_each_declared_profile(monkeypatch):
+    staged = sync_module.STAGING
+    _profile(staged, "monitor")
+    _profile(staged, "shopper")
+    calls = []
+    monkeypatch.setattr(sync_module.subprocess, "run", _fake_run(calls))
+    names, ok = sync_module.install_profiles(staged)
+    assert names == ["monitor", "shopper"]
+    assert ok is True
+    cmds = [c["cmd"] for c in _installs(calls)]
+    assert [c[5] for c in cmds] == ["monitor", "shopper"]
+    assert all(c[0] == sync_module.HERMES_BIN and "--force" in c and "-y" in c for c in cmds)
+    assert all(c["env"]["HERMES_HOME"] == str(sync_module.HERMES_HOME) for c in _installs(calls))
+
+
+def test_install_profiles_ignores_directories_without_a_manifest(monkeypatch):
+    staged = sync_module.STAGING
+    _profile(staged, "monitor")
+    _profile(staged, "notes", manifest=False)
+    calls = []
+    monkeypatch.setattr(sync_module.subprocess, "run", _fake_run(calls))
+    names, ok = sync_module.install_profiles(staged)
+    assert names == ["monitor"] and ok is True
+    assert [c["cmd"][5] for c in _installs(calls)] == ["monitor"]
+
+
+def test_install_profiles_continues_after_a_failed_install(monkeypatch):
+    staged = sync_module.STAGING
+    _profile(staged, "monitor")
+    _profile(staged, "shopper")
+    calls = []
+    monkeypatch.setattr(sync_module.subprocess, "run", _fake_run(calls, fail_for=("monitor",)))
+    names, ok = sync_module.install_profiles(staged)
+    assert names == ["shopper"]
+    assert ok is False
+
+
+def test_install_profiles_survives_a_missing_binary(monkeypatch):
+    staged = sync_module.STAGING
+    _profile(staged, "monitor")
+    calls = []
+    monkeypatch.setattr(sync_module.subprocess, "run",
+                        _fake_run(calls, fail_for=("monitor",), exc=FileNotFoundError("hermes")))
+    names, ok = sync_module.install_profiles(staged)
+    assert names == [] and ok is False
+
+
+def test_install_profiles_survives_a_failure_with_no_stderr(monkeypatch):
+    staged = sync_module.STAGING
+    _profile(staged, "monitor")
+    calls = []
+    err = sync_module.subprocess.CalledProcessError(1, ["hermes"], stderr=None)
+    monkeypatch.setattr(sync_module.subprocess, "run", _fake_run(calls, fail_for=("monitor",), exc=err))
+    names, ok = sync_module.install_profiles(staged)
+    assert names == [] and ok is False
+
+
+def test_install_profiles_rejects_an_invalid_profile_name(monkeypatch):
+    staged = sync_module.STAGING
+    _profile(staged, "Bad_Name")
+    calls = []
+    monkeypatch.setattr(sync_module.subprocess, "run", _fake_run(calls))
+    names, ok = sync_module.install_profiles(staged)
+    assert names == [] and ok is False
+    assert _installs(calls) == []
+
+
+def test_install_profiles_applies_the_profiles_declared_cron(monkeypatch):
+    staged = sync_module.STAGING
+    _profile(staged, "monitor", jobs=[{"id": "abc123def456", "name": "[bot:monitor] daily"}])
+    monkeypatch.setattr(sync_module.subprocess, "run", _fake_run([]))
+    names, ok = sync_module.install_profiles(staged)
+    live = json.loads((sync_module.HERMES_HOME / "profiles" / "monitor" / "cron" / "jobs.json").read_text())
+    assert ok is True
+    assert [j["id"] for j in live["jobs"]] == ["abc123def456"]
+    assert live["jobs"][0]["managed_by"] == "plder"
+
+
+def test_install_profiles_with_no_profiles_directory_is_a_noop(monkeypatch):
+    calls = []
+    monkeypatch.setattr(sync_module.subprocess, "run", _fake_run(calls))
+    assert sync_module.install_profiles(sync_module.STAGING) == ([], True)
+    assert calls == []
+
+
+def test_main_moves_a_job_from_root_to_a_profile_and_records_it(monkeypatch):
+    """The root declaration drops the job and the profile declares it: after one
+    run the root store has retired it and the profile store holds it."""
+    job = {"id": "6270d3f018f2", "name": "[bot:monitor] daily exception report"}
+    home = sync_module.HERMES_HOME
+    (home / "cron").mkdir(parents=True)
+    (home / "cron" / "jobs.json").write_text(json.dumps({"jobs": [{**job, "managed_by": "plder"}]}))
+
+    def fake_clone(dest):
+        (dest / "hermes" / "root" / "cron").mkdir(parents=True)
+        (dest / "hermes" / "root" / "cron" / "jobs.json").write_text(json.dumps({"jobs": []}))
+        _profile(dest, "monitor", jobs=[job])
+        return "abc1234"
+
+    monkeypatch.setattr(sync_module, "REF", "abc1234")
+    monkeypatch.setattr(sync_module, "clone", fake_clone)
+    monkeypatch.setattr(sync_module.subprocess, "run", _fake_run([]))
+    assert main() == 0
+
+    root_live = json.loads((home / "cron" / "jobs.json").read_text())
+    prof_live = json.loads((home / "profiles" / "monitor" / "cron" / "jobs.json").read_text())
+    applied = json.loads(sync_module.APPLIED.read_text())
+    assert root_live["jobs"] == []
+    assert [j["id"] for j in prof_live["jobs"]] == ["6270d3f018f2"]
+    assert applied["profiles"] == ["monitor"]
+    assert applied["result"] == "ok"
