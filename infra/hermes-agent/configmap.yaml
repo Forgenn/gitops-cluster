@@ -47,6 +47,12 @@ data:
       multiplex_profiles: true
       multiplex_profile_allowlist:
         - monitor
+      profile_routes:
+        - name: monitor-topic
+          platform: telegram
+          chat_id: "7850573137"
+          thread_id: "5332"
+          profile: monitor
   # Mounted at /opt/data/home/.ssh/config (the app user's HOME, uid 10000), where
   # the gateway-running user can actually read it. Not sensitive on its own -- just
   # host aliases and identity-file paths; the actual keys come from the hermes-secrets
