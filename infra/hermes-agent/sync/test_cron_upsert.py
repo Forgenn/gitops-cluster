@@ -100,3 +100,23 @@ def test_omitted_repeat_preserves_times_from_live():
     assert out["jobs"][0]["repeat"]["times"] == 5
     # repeat.completed should also be preserved
     assert out["jobs"][0]["repeat"]["completed"] == 3
+
+
+def test_first_declared_repeat_preserves_completed():
+    """REGRESSION FIX: When live job has no repeat but declaration introduces one with completed, completed should survive."""
+    live = _live({"id": "a", "managed_by": MANAGED_BY})  # no repeat key
+    out = upsert_jobs(live, [{"id": "a", "managed_by": MANAGED_BY, "repeat": {"times": 3, "completed": 0}}])
+    # Both times and completed should be present
+    assert out["jobs"][0]["repeat"]["times"] == 3
+    assert out["jobs"][0]["repeat"]["completed"] == 0
+
+
+def test_live_completed_still_wins_over_declared():
+    """Verify that live repeat.completed wins over declared, even when declaration explicitly sets it."""
+    live = _live({
+        "id": "a", "managed_by": MANAGED_BY,
+        "repeat": {"times": None, "completed": 7}
+    })
+    out = upsert_jobs(live, [{"id": "a", "managed_by": MANAGED_BY, "repeat": {"times": None, "completed": 0}}])
+    # Live completed (7) should override declared (0)
+    assert out["jobs"][0]["repeat"]["completed"] == 7

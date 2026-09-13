@@ -79,6 +79,9 @@ def upsert_jobs_with_conflicts(
                     for key, value in declared_repeat.items():
                         if key != "completed":  # Never override completed
                             merged_repeat[key] = value
+                    # For completed: live wins if it has one, otherwise use declared if it has one
+                    if "completed" not in merged_repeat and "completed" in declared_repeat:
+                        merged_repeat["completed"] = declared_repeat["completed"]
                 job["repeat"] = merged_repeat
 
         merged.append(job)
