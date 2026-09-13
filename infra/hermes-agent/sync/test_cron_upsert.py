@@ -1,5 +1,4 @@
-import pytest
-from cron_upsert import upsert_jobs, MANAGED_BY
+from cron_upsert import upsert_jobs, upsert_jobs_with_conflicts, MANAGED_BY
 
 
 def _live(*jobs):
@@ -120,3 +119,68 @@ def test_live_completed_still_wins_over_declared():
     out = upsert_jobs(live, [{"id": "a", "managed_by": MANAGED_BY, "repeat": {"times": None, "completed": 0}}])
     # Live completed (7) should override declared (0)
     assert out["jobs"][0]["repeat"]["completed"] == 7
+
+
+def test_unlisted_live_field_survives_a_redeclaration():
+    """INVERTED MERGE: a live field the repo never declares must not be dropped.
+
+    The merge used to build from the declaration and copy back an allowlist
+    (RUNTIME_FIELDS), so everything outside that list was destroyed on every
+    sync -- provider_snapshot, run_claim, base_url, origin, enabled_toolsets and
+    anything a future image adds. Building from the live job fixes that by
+    construction; this test is the guard against a regression to allowlisting.
+    """
+    live = _live({
+        "id": "a", "name": "old", "managed_by": MANAGED_BY,
+        "provider_snapshot": {"provider": "openrouter", "model": "sonnet"},
+        "run_claim": "pod-xyz",
+        "enabled_toolsets": ["kubectl", "http"],
+    })
+    out = upsert_jobs(live, [{"id": "a", "name": "new", "managed_by": MANAGED_BY}])
+    job = out["jobs"][0]
+    assert job["name"] == "new"                                   # declared still wins
+    assert job["provider_snapshot"] == {"provider": "openrouter", "model": "sonnet"}
+    assert job["run_claim"] == "pod-xyz"
+    assert job["enabled_toolsets"] == ["kubectl", "http"]
+
+
+def test_unlisted_live_field_is_deep_copied_not_aliased():
+    """The surviving live fields must not alias the caller's live document."""
+    live = _live({"id": "a", "managed_by": MANAGED_BY,
+                  "provider_snapshot": {"model": "original"}})
+    out = upsert_jobs(live, [{"id": "a", "managed_by": MANAGED_BY}])
+    out["jobs"][0]["provider_snapshot"]["model"] = "modified"
+    assert live["jobs"][0]["provider_snapshot"]["model"] == "original"
+
+
+def test_conflicts_list_names_the_skipped_declared_id():
+    """The conflicts list is the safety signal for the refuse-to-adopt rule.
+
+    sync.apply_cron logs it; without it a declared job silently vanishes and the
+    operator has no way to know their hand-made job blocked a declaration.
+    """
+    live = _live({"id": "shared-id", "name": "hand made by telegram"},
+                 {"id": "ours", "managed_by": MANAGED_BY})
+    merged, conflicts = upsert_jobs_with_conflicts(
+        live, [{"id": "shared-id", "managed_by": MANAGED_BY},
+               {"id": "ours", "managed_by": MANAGED_BY}])
+    assert conflicts == ["shared-id"]
+    # ...and the hand-made job is still there, untouched.
+    by_id = {j["id"]: j for j in merged["jobs"]}
+    assert by_id["shared-id"]["name"] == "hand made by telegram"
+    assert by_id["shared-id"].get("managed_by") is None
+
+
+def test_conflicts_list_is_empty_when_nothing_collides():
+    merged, conflicts = upsert_jobs_with_conflicts(
+        _live({"id": "a", "managed_by": MANAGED_BY}), [{"id": "a"}])
+    assert conflicts == []
+    assert [j["id"] for j in merged["jobs"]] == ["a"]
+
+
+def test_declared_repeat_onto_a_live_job_with_null_repeat():
+    """A non-repeating live job stores "repeat": null -- must not crash the merge."""
+    live = _live({"id": "a", "managed_by": MANAGED_BY, "repeat": None})
+    out = upsert_jobs(live, [{"id": "a", "managed_by": MANAGED_BY,
+                              "repeat": {"times": 3, "completed": 0}}])
+    assert out["jobs"][0]["repeat"] == {"times": 3, "completed": 0}
