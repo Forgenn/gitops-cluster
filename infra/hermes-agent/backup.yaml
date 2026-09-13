@@ -4,6 +4,12 @@ metadata:
   name: hermes-data
   namespace: hermes
 spec:
+  # Declared explicitly so a pause is always a reviewed commit. On 2026-09-08 this
+  # source was paused with a live `kubectl patch` during the Longhorn corruption
+  # recovery; because the field was absent from this manifest, ArgoCD's self-heal
+  # never managed it and backups silently stayed off for five days. With the field
+  # declared, an emergency pause must be committed here (a live patch is reverted).
+  paused: false
   sourcePVC: hermes-data
   trigger:
     schedule: "0 2 * * *"
