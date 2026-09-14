@@ -9,6 +9,7 @@ system. The autouse fixture makes isolation the default — a future developer
 cannot accidentally call main() unsafely.
 """
 import json
+import os
 from pathlib import Path
 from unittest.mock import MagicMock
 from sync import should_skip, main
@@ -17,9 +18,13 @@ import pytest
 import sync as sync_module
 
 
-def _write(tmp_path: Path, ref: str, image: str, result: str = "ok") -> Path:
+def _write(tmp_path: Path, ref: str, image: str, result: str = "ok",
+           sync_version=None) -> Path:
     p = tmp_path / "applied"
-    p.write_text(json.dumps({"ref": ref, "image": image, "result": result}))
+    p.write_text(json.dumps({
+        "ref": ref, "image": image, "result": result,
+        "sync_version": sync_module.SYNC_VERSION if sync_version is None else sync_version,
+    }))
     return p
 
 
@@ -104,6 +109,19 @@ def test_skips_only_when_result_ok_and_ref_image_match(tmp_path):
     """Only when result='ok' AND ref+image match should we skip."""
     p = _write(tmp_path, "abc123", "img:v1", "ok")
     assert should_skip(p, "abc123", "img:v1") is True
+
+
+def test_does_not_skip_a_record_written_by_an_older_sync(tmp_path):
+    """A change to what a sync writes must re-apply once, even at the same ref."""
+    p = _write(tmp_path, "abc123", "img:v1", sync_version=sync_module.SYNC_VERSION - 1)
+    assert should_skip(p, "abc123", "img:v1") is False
+
+
+def test_does_not_skip_a_record_with_no_sync_version(tmp_path):
+    """Records from before SYNC_VERSION existed (the live pod's today) re-apply."""
+    p = tmp_path / "applied"
+    p.write_text(json.dumps({"ref": "abc123", "image": "img:v1", "result": "ok"}))
+    assert should_skip(p, "abc123", "img:v1") is False
 
 
 def test_main_with_empty_ref_creates_nothing(isolated_main, tmp_path, monkeypatch):
@@ -209,35 +227,7 @@ def test_main_with_successful_clone_creates_applied_record(isolated_main, tmp_pa
     assert rec["ref"] == "abc123"
     assert rec["image"] == "img:v1"
     assert rec["result"] == "ok"
-
-
-def test_config_yaml_is_not_copied_onto_the_home(isolated_main, tmp_path, monkeypatch):
-    """config.yaml stays ConfigMap-owned in this phase; SOUL.md is the only copy.
-
-    Writing config.yaml here is at best a no-op (the main container bind-mounts
-    the ConfigMap read-only over /opt/data/config.yaml via subPath, masking it)
-    and at worst fatal to the skip gate: the copy target is the root-owned
-    kubelet subPath stub, so copy2 as uid 10000 raises PermissionError,
-    copy_root_files returns False and result becomes "partial" forever.
-    """
-    monkeypatch.setattr(sync_module, "REF", "abc123")
-    monkeypatch.setattr(sync_module, "IMAGE", "img:v1")
-
-    def mock_clone(dest):
-        hermes_root = dest / "hermes" / "root"
-        hermes_root.mkdir(parents=True, exist_ok=True)
-        (hermes_root / "SOUL.md").write_text("# SOUL")
-        (hermes_root / "config.yaml").write_text("config: value")
-        return "abc123"
-
-    monkeypatch.setattr(sync_module, "clone", mock_clone)
-    monkeypatch.setattr("subprocess.run", MagicMock(return_value=MagicMock(returncode=0)))
-
-    assert isolated_main() == 0
-
-    assert (tmp_path / "SOUL.md").read_text() == "# SOUL"
-    assert not (tmp_path / "config.yaml").exists(), "config.yaml must not be copied in this phase"
-    assert json.loads(sync_module.APPLIED.read_text())["result"] == "ok"
+    assert rec["sync_version"] == sync_module.SYNC_VERSION
 
 
 def test_fallback_restores_last_good_into_an_already_existing_staging(
@@ -303,6 +293,7 @@ def test_skills_sync_failure_does_not_flip_the_result_to_partial(
     def mock_clone(dest):
         (dest / "hermes" / "root").mkdir(parents=True, exist_ok=True)
         (dest / "hermes" / "root" / "SOUL.md").write_text("# SOUL")
+        (dest / "hermes" / "root" / "config.yaml").write_bytes(b"model:\n  default: test\n")
         return "abc123"
 
     monkeypatch.setattr(sync_module, "clone", mock_clone)
@@ -470,6 +461,7 @@ def test_main_moves_a_job_from_root_to_a_profile_and_records_it(monkeypatch):
     def fake_clone(dest):
         (dest / "hermes" / "root" / "cron").mkdir(parents=True)
         (dest / "hermes" / "root" / "cron" / "jobs.json").write_text(json.dumps({"jobs": []}))
+        (dest / "hermes" / "root" / "config.yaml").write_bytes(b"model:\n  default: test\n")
         _profile(dest, "monitor", jobs=[job])
         return "abc1234"
 
@@ -501,6 +493,8 @@ def _stage_tree(dest, root_jobs=(), profiles=(), allowlist=None):
         lines = ["gateway:", "  multiplex_profiles: true", "  multiplex_profile_allowlist:"]
         lines += [f"    - {name}" for name in allowlist]
         (dest / "hermes" / "root" / "config.yaml").write_text("\n".join(lines) + "\n")
+    else:
+        (dest / "hermes" / "root" / "config.yaml").write_bytes(b"model:\n  default: test\n")
     for name, jobs in profiles:
         _profile(dest, name, jobs=jobs)
 
@@ -681,18 +675,22 @@ def test_main_does_not_warn_about_an_allowlisted_profile(monkeypatch, capsys):
 
 
 def test_main_does_not_warn_when_the_staged_root_config_is_missing(monkeypatch, capsys):
-    """F: no declared config means nothing to compare against; stay silent."""
+    """F: no declared config means nothing to compare against; stay silent.
+
+    A missing root config is also a broken declaration: the live config.yaml
+    is kept and the run is recorded as partial (see copy_root_config)."""
     home = sync_module.HERMES_HOME
     _live_store(home, "desktopbot", {"jobs": [{"id": "hand1", "enabled": True}]})
 
     def fake_clone(dest):
         _stage_tree(dest, profiles=[("monitor", [])], allowlist=None)
+        (dest / "hermes" / "root" / "config.yaml").unlink()
         return "abc1234"
 
     applied = _run_main(monkeypatch, fake_clone)
     out = capsys.readouterr().out
     assert "multiplex_profile_allowlist" not in out, out
-    assert applied["result"] == "ok"
+    assert applied["result"] == "partial"
 
 
 def test_main_profile_skills_sync_failure_does_not_flip_the_result_to_partial(monkeypatch):
@@ -708,3 +706,107 @@ def test_main_profile_skills_sync_failure_does_not_flip_the_result_to_partial(mo
     applied = _run_main(monkeypatch, fake_clone)
     assert applied["profiles"] == ["monitor"]
     assert applied["result"] == "ok"
+
+
+# ---- root config.yaml: plder is the single source ----------------------------
+
+GOOD_CONFIG = b"model:\n  default: deepseek/deepseek-v4-flash-0731\n_config_version: 38\n"
+LIVE_CONFIG = b"model:\n  default: live\n"
+
+
+def _clone_with_root(config_bytes):
+    """A staged tree whose root declares config_bytes (None = no config.yaml)."""
+    def fake_clone(dest):
+        root = dest / "hermes" / "root"
+        (root / "cron").mkdir(parents=True, exist_ok=True)
+        (root / "cron" / "jobs.json").write_text(json.dumps({"jobs": []}))
+        (root / "SOUL.md").write_text("# SOUL")
+        if config_bytes is not None:
+            (root / "config.yaml").write_bytes(config_bytes)
+        return "abc1234"
+    return fake_clone
+
+
+def test_root_config_is_installed_byte_identical(monkeypatch, capsys):
+    applied = _run_main(monkeypatch, _clone_with_root(GOOD_CONFIG))
+    assert (sync_module.HERMES_HOME / "config.yaml").read_bytes() == GOOD_CONFIG
+    assert applied["result"] == "ok"
+    assert applied["sync_version"] == sync_module.SYNC_VERSION
+    assert "copied config.yaml" in capsys.readouterr().out
+
+
+def test_root_config_replaces_a_drifted_live_file_and_keeps_the_previous_one(monkeypatch):
+    """Git wins; what it replaced (runtime edits, the kubelet stub) is kept for inspection."""
+    home = sync_module.HERMES_HOME
+    (home / "config.yaml").write_bytes(LIVE_CONFIG)
+    applied = _run_main(monkeypatch, _clone_with_root(GOOD_CONFIG))
+    assert (home / "config.yaml").read_bytes() == GOOD_CONFIG
+    assert (sync_module.STATE_DIR / "config.yaml.previous").read_bytes() == LIVE_CONFIG
+    assert applied["result"] == "ok"
+
+
+def test_identical_live_root_config_is_not_rewritten(monkeypatch, capsys):
+    home = sync_module.HERMES_HOME
+    live = home / "config.yaml"
+    live.write_bytes(GOOD_CONFIG)
+    os.utime(live, ns=(1_000_000_000, 1_000_000_000))
+    applied = _run_main(monkeypatch, _clone_with_root(GOOD_CONFIG))
+    assert live.stat().st_mtime_ns == 1_000_000_000
+    assert not (sync_module.STATE_DIR / "config.yaml.previous").exists()
+    assert applied["result"] == "ok"
+    assert "config.yaml already matches the declaration" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("bad", [
+    None,
+    b"model: [unclosed\n",
+    b"",
+    b"- just\n- a list\n",
+    b"\xff\xfe not utf-8\n",
+], ids=["missing", "unparseable", "empty", "not-a-mapping", "not-utf8"])
+def test_a_bad_declared_root_config_keeps_the_live_file(monkeypatch, capsys, bad):
+    """Config must never take the gateway down: refuse, keep what boots today."""
+    home = sync_module.HERMES_HOME
+    live = home / "config.yaml"
+    live.write_bytes(LIVE_CONFIG)
+    applied = _run_main(monkeypatch, _clone_with_root(bad))
+    assert live.read_bytes() == LIVE_CONFIG
+    assert applied["result"] == "partial"
+    assert "keeping the live config.yaml" in capsys.readouterr().out
+    assert not list(home.glob(".config.yaml*")), "temp file left behind"
+
+
+def test_a_bad_declaration_on_a_fresh_home_writes_no_config(monkeypatch):
+    """No live file and a broken declaration: write nothing, so stage2 seeds its example."""
+    applied = _run_main(monkeypatch, _clone_with_root(b"model: [unclosed\n"))
+    assert not (sync_module.HERMES_HOME / "config.yaml").exists()
+    assert applied["result"] == "partial"
+
+
+def test_a_failed_replace_keeps_the_live_file_and_removes_the_temp(monkeypatch):
+    home = sync_module.HERMES_HOME
+    live = home / "config.yaml"
+    live.write_bytes(LIVE_CONFIG)
+    real_replace = os.replace
+
+    def refuse_config(src, dst, *args, **kwargs):
+        if Path(dst).name == "config.yaml":
+            raise PermissionError("simulated: cannot rename over config.yaml")
+        return real_replace(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(os, "replace", refuse_config)
+    applied = _run_main(monkeypatch, _clone_with_root(GOOD_CONFIG))
+    assert live.read_bytes() == LIVE_CONFIG
+    assert not list(home.glob(".config.yaml*"))
+    assert applied["result"] == "partial"
+
+
+def test_offline_boot_installs_the_last_good_root_config(monkeypatch):
+    home = sync_module.HERMES_HOME
+    root = sync_module.LAST_GOOD / "hermes" / "root"
+    root.mkdir(parents=True)
+    (root / "config.yaml").write_bytes(GOOD_CONFIG)
+    sync_module.APPLIED.write_text(json.dumps({"ref": "oldsha", "image": "img:v1", "result": "ok"}))
+    applied = _run_main(monkeypatch, lambda dest: None)
+    assert (home / "config.yaml").read_bytes() == GOOD_CONFIG
+    assert applied["ref"] == "oldsha"
