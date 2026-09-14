@@ -103,7 +103,12 @@ spec:
               mountPath: /ssh-keys
         # Applies the declarative behaviour config: clones the plder repo at a pinned
         # commit (AGENT_CONFIG_REF) over the shared PVC, same idea as claude-install's
-        # "reapply on every boot" pattern below. Must run AFTER ssh-key-perms -- it
+        # "reapply on every boot" pattern below.
+        # It is also the ONLY source of the root config.yaml: sync.py installs
+        # plder's hermes/root/config.yaml onto the PVC (refusing a bad one and
+        # keeping the live file). Nothing mounts a ConfigMap over that path any
+        # more -- do not add one back, it would silently mask the synced file.
+        # Must run AFTER ssh-key-perms -- it
         # authenticates with the plder_deploy_key_read that container just copied into the
         # shared ssh-keys emptyDir, using the github.com-plder alias from the
         # ssh-config ConfigMap (mirrors the main container's mounts for both).
@@ -147,7 +152,7 @@ spec:
             - name: GIT_CONFIG_VALUE_0
               value: /staging
             - name: AGENT_CONFIG_REF
-              value: "cb6f405"
+              value: "306f2fe"
             - name: AGENT_IMAGE
               value: "nousresearch/hermes-agent:v2026.8.19"
             - name: PYTHONPATH
@@ -228,10 +233,6 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /opt/data
-            - name: config
-              mountPath: /opt/data/config.yaml
-              subPath: config.yaml
-              readOnly: true
             - name: run
               mountPath: /run
             - name: tmp
@@ -305,9 +306,6 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: hermes-data
-        - name: config
-          configMap:
-            name: hermes-config
         - name: run
           emptyDir: {}
         - name: tmp
