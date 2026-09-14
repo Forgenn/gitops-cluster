@@ -60,9 +60,15 @@ data:
     # /etc/hermes-profile-secrets. It runs with the profile's private environment
     # (not the pod env, and no PATH), hence file reads and shell builtins only.
     # Every served profile needs the same block in its own config.yaml.
+    # override_existing is REQUIRED for this default profile: its sources are
+    # applied at startup onto the pod env, where envFrom already set these keys,
+    # and a source skips existing keys by default -- they then never enter the
+    # profile's scope snapshot (all root agent turns failed "No LLM provider
+    # configured", 2026-09-14). Same values, so overriding changes nothing else.
     secrets:
       command:
         enabled: true
+        override_existing: true
         command: 'for f in /etc/hermes-profile-secrets/*; do IFS= read -r v < "$f" || [ -n "$v" ]; printf "%s=%s\n" "${f##*/}" "$v"; done'
   # Mounted at /opt/data/home/.ssh/config (the app user's HOME, uid 10000), where
   # the gateway-running user can actually read it. Not sensitive on its own -- just
