@@ -910,6 +910,16 @@ Expected: a session file dated now.
 
 **Rule.** A multiplex change (turning it on, adding a profile to the allowlist, changing any served profile's secrets or config) is not verified until an **agent-mode** cron probe has passed in **every** served profile's store, run by the gateway's ticker (Task 6 Step 6a). `--no-agent` probes, CLI invocations and a Ready pod are not evidence for agent turns.
 
+## Follow-up 2026-09-14: the fix-wave deploy found three more gaps
+
+**1. `hermes cron run` executes the job INLINE, in the CLI process.** In v2026.8.19, `tools/cronjob_tools.py` (action `run`) claims the job and runs it immediately (it falls back to inline when there is no background delegation runtime). It does not mark the job due for the ticker. So every `cron run` probe in Task 6 Steps 5 and 6a ran in a non-multiplexed CLI process that still sees the pod env, not in the gateway. On 2026-09-14 the Step 6a probes passed in both stores through `cron run` while the gateway was still failing root turns. **Real-path probes are scheduled instead:** create the job with a cron expression a few minutes ahead (`M5=$(date -u -d @$(( $(date +%s) + 180 )) +"%M %H")`, schedule `"$M5 * * *"`), wait for the gateway to fire it, check `last_status` and the `## Response` section of the output file (the file also echoes the prompt, so a plain substring match proves nothing), then `cron remove` with stdin from `/dev/null`.
+
+**2. The default profile needs `override_existing: true` on the helper.** The default profile's secret sources are applied at startup onto the pod env, where `envFrom` already set the same keys. A source skips existing keys unless `override_existing` is set (`agent/secret_sources/registry.py` apply phase), so they never entered the root scope snapshot and every root turn still failed "No LLM provider configured". Secondary profiles resolve against a private env, which is why the monitor worked. It was reproduced red/green in a throwaway home in the pod before changing config. The flag is kept in every profile's block for uniformity.
+
+**3. Cron preflight blocks telegram delivery from secondary profiles.** `_preflight_check_delivery` builds the connected-platform list inside the job profile's scope, which holds no `TELEGRAM_BOT_TOKEN`, so the 2026-09-14 09:00 report ended `blocked_config`. Preflight only runs for agent jobs, which is why the no-agent delivery probe passed. The monitor profile sets `cron.preflight: false` (the check is all-or-nothing). Sharing the bot token is not an option: under multiplex a token in a secondary scope starts a competing adapter.
+
+**Verified on the gateway path (2026-09-14 16:37 and 16:43 UTC, gitops `dfbdcd9`, plder `cb6f405`):** scheduled agent probes returned `AGENT_PROBE_OK` in both the root and monitor stores. A scheduled monitor agent job delivered to `telegram:7850573137:5332` with `last_status ok`. `served_profiles` = `[default, monitor]`. ArgoCD Synced/Healthy with no conditions.
+
 ---
 
 ## Out of scope
