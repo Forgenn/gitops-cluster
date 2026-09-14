@@ -32,19 +32,27 @@ HERMES_BIN = "/opt/hermes/.venv/bin/hermes"
 # Same shape Hermes itself enforces for profile names: lowercase, digits, dashes.
 _PROFILE_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 
+# Version of WHAT a sync writes. Recorded in the applied record and required by
+# should_skip, so changing sync behaviour re-applies once even when the ref and
+# image did not move. 2 = root config.yaml installed from plder.
+SYNC_VERSION = 2
+ROOT_CONFIG = "config.yaml"
+PREVIOUS_CONFIG = "config.yaml.previous"
+
 
 def log(msg: str) -> None:
     print(f"[profile-sync] {msg}", flush=True)
 
 
 def should_skip(applied_path: Path, ref: str, image: str) -> bool:
-    """True when the recorded ref AND image both match AND result is 'ok'."""
+    """True when the record matches ref, image AND this sync's version, with result 'ok'."""
     try:
         rec = json.loads(Path(applied_path).read_text())
     except Exception:
         return False
     return (rec.get("ref") == ref and rec.get("image") == image
-            and rec.get("result") == "ok")
+            and rec.get("result") == "ok"
+            and rec.get("sync_version") == SYNC_VERSION)
 
 
 def clone(dest: Path) -> str | None:
@@ -126,21 +134,9 @@ def sync_skills(home: Path) -> bool:
         return False
 
 
-# DELIBERATELY EXCLUDES config.yaml. It stays ConfigMap-owned until this sync is
-# proven in production, for two reasons:
-#
-#   1. Copying it here does nothing. The main container bind-mounts the
-#      hermes-config ConfigMap read-only over /opt/data/config.yaml via subPath,
-#      so a file written here is masked and the agent never reads it.
-#   2. Copying it here actively breaks the sync. The copy target is the
-#      kubelet-created subPath stub, owned by root; shutil.copy2 as uid 10000
-#      raises PermissionError, copy_root_files returns False, result becomes
-#      "partial", should_skip therefore never fires, and every single restart
-#      re-clones from GitHub.
-#
-# Retiring the ConfigMap mount is the right end state and is tracked in the plan,
-# but not in this phase: if the clone soft-fails on a fresh PVC there would then
-# be no config.yaml at all and the agent would boot unconfigured.
+# Copied verbatim. config.yaml is NOT in this tuple: it is installed by
+# copy_root_config(), which validates the declaration first -- a bad SOUL.md
+# costs a persona, a bad config.yaml could cost the gateway its configuration.
 ROOT_FILES: tuple[str, ...] = ("SOUL.md",)
 
 
@@ -155,6 +151,89 @@ def copy_root_files(staged: Path) -> bool:
         return True
     except Exception as exc:
         log(f"WARNING copy_root_files failed: {exc}")
+        return False
+
+
+def _declared_root_config(staged: Path) -> tuple[bytes | None, str]:
+    """Return (bytes, "") for a usable declared root config, else (None, reason)."""
+    src = staged / "hermes" / "root" / ROOT_CONFIG
+    if not src.is_file():
+        return None, "is missing"
+    try:
+        data = src.read_bytes()
+    except Exception as exc:
+        return None, f"is unreadable ({type(exc).__name__})"
+    try:
+        import yaml  # in the image's venv; lazy, like warn_unserved_profiles
+    except Exception as exc:
+        return None, f"cannot be checked (PyYAML unavailable: {type(exc).__name__})"
+    try:
+        parsed = yaml.safe_load(data.decode("utf-8"))
+    except Exception as exc:
+        return None, f"is not valid UTF-8 YAML ({type(exc).__name__})"
+    if not isinstance(parsed, dict) or not parsed:
+        return None, "is not a non-empty mapping"
+    return data, ""
+
+
+def copy_root_config(staged: Path) -> bool:
+    """Install hermes/root/config.yaml as HERMES_HOME/config.yaml. Git wins.
+
+    plder is the ONLY source of the root config: the main container no longer
+    mounts a ConfigMap over this path. Rules, each load-bearing:
+
+    * A declaration that is missing, unreadable, not UTF-8 YAML, or not a
+      non-empty mapping is REFUSED and the live file kept (returns False, so
+      the record says "partial"). Config must never take the gateway down, and
+      on a fresh volume with no live file stage2 then seeds its example config
+      instead of the gateway booting on garbage.
+    * Byte-identical live file: nothing is written (no mtime churn, no backup).
+    * Otherwise the file is written to a temp file in HERMES_HOME and renamed
+      over the target. NEVER written through: on the first boot after the mount
+      is retired the target is the root-owned kubelet subPath stub, which uid
+      10000 cannot open for writing but can replace, because /opt/data is a
+      hermes-owned directory.
+    * The replaced live file is kept at STATE_DIR/config.yaml.previous. Hermes
+      itself writes config.yaml at runtime (tools/approval.py command
+      allowlist, /model persistence, the dashboard); an applied sync reverts
+      those edits, and this is where to recover one worth committing to plder.
+
+    stage2-hook.sh later chowns the file and runs docker_config_migrate.py,
+    which leaves it alone only while _config_version equals the image's latest
+    (38 on v2026.8.19) -- plder CI enforces that. Never raises.
+    """
+    data, reason = _declared_root_config(staged)
+    if data is None:
+        log(f"WARNING declared root config.yaml {reason}; keeping the live config.yaml")
+        return False
+    dest = HERMES_HOME / ROOT_CONFIG
+    try:
+        if dest.is_file() and dest.read_bytes() == data:
+            log("config.yaml already matches the declaration")
+            return True
+    except Exception:
+        pass  # an unreadable live file (e.g. a 0600 root stub) is simply replaced
+    tmp = HERMES_HOME / f".{ROOT_CONFIG}.profile-sync.tmp"
+    saved = ""
+    try:
+        if dest.is_file():
+            try:
+                shutil.copyfile(dest, STATE_DIR / PREVIOUS_CONFIG)
+                saved = f" (previous saved to {STATE_DIR / PREVIOUS_CONFIG})"
+            except Exception as exc:
+                log(f"WARNING could not save the previous config.yaml: {exc}")
+        tmp.write_bytes(data)
+        os.chmod(tmp, 0o640)
+        os.replace(tmp, dest)
+        log(f"copied config.yaml{saved}")
+        return True
+    except Exception as exc:
+        log(f"WARNING installing config.yaml failed; keeping the live config.yaml: "
+            f"{type(exc).__name__}: {exc}")
+        try:
+            tmp.unlink()
+        except Exception:
+            pass
         return False
 
 
@@ -326,7 +405,7 @@ def warn_unserved_profiles(staged: Path) -> None:
     Under gateway multiplex only allowlisted profiles are served, so a profile
     created outside git (e.g. in Hermes Desktop) shows a valid next_run_at and
     silently never runs. The allowlist is read from the staged root config, the
-    declared mirror of the live ConfigMap. Warning only: never writes, never
+    same file copy_root_config installs as HERMES_HOME/config.yaml. Warning only: never writes, never
     affects the result, never raises. No config, no key, or an unreadable
     file means no warning.
     """
@@ -425,6 +504,9 @@ def main() -> int:
         # Track success/failure of each step
         steps_ok = True
         steps_ok = copy_root_files(STAGING) and steps_ok
+        # Before install_profiles on purpose: every `hermes` CLI call below then
+        # already reads the declared root config, not the one it replaces.
+        steps_ok = copy_root_config(STAGING) and steps_ok
         steps_ok = apply_cron(HERMES_HOME, STAGING / "hermes" / "root" / "cron" / "jobs.json") and steps_ok
         # DELIBERATELY NOT part of steps_ok. docker/stage2-hook.sh already runs
         # this exact command for the root home on every container start and
@@ -457,7 +539,7 @@ def main() -> int:
         result = "ok" if steps_ok else "partial"
         try:
             APPLIED.write_text(json.dumps({
-                "ref": applied_ref, "image": IMAGE,
+                "ref": applied_ref, "image": IMAGE, "sync_version": SYNC_VERSION,
                 "applied_at": datetime.now(timezone.utc).isoformat(),
                 "profiles": profiles, "result": result,
             }, indent=2))
