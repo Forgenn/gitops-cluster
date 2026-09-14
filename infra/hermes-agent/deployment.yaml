@@ -147,7 +147,7 @@ spec:
             - name: GIT_CONFIG_VALUE_0
               value: /staging
             - name: AGENT_CONFIG_REF
-              value: "34865c3"
+              value: "93716d7"
             - name: AGENT_IMAGE
               value: "nousresearch/hermes-agent:v2026.8.19"
             - name: PYTHONPATH
@@ -371,9 +371,13 @@ spec:
         # (delivery already works under multiplex, and a bot token in the monitor's
         # scope could make it try to claim its own Telegram adapter), and any SSH
         # key (multi-line, and not needed by agent turns).
+        #
+        # `optional: true` for the same reason as plder-deploy-key-read below: a
+        # key dropped from hermes-secrets must cost agent turns, not the pod.
         - name: profile-secrets
           secret:
             secretName: hermes-secrets
+            optional: true
             defaultMode: 0440
             items:
               - key: OPENROUTER_API_KEY
