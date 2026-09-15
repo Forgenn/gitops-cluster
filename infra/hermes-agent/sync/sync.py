@@ -34,8 +34,9 @@ _PROFILE_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 
 # Version of WHAT a sync writes. Recorded in the applied record and required by
 # should_skip, so changing sync behaviour re-applies once even when the ref and
-# image did not move. 2 = root config.yaml installed from plder.
-SYNC_VERSION = 2
+# image did not move. 2 = root config.yaml installed from plder; 3 = skills.disabled
+# generated from skills.allow.yaml.
+SYNC_VERSION = 3
 ROOT_CONFIG = "config.yaml"
 PREVIOUS_CONFIG = "config.yaml.previous"
 
@@ -132,6 +133,163 @@ def sync_skills(home: Path) -> bool:
     except Exception as exc:
         log(f"WARNING skills_sync failed for {home}: {exc}")
         return False
+
+
+# ---- skill curation ------------------------------------------------------------
+#
+# A profile declares which upstream skills it uses in plder's
+# hermes/profiles/<n>/skills.allow.yaml. Hermes itself only has a denylist
+# (skills.disabled), which silently enables every skill a newer image bundles.
+# So the denylist is generated here at every sync, from the live inventory:
+#
+#     skills.disabled = (installed AND bundled manifest) - allowed
+#
+# Allowed skills stay installed and keep receiving skills_sync updates; newly
+# bundled skills arrive disabled; skills that are not bundled (skills/custom/,
+# skills a bot authored or installed in chat) are never disabled.
+
+SKILL_ALLOW_FILE = "skills.allow.yaml"
+# Directories inside a skills tree that hold data or Hermes metadata, never skills.
+_SKILL_DATA_DIRS = frozenset({
+    ".hub", ".restore-backups", "_org", ".git", "index-cache",
+    "references", "templates", "assets", "scripts",
+})
+_FRONTMATTER_NAME_RE = re.compile(r"""^name:[ \t]*(['"]?)(.+?)\1[ \t]*$""", re.M)
+_GENERATED_HEADER = (
+    "# Installed by profile-sync from plder hermes/profiles/<name>/config.yaml.\n"
+    "# skills.disabled is GENERATED from skills.allow.yaml at every sync; edit plder, not this file.\n"
+)
+
+
+def _skill_name(skill_md: Path) -> str:
+    """Frontmatter `name`, else the directory name -- the key Hermes filters on."""
+    try:
+        text = skill_md.read_text(encoding="utf-8", errors="replace").lstrip("﻿")
+    except OSError:
+        return skill_md.parent.name
+    if text.startswith("---"):
+        end = text.find("\n---", 3)
+        match = _FRONTMATTER_NAME_RE.search(text[3:end] if end != -1 else "")
+        if match:
+            return match.group(2).strip()
+    return skill_md.parent.name
+
+
+def installed_skill_names(skills_dir: Path) -> set[str]:
+    names: set[str] = set()
+    if not skills_dir.is_dir():
+        return names
+    for skill_md in skills_dir.rglob("SKILL.md"):
+        parents = skill_md.relative_to(skills_dir).parts[:-1]
+        if any(part in _SKILL_DATA_DIRS for part in parents):
+            continue
+        names.add(_skill_name(skill_md))
+    return names
+
+
+def bundled_manifest_names(skills_dir: Path) -> set[str]:
+    """Names skills_sync manages in this home (`<name>:<hash>` per line)."""
+    manifest = skills_dir / ".bundled_manifest"
+    if not manifest.is_file():
+        return set()
+    return {line.split(":", 1)[0].strip()
+            for line in manifest.read_text(encoding="utf-8", errors="replace").splitlines()
+            if line.strip()}
+
+
+def read_skill_allowlist(path: Path) -> tuple[list[str], list[str]]:
+    import yaml  # in the image's venv; lazy like the other YAML readers here
+    doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if not isinstance(doc, dict) or set(doc) - {"bundled", "optional"}:
+        raise ValueError("expected a mapping with only 'bundled' and 'optional' lists")
+    lists: list[list[str]] = []
+    for key in ("bundled", "optional"):
+        value = doc.get(key) or []
+        if not isinstance(value, list) or not all(isinstance(v, str) and v for v in value):
+            raise ValueError(f"'{key}' must be a list of skill names")
+        lists.append(value)
+    return lists[0], lists[1]
+
+
+def restore_optional_skill(home: Path, name: str) -> bool:
+    """Install or refresh one official optional skill from the image (no network).
+
+    restore_official_optional_skill(restore=True) is a no-op when the installed
+    copy matches the image's source; otherwise it backs the old copy up and copies
+    the image's version in -- so it both installs and updates on an image bump.
+    """
+    try:
+        subprocess.run(
+            [VENV_PY, "-c",
+             "import sys\n"
+             "from tools.skills_sync import restore_official_optional_skill as restore\n"
+             "sys.exit(0 if restore(sys.argv[1], restore=True).get('ok') else 1)",
+             name],
+            env={**os.environ, "HERMES_HOME": str(home)},
+            cwd="/opt/hermes", check=True, capture_output=True, timeout=120,
+        )
+        return True
+    except Exception as exc:
+        log(f"WARNING optional skill restore failed for {name} in {home}: "
+            f"{type(exc).__name__}: {str(exc)[:200]}")
+        return False
+
+
+def write_disabled_skills(config_file: Path, disabled: list[str]) -> None:
+    import yaml
+    text = config_file.read_text(encoding="utf-8") if config_file.is_file() else ""
+    cfg = yaml.safe_load(text) or {}
+    if not isinstance(cfg, dict):
+        raise ValueError(f"{config_file} is not a YAML mapping")
+    skills = cfg.get("skills")
+    if not isinstance(skills, dict):
+        skills = {}
+        cfg["skills"] = skills
+    skills["disabled"] = list(disabled)
+    body = yaml.safe_dump(cfg, sort_keys=False, allow_unicode=True, width=4096)
+    tmp = config_file.with_suffix(".yaml.profile-sync.tmp")
+    tmp.write_text(_GENERATED_HEADER + body, encoding="utf-8")
+    os.replace(tmp, config_file)
+
+
+def curate_skills(home: Path, src: Path) -> None:
+    """Generate home/config.yaml's skills.disabled from src/skills.allow.yaml.
+
+    Log-only, like sync_skills: a transient failure must not flip result to
+    "partial" and force a re-clone on every boot. Failing open (the git config,
+    all skills enabled) is loud in the log and caught by the rollout checks.
+    """
+    allow_file = src / SKILL_ALLOW_FILE
+    if not allow_file.is_file():
+        return
+    try:
+        bundled, optional = read_skill_allowlist(allow_file)
+    except Exception as exc:
+        log(f"WARNING invalid {allow_file}; skills left uncurated for {home.name}: {exc}")
+        return
+    for name in optional:
+        restore_optional_skill(home, name)
+    skills_dir = home / "skills"
+    try:
+        manifest = bundled_manifest_names(skills_dir)
+        installed = installed_skill_names(skills_dir)
+    except Exception as exc:
+        log(f"WARNING could not read the skill inventory of {home.name}: {exc}")
+        return
+    if not manifest:
+        log(f"WARNING no bundled manifest in {skills_dir}; skills left uncurated for {home.name}")
+        return
+    allowed = set(bundled) | set(optional)
+    missing = sorted(allowed - installed)
+    if missing:
+        log(f"WARNING allowlisted skill(s) not installed in {home.name}: {', '.join(missing)}")
+    disabled = sorted((installed & manifest) - allowed)
+    try:
+        write_disabled_skills(home / "config.yaml", disabled)
+        log(f"skills curated for {home.name}: {len(allowed) - len(missing)} allowed, "
+            f"{len(disabled)} bundled disabled")
+    except Exception as exc:
+        log(f"WARNING could not write skills.disabled for {home.name}: {exc}")
 
 
 # Copied verbatim. config.yaml is NOT in this tuple: it is installed by
@@ -308,6 +466,10 @@ def install_profiles(staged: Path) -> tuple[list[str], bool]:
         # on every restart. Unlike root, profiles get NO sync from stage2-hook,
         # so this call is what finally keeps their bundled skills current.
         sync_skills(home)
+        # After sync_skills on purpose: curation reads the inventory that sync
+        # just produced, so a skill newly bundled by this image is disabled
+        # in the same run that installed it.
+        curate_skills(home, src)
     return installed, ok
 
 
