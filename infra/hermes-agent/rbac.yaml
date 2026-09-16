@@ -59,7 +59,10 @@ rules:
   - apiGroups: ["longhorn.io"]
     resources: ["nodes", "volumes", "replicas", "engines", "backups", "settings",
                 "snapshots", "recurringjobs", "instancemanagers", "orphans",
-                "supportbundles", "backuptargets", "backingimages"]
+                "supportbundles", "backuptargets", "backingimages",
+                "volumeattachments", "backupvolumes", "engineimages", "sharemanagers",
+                "backingimagedatasources", "backingimagemanagers",
+                "backupbackingimages", "systembackups", "systemrestores"]
     verbs: ["get", "list", "watch"]
   # volsync backup state, for the monitor's BACKUP FRESHNESS check. Without this the
   # check fails every morning while looking healthy -- the same silent-failure class it
