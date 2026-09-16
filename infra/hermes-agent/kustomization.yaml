@@ -25,3 +25,8 @@ configMapGenerator:
     files:
       - sync/sync.py
       - sync/cron_upsert.py
+  # Git pre-push guard for the agent (githooks/pre_push.py). Generated, so an edit rolls the pod.
+  - name: hermes-githooks
+    files:
+      - pre-push=githooks/pre_push.py
+      - gitconfig=githooks/gitconfig

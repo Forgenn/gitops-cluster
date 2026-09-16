@@ -275,6 +275,16 @@ spec:
             - name: profile-secrets
               mountPath: /etc/hermes-profile-secrets
               readOnly: true
+            # Pre-push guard: pushes to gitops-cluster main touching infra/hermes-agent/
+            # are refused and must go through a hermes/<topic> branch the operator merges.
+            # Hermes approvals cannot express this (a plain git push is never flagged).
+            - name: githooks
+              mountPath: /etc/hermes-githooks
+              readOnly: true
+            - name: githooks-gitconfig
+              mountPath: /etc/gitconfig
+              subPath: gitconfig
+              readOnly: true
           # Sized 2026-09-14 for six served bots (docs/plans/2026-09-14-hermes-bot-roster.md,
           # Task 1): 30-day peak 1176Mi with two profiles; bursts are processes (a
           # `hermes -p` hand-off CLI ~250Mi, Claude Code, execute_code). Stop adding
@@ -402,3 +412,16 @@ spec:
             items:
               - key: PLDER_DEPLOY_KEY_READ
                 path: PLDER_DEPLOY_KEY_READ
+        - name: githooks
+          configMap:
+            name: hermes-githooks
+            defaultMode: 0555
+            items:
+              - key: pre-push
+                path: pre-push
+        - name: githooks-gitconfig
+          configMap:
+            name: hermes-githooks
+            items:
+              - key: gitconfig
+                path: gitconfig
