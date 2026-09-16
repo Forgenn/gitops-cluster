@@ -75,6 +75,27 @@ def clone(dest: Path) -> str | None:
         return None
 
 
+def _restore_last_good_into(dst: Path) -> None:
+    """Copy LAST_GOOD's children into dst. Never calls copystat on dst itself.
+
+    dst is STAGING, a root-owned emptyDir MOUNT POINT that uid 10000 cannot
+    chown/utime. shutil.copytree(LAST_GOOD, dst, dirs_exist_ok=True) finishes
+    with copystat(LAST_GOOD, dst) on the destination ROOT, which raises
+    PermissionError there even though every file underneath copies fine --
+    this is what made the offline fallback fail in production even after the
+    dirs_exist_ok fix (2026-09-16 live verification). Copying each child of
+    LAST_GOOD separately confines every copystat call to a freshly-created
+    subdirectory or file under dst, never dst itself.
+    """
+    dst.mkdir(parents=True, exist_ok=True)
+    for child in LAST_GOOD.iterdir():
+        target = dst / child.name
+        if child.is_dir():
+            shutil.copytree(child, target, dirs_exist_ok=True)
+        else:
+            shutil.copy2(child, target)
+
+
 def sanitize_declared(declared: list) -> list:
     """Drop malformed declarations instead of aborting the whole cron apply.
 
@@ -481,13 +502,19 @@ def main() -> int:
             log("falling back to last-good tree")
             shutil.rmtree(STAGING, ignore_errors=True)
             try:
-                # dirs_exist_ok is MANDATORY here: /staging is an emptyDir MOUNT
-                # POINT. rmtree empties it but cannot remove the directory itself
-                # (EBUSY, swallowed by ignore_errors), so the directory always
-                # still exists at this line. Without dirs_exist_ok this raised
-                # FileExistsError every time and the whole offline-resilience
-                # path was dead code.
-                shutil.copytree(LAST_GOOD, STAGING, dirs_exist_ok=True)
+                # Copy LAST_GOOD's CHILDREN into STAGING rather than
+                # shutil.copytree(LAST_GOOD, STAGING, dirs_exist_ok=True):
+                # /staging is an emptyDir MOUNT POINT. rmtree empties it but
+                # cannot remove the directory itself (EBUSY, swallowed by
+                # ignore_errors), so the directory always still exists at this
+                # line -- dirs_exist_ok is needed just to get past that. But
+                # copytree ALSO finishes with copystat(src, dst) on the
+                # destination ROOT, and /staging is root-owned while this
+                # container runs as uid 10000, so that copystat raises
+                # PermissionError even with dirs_exist_ok=True. See
+                # _restore_last_good_into for the real fix (2026-09-16 live
+                # verification: both bugs were needed to fully kill this path).
+                _restore_last_good_into(STAGING)
             except Exception as exc:
                 log(f"WARNING failed to restore last-good tree: {exc}")
                 # Delete partial tree to avoid corruption
