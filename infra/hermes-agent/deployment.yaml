@@ -275,6 +275,16 @@ spec:
             - name: profile-secrets
               mountPath: /etc/hermes-profile-secrets
               readOnly: true
+            # Pre-push guard: pushes to gitops-cluster main touching infra/hermes-agent/
+            # are refused and must go through a hermes/<topic> branch the operator merges.
+            # Hermes approvals cannot express this (a plain git push is never flagged).
+            - name: githooks
+              mountPath: /etc/hermes-githooks
+              readOnly: true
+            - name: githooks-gitconfig
+              mountPath: /etc/gitconfig
+              subPath: gitconfig
+              readOnly: true
           resources:
             requests:
               cpu: 200m
@@ -398,3 +408,16 @@ spec:
             items:
               - key: PLDER_DEPLOY_KEY_READ
                 path: PLDER_DEPLOY_KEY_READ
+        - name: githooks
+          configMap:
+            name: hermes-githooks
+            defaultMode: 0555
+            items:
+              - key: pre-push
+                path: pre-push
+        - name: githooks-gitconfig
+          configMap:
+            name: hermes-githooks
+            items:
+              - key: gitconfig
+                path: gitconfig

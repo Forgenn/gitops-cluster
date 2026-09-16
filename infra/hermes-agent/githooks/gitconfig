@@ -1,0 +1,4 @@
+# System git config for the hermes-agent container (mounted at /etc/gitconfig).
+# Every repository the agent touches runs /etc/hermes-githooks/pre-push.
+[core]
+	hooksPath = /etc/hermes-githooks
