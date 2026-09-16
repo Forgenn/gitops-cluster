@@ -278,6 +278,74 @@ def test_fallback_restores_last_good_into_an_already_existing_staging(
     assert should_skip(sync_module.APPLIED, "newsha", "img:v1") is False
 
 
+def test_fallback_survives_the_staging_mount_points_copystat_hazard(
+    isolated_main, tmp_path, monkeypatch
+):
+    """Regression guard for the live 2026-09-16 failure: copystat on /staging itself.
+
+    shutil.copytree finishes with copystat(src, dst) on the DESTINATION ROOT.
+    /staging is a root-owned emptyDir mount point and the container runs as
+    uid 10000, so a copystat call against /staging itself raises
+    PermissionError even though every file underneath copies fine. The
+    dirs_exist_ok fix (see test_fallback_restores_last_good_into_an_already_
+    existing_staging) got the copytree call past FileExistsError, but it then
+    died here in production: `[Errno 1] Operation not permitted: '/staging'`,
+    and the whole offline-resilience path was still dead. The fix must copy
+    LAST_GOOD's children into STAGING instead of copytree-ing onto STAGING
+    itself, so copystat is never called with STAGING as the destination.
+    """
+    monkeypatch.setattr(sync_module, "REF", "newsha")
+    monkeypatch.setattr(sync_module, "IMAGE", "img:v1")
+
+    declared_dir = sync_module.LAST_GOOD / "hermes" / "root" / "cron"
+    declared_dir.mkdir(parents=True)
+    (sync_module.LAST_GOOD / "hermes" / "root" / "SOUL.md").write_text("# LAST GOOD SOUL")
+    # A valid config.yaml too, so copy_root_config does not itself vote
+    # "partial" for reasons unrelated to what this test is regression-guarding.
+    (sync_module.LAST_GOOD / "hermes" / "root" / "config.yaml").write_text(
+        "model:\n  default: test\n")
+    (declared_dir / "jobs.json").write_text(json.dumps(
+        {"jobs": [{"id": "j1", "name": "daily report", "managed_by": "plder"}]}))
+    sync_module.APPLIED.write_text(json.dumps(
+        {"ref": "oldsha", "image": "img:v0", "result": "ok"}))
+
+    staging = sync_module.STAGING
+    assert staging.is_dir(), "fixture must model the mount point"
+
+    # The clone fails: offline, or PLDER_DEPLOY_KEY_READ absent.
+    monkeypatch.setattr(sync_module, "clone", lambda dest: None)
+    monkeypatch.setattr("subprocess.run", MagicMock(return_value=MagicMock(returncode=0)))
+
+    real_copystat = shutil.copystat
+
+    def mount_point_aware_copystat(src, dst, *args, **kwargs):
+        # Only the mount point ROOT is root-owned and un-chown-able by uid
+        # 10000; freshly-created children underneath it are not.
+        if Path(dst) == staging:
+            raise PermissionError(1, "Operation not permitted", str(staging))
+        return real_copystat(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "copystat", mount_point_aware_copystat)
+
+    log_lines = []
+    monkeypatch.setattr(sync_module, "log", lambda msg: log_lines.append(msg))
+
+    assert isolated_main() == 0
+
+    assert not any("failed to restore" in line for line in log_lines)
+
+    # The staged tree actually landed in STAGING...
+    assert (staging / "hermes" / "root" / "SOUL.md").read_text() == "# LAST GOOD SOUL"
+    # ...and was applied onto the home.
+    assert (tmp_path / "SOUL.md").read_text() == "# LAST GOOD SOUL"
+    jobs = json.loads((tmp_path / "cron" / "jobs.json").read_text())
+    assert [j["id"] for j in jobs["jobs"]] == ["j1"]
+
+    rec = json.loads(sync_module.APPLIED.read_text())
+    assert rec["ref"] == "oldsha"
+    assert rec["result"] == "ok"
+
+
 def test_skills_sync_failure_does_not_flip_the_result_to_partial(
     isolated_main, tmp_path, monkeypatch
 ):
