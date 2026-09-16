@@ -275,13 +275,17 @@ spec:
             - name: profile-secrets
               mountPath: /etc/hermes-profile-secrets
               readOnly: true
+          # Sized 2026-09-14 for six served bots (docs/plans/2026-09-14-hermes-bot-roster.md,
+          # Task 1): 30-day peak 1176Mi with two profiles; bursts are processes (a
+          # `hermes -p` hand-off CLI ~250Mi, Claude Code, execute_code). Stop adding
+          # bots if the 1h max working set passes 2.25Gi.
           resources:
             requests:
               cpu: 200m
-              memory: 512Mi
+              memory: 1Gi
             limits:
               cpu: 2000m
-              memory: 2Gi
+              memory: 3Gi
           securityContext:
             readOnlyRootFilesystem: false
             allowPrivilegeEscalation: false
