@@ -9,6 +9,7 @@ system. The autouse fixture makes isolation the default — a future developer
 cannot accidentally call main() unsafely.
 """
 import json
+import yaml
 import os
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -878,3 +879,221 @@ def test_offline_boot_installs_the_last_good_root_config(monkeypatch):
     applied = _run_main(monkeypatch, lambda dest: None)
     assert (home / "config.yaml").read_bytes() == GOOD_CONFIG
     assert applied["ref"] == "oldsha"
+
+
+# ---- skill curation from skills.allow.yaml -----------------------------------
+
+def _skill(home, rel, name=None, quoted=False):
+    d = home / "skills" / rel
+    d.mkdir(parents=True, exist_ok=True)
+    n = name or Path(rel).name
+    shown = f'"{n}"' if quoted else n
+    (d / "SKILL.md").write_text(f"---\nname: {shown}\ndescription: test\n---\nbody\n")
+    return d
+
+
+def _manifest(home, *names):
+    (home / "skills").mkdir(parents=True, exist_ok=True)
+    (home / "skills" / ".bundled_manifest").write_text("".join(f"{n}:0123abcd\n" for n in names))
+
+
+def _allow(src, bundled=(), optional=()):
+    src.mkdir(parents=True, exist_ok=True)
+    (src / "skills.allow.yaml").write_text(yaml.safe_dump({"bundled": list(bundled), "optional": list(optional)}))
+
+
+def _profile_home(name="shopper"):
+    home = sync_module.HERMES_HOME / "profiles" / name
+    home.mkdir(parents=True, exist_ok=True)
+    return home
+
+
+def _disabled(home):
+    return yaml.safe_load((home / "config.yaml").read_text(encoding="utf-8"))["skills"]["disabled"]
+
+
+def test_curate_skills_disables_bundled_skills_outside_the_allowlist(tmp_path):
+    home = _profile_home()
+    for n in ("arxiv", "pdf", "product-price-monitor"):
+        _skill(home, f"cat/{n}")
+    _manifest(home, "arxiv", "pdf", "product-price-monitor")
+    (home / "config.yaml").write_text("model:\n  default: m\n")
+    src = tmp_path / "staged-src"
+    _allow(src, bundled=["product-price-monitor"])
+    sync_module.curate_skills(home, src)
+    assert _disabled(home) == ["arxiv", "pdf"]
+
+
+def test_curate_skills_disables_a_skill_newly_bundled_by_an_image_bump(tmp_path):
+    home = _profile_home()
+    _skill(home, "cat/arxiv")
+    _manifest(home, "arxiv")
+    (home / "config.yaml").write_text("{}\n")
+    src = tmp_path / "staged-src"
+    _allow(src, bundled=["arxiv"])
+    sync_module.curate_skills(home, src)
+    assert _disabled(home) == []
+    # The next image ships a new bundled skill: skills_sync copies it and records it.
+    _skill(home, "cat/shiny-new")
+    _manifest(home, "arxiv", "shiny-new")
+    sync_module.curate_skills(home, src)
+    assert _disabled(home) == ["shiny-new"]
+
+
+def test_curate_skills_never_disables_custom_or_chat_created_skills(tmp_path):
+    home = _profile_home()
+    _skill(home, "cat/arxiv")
+    _skill(home, "custom/homelab-gitops-drive")
+    _skill(home, "notes/made-in-chat")
+    _manifest(home, "arxiv")
+    (home / "config.yaml").write_text("{}\n")
+    src = tmp_path / "staged-src"
+    _allow(src)
+    sync_module.curate_skills(home, src)
+    assert _disabled(home) == ["arxiv"]
+
+
+def test_curate_skills_without_an_allowlist_leaves_config_byte_identical(tmp_path):
+    home = _profile_home()
+    _skill(home, "cat/arxiv")
+    _manifest(home, "arxiv")
+    original = "# comment kept\nskills:\n  disabled: [arxiv]\n"
+    (home / "config.yaml").write_text(original)
+    src = tmp_path / "staged-src"
+    src.mkdir()
+    sync_module.curate_skills(home, src)
+    assert (home / "config.yaml").read_text() == original
+
+
+@pytest.mark.parametrize("body", [
+    "bundled: arxiv\n", "bundled: [arxiv]\nextra: []\n", "- arxiv\n", "bundled: [1]\n", "bundled: [\n",
+], ids=["scalar", "unknown-key", "list", "non-string", "unparseable"])
+def test_curate_skills_with_an_invalid_allowlist_leaves_config_untouched(tmp_path, capsys, body):
+    home = _profile_home()
+    _skill(home, "cat/arxiv")
+    _manifest(home, "arxiv")
+    (home / "config.yaml").write_text("{}\n")
+    src = tmp_path / "staged-src"
+    src.mkdir()
+    (src / "skills.allow.yaml").write_text(body)
+    sync_module.curate_skills(home, src)
+    assert (home / "config.yaml").read_text() == "{}\n"
+    assert "WARNING invalid" in capsys.readouterr().out
+
+
+def test_curate_skills_restores_each_declared_optional_skill_and_allows_it(tmp_path, monkeypatch):
+    home = _profile_home("homelab-ops")
+    _skill(home, "cat/claude-code")
+    _manifest(home, "claude-code")
+    (home / "config.yaml").write_text("{}\n")
+    calls = []
+
+    def fake_run(cmd, *args, **kwargs):
+        calls.append((cmd, (kwargs.get("env") or {}).get("HERMES_HOME")))
+        _skill(home, "devops/hermes-s6-container-supervision")  # what the restore copies in
+        return MagicMock(returncode=0)
+
+    monkeypatch.setattr(sync_module.subprocess, "run", fake_run)
+    src = tmp_path / "staged-src"
+    _allow(src, optional=["hermes-s6-container-supervision"])
+    sync_module.curate_skills(home, src)
+    assert len(calls) == 1
+    cmd, env_home = calls[0]
+    assert cmd[0] == sync_module.VENV_PY and cmd[-1] == "hermes-s6-container-supervision"
+    assert "restore_official_optional_skill" in cmd[2]
+    assert env_home == str(home)
+    assert _disabled(home) == ["claude-code"]
+
+
+def test_curate_skills_still_writes_config_when_an_optional_restore_fails(tmp_path, monkeypatch, capsys):
+    home = _profile_home("homelab-ops")
+    _skill(home, "cat/claude-code")
+    _manifest(home, "claude-code")
+    (home / "config.yaml").write_text("{}\n")
+
+    def boom(cmd, *args, **kwargs):
+        raise sync_module.subprocess.CalledProcessError(1, cmd, stderr=b"no such skill")
+
+    monkeypatch.setattr(sync_module.subprocess, "run", boom)
+    src = tmp_path / "staged-src"
+    _allow(src, bundled=["claude-code"], optional=["hermes-s6-container-supervision"])
+    sync_module.curate_skills(home, src)
+    assert _disabled(home) == []
+    out = capsys.readouterr().out
+    assert "WARNING optional skill restore failed for hermes-s6-container-supervision" in out
+    assert "WARNING allowlisted skill(s) not installed in homelab-ops: hermes-s6-container-supervision" in out
+
+
+def test_curate_skills_preserves_every_other_config_value(tmp_path):
+    helper = 'for f in /etc/hermes-profile-secrets/*; do IFS= read -r v < "$f" || [ -n "$v" ]; printf "%s=%s\\n" "${f##*/}" "$v"; done'
+    declared = {
+        "model": {"default": "m", "provider": "openrouter"},
+        "skills": {"external_dirs": ["/x"]},
+        "secrets": {"command": {"enabled": True, "override_existing": True, "command": helper}},
+        "platform_toolsets": {"telegram": ["web", "memory"]},
+        "_config_version": 38,
+    }
+    home = _profile_home()
+    _skill(home, "cat/arxiv")
+    _manifest(home, "arxiv")
+    (home / "config.yaml").write_text(yaml.safe_dump(declared, sort_keys=False))
+    src = tmp_path / "staged-src"
+    _allow(src)
+    sync_module.curate_skills(home, src)
+    live = yaml.safe_load((home / "config.yaml").read_text(encoding="utf-8"))
+    assert live["skills"] == {"external_dirs": ["/x"], "disabled": ["arxiv"]}
+    del live["skills"], declared["skills"]
+    assert live == declared
+
+
+def test_installed_skill_names_reads_frontmatter_and_skips_support_dirs():
+    home = _profile_home()
+    _skill(home, "cat/folder-name", name="real-name", quoted=True)
+    _skill(home, "cat/plain")
+    _skill(home, "cat/plain/references/archived")    # data inside a skill, not a skill
+    _skill(home, ".hub/quarantine/pending")
+    nofront = home / "skills" / "cat" / "nofront"
+    nofront.mkdir(parents=True)
+    (nofront / "SKILL.md").write_text("no frontmatter here\n")
+    assert sync_module.installed_skill_names(home / "skills") == {"real-name", "plain", "nofront"}
+
+
+def test_curate_skills_without_a_bundled_manifest_does_not_write(tmp_path, capsys):
+    home = _profile_home()
+    _skill(home, "cat/arxiv")
+    (home / "config.yaml").write_text("{}\n")
+    src = tmp_path / "staged-src"
+    _allow(src)
+    sync_module.curate_skills(home, src)
+    assert (home / "config.yaml").read_text() == "{}\n"
+    assert "no bundled manifest" in capsys.readouterr().out
+
+
+def test_install_profiles_curates_skills_after_the_skills_sync(monkeypatch):
+    staged = sync_module.STAGING
+    src = _profile(staged, "shopper")
+    _allow(src, bundled=["product-price-monitor"])
+    home = sync_module.HERMES_HOME / "profiles" / "shopper"
+    order = []
+
+    def run(cmd, *args, **kwargs):
+        if cmd[1:3] == ["profile", "install"]:
+            order.append("install")
+            home.mkdir(parents=True, exist_ok=True)
+            (home / "config.yaml").write_text("model:\n  default: m\n")
+        elif "sync_skills" in " ".join(map(str, cmd)):
+            order.append("skills_sync")
+            _skill(home, "cat/product-price-monitor")
+            _skill(home, "cat/arxiv")
+            _manifest(home, "product-price-monitor", "arxiv")
+        return MagicMock(returncode=0)
+
+    monkeypatch.setattr(sync_module.subprocess, "run", run)
+    names, ok = sync_module.install_profiles(staged)
+    assert names == ["shopper"] and ok is True
+    assert order == ["install", "skills_sync"]
+    assert _disabled(home) == ["arxiv"]
+
+
+def test_sync_version_marks_skill_curation():
+    assert sync_module.SYNC_VERSION == 3
