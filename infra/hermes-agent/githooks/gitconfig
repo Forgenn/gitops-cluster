@@ -2,3 +2,10 @@
 # Every repository the agent touches runs /etc/hermes-githooks/pre-push.
 [core]
 	hooksPath = /etc/hermes-githooks
+# Developer bot's fine-grained PAT channel. Registered system-wide (fires for
+# every profile's git subprocess), but the helper itself only ever emits
+# anything when $DEVELOPER_GITHUB_PAT is set and non-empty in that specific
+# subprocess's environment -- see git_credential_developer_pat.py's own
+# docstring for why every other profile's git calls are unaffected.
+[credential "https://github.com"]
+	helper = /etc/hermes-githooks/git-credential-developer-pat

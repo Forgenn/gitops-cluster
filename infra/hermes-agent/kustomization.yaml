@@ -30,3 +30,4 @@ configMapGenerator:
     files:
       - pre-push=githooks/pre_push.py
       - gitconfig=githooks/gitconfig
+      - git-credential-developer-pat=githooks/git_credential_developer_pat.py

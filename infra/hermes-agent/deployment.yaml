@@ -319,6 +319,15 @@ spec:
             - name: profile-secrets
               mountPath: /etc/hermes-profile-secrets
               readOnly: true
+            # Developer bot's fine-grained PAT, on its OWN mount so ONLY developer's
+            # extended secrets.command reads it -- the shared /etc/hermes-profile-secrets
+            # directory is read by every profile's identical helper script, so a new
+            # credential there would leak into every profile's resolved secret scope.
+            # optional: true -- the operator may not have created this secret yet
+            # (Task 4's PAT-absence tolerance); the pod must never fail to start over it.
+            - name: profile-secrets-developer
+              mountPath: /etc/hermes-profile-secrets-developer
+              readOnly: true
             # Pre-push guard: pushes to gitops-cluster main touching infra/hermes-agent/
             # are refused and must go through a hermes/<topic> branch the operator merges.
             # Hermes approvals cannot express this (a plain git push is never flagged).
@@ -440,6 +449,24 @@ spec:
                 path: OPENROUTER_API_KEY
               - key: CLAUDE_CODE_OAUTH_TOKEN
                 path: CLAUDE_CODE_OAUTH_TOKEN
+        # Developer bot's fine-grained PAT. Deliberately its OWN Secret/volume,
+        # not a new item under profile-secrets above: that directory is read by
+        # every profile's identical secrets.command helper, so a credential
+        # placed there would leak into every profile's resolved scope, not just
+        # developer's. Backed by its own ExternalSecret (secrets/externalsecret-
+        # developer.yaml) so a missing Infisical path never blocks the main
+        # hermes-secrets refresh (Task 3, Ruling 4). `optional: true` for the
+        # same reason as plder-deploy-key-read below: this Secret may not exist
+        # yet (the operator has not created the Infisical path), and the pod
+        # must start healthy either way.
+        - name: profile-secrets-developer
+          secret:
+            secretName: hermes-secrets-developer
+            optional: true
+            defaultMode: 0440
+            items:
+              - key: DEVELOPER_GITHUB_PAT
+                path: DEVELOPER_GITHUB_PAT
         # `optional: true` is REQUIRED here, unlike the three keys above. With an
         # `items:` selector and no `optional`, kubelet refuses to mount the volume
         # at all when the key is missing from hermes-secrets -- MountVolume.SetUp
@@ -463,6 +490,11 @@ spec:
             items:
               - key: pre-push
                 path: pre-push
+              # Backs the gitconfig's credential.https://github.com.helper entry
+              # (mounted below at /etc/gitconfig) -- must be projected here too or
+              # git would look for a helper binary that was never actually mounted.
+              - key: git-credential-developer-pat
+                path: git-credential-developer-pat
         - name: githooks-gitconfig
           configMap:
             name: hermes-githooks
