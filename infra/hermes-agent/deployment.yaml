@@ -152,7 +152,7 @@ spec:
             - name: GIT_CONFIG_VALUE_0
               value: /staging
             - name: AGENT_CONFIG_REF
-              value: "ff2ba290a376"
+              value: "423f1cf2705c"
             - name: AGENT_IMAGE
               value: "nousresearch/hermes-agent:v2026.8.19"
             - name: PYTHONPATH
