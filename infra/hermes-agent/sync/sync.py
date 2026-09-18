@@ -35,8 +35,9 @@ _PROFILE_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 # Version of WHAT a sync writes. Recorded in the applied record and required by
 # should_skip, so changing sync behaviour re-applies once even when the ref and
 # image did not move. 2 = root config.yaml installed from plder; 3 = skills.disabled
-# generated from skills.allow.yaml.
-SYNC_VERSION = 3
+# generated from skills.allow.yaml; 4 = profile .env populated from
+# /etc/hermes-profile-secrets.
+SYNC_VERSION = 4
 ROOT_CONFIG = "config.yaml"
 PREVIOUS_CONFIG = "config.yaml.previous"
 
@@ -154,6 +155,136 @@ def sync_skills(home: Path) -> bool:
     except Exception as exc:
         log(f"WARNING skills_sync failed for {home}: {exc}")
         return False
+
+
+# ---- profile .env sync ---------------------------------------------------------
+#
+# Under gateway multiplex each profile's credentials are resolved by
+# agent.secret_scope.build_profile_secret_scope(home), which is
+# load_env_file(home/".env") plus get_secret_source_values(home) -- and the
+# latter is only a CACHE of an earlier hydrate_profile_secret_sources(home)
+# call in this same process. gateway/run.py hydrates before it builds a
+# profile's scope; cron/scheduler.py does not. A profile that has never been
+# hydrated in the running process -- every newly installed profile, since
+# `hermes profile install` writes no .env -- then resolves no credentials and
+# a scheduled turn fails "No LLM provider configured" (verified in-pod
+# 2026-09-14: writing home/.env with the two credentials fixed the very next
+# scheduled probe). Kubernetes mounts those credentials as files named by env
+# var under PROFILE_SECRET_SOURCE_DIR (deployment.yaml's profile-secrets
+# volume); this section writes them into every home's .env so
+# build_profile_secret_scope needs no in-process hydration to find them.
+
+# Overridable by tests. Each file's NAME is the env var; its FIRST LINE is
+# the value, matching how Kubernetes projects a Secret's keys as files.
+PROFILE_SECRET_SOURCE_DIR = Path("/etc/hermes-profile-secrets")
+PROFILE_ENV_FILE = ".env"
+
+
+def _managed_secret_values(src_dir: Path) -> dict[str, str]:
+    """Read {env_var: value} from files in src_dir. Never raises.
+
+    One unreadable file must not cost every other key: a read failure is
+    logged and that file is skipped, not fatal to the rest.
+    """
+    values: dict[str, str] = {}
+    try:
+        if not src_dir.is_dir():
+            return values
+        entries = sorted(p for p in src_dir.iterdir() if p.is_file())
+    except Exception as exc:
+        log(f"WARNING could not list {src_dir}: {type(exc).__name__}: {exc}")
+        return values
+    for path in entries:
+        try:
+            text = path.read_text(encoding="utf-8")
+        except Exception as exc:
+            log(f"WARNING could not read secret source {path.name}: {type(exc).__name__}: {exc}")
+            continue
+        lines = text.splitlines()
+        values[path.name] = lines[0] if lines else ""
+    return values
+
+
+# Matches an assignment line's LHS, tolerating a leading `export ` and
+# whitespace padding around `=` (both seen in hand-edited .env files) so a
+# re-sync UPDATES that line instead of appending a second, conflicting
+# definition for the same key. group(1) is the bare key name; the full match
+# (including any `export`/padding) is kept verbatim as the replacement's
+# prefix -- only the value itself changes.
+_ENV_ASSIGNMENT_RE = re.compile(r"^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*")
+
+
+def _merge_env_text(existing: str, managed: dict[str, str]) -> str:
+    """Merge managed key=value pairs into existing .env text.
+
+    Every unrelated line -- other keys, comments, blank lines -- is kept
+    verbatim, including its own line ending; a managed key already present
+    (as `KEY=`, `export KEY=`, or padded `KEY = `) has only its value
+    replaced in place, and a managed key not present is appended at the end.
+    """
+    lines = existing.splitlines(keepends=True) if existing else []
+    remaining = dict(managed)
+    out: list[str] = []
+    for line in lines:
+        stripped = line.rstrip("\r\n")
+        ending = line[len(stripped):]
+        match = _ENV_ASSIGNMENT_RE.match(stripped)
+        key = match.group(1) if match else None
+        if key in remaining:
+            prefix = stripped[:match.end()]
+            out.append(f"{prefix}{remaining.pop(key)}{ending}")
+        else:
+            out.append(line)
+    if remaining:
+        if out and not out[-1].endswith(("\n", "\r")):
+            out[-1] += "\n"
+        for key, value in remaining.items():
+            out.append(f"{key}={value}\n")
+    return "".join(out)
+
+
+def sync_profile_env(home: Path) -> None:
+    """Write home/.env's managed keys from PROFILE_SECRET_SOURCE_DIR.
+
+    Merge, never clobber: every other line of an existing .env (root and
+    each profile keep unrelated keys today) is preserved untouched; only the
+    managed keys are set or updated. Written atomically (temp file +
+    os.replace in the same directory): the temp file is CREATED at mode 0600
+    via os.open (not written-then-chmod'd), because home lives on a
+    restic-backed PVC and a write-then-chmod window would put plaintext
+    credentials on disk at the process's default (world/group-readable)
+    mode, however briefly, before the chmod locked it down. Log-only, like
+    sync_skills and curate_skills: never raises, never affects the caller's
+    result -- a credentials problem must not take the gateway offline or
+    force a re-clone on every boot. Logs exactly one line per call, even when
+    zero keys are managed, so an operator grepping for a home's sync status
+    always finds one.
+    """
+    tmp = home / ".env.profile-sync.tmp"
+    try:
+        managed = _managed_secret_values(PROFILE_SECRET_SOURCE_DIR)
+        if not managed:
+            log(f"env: 0 managed key(s) for {home}")
+            return
+        env_path = home / PROFILE_ENV_FILE
+        existing = env_path.read_text(encoding="utf-8") if env_path.is_file() else ""
+        merged = _merge_env_text(existing, managed)
+        home.mkdir(parents=True, exist_ok=True)
+        fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(merged)
+        # Neutralizes a permissive umask on the os.open() mode argument
+        # itself (POSIX allows umask to strip bits from the requested mode);
+        # a no-op when the platform already honoured 0o600 above.
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, env_path)
+        log(f"env: {len(managed)} managed key(s) written to {env_path}")
+    except Exception as exc:
+        log(f"WARNING could not write .env for {home}: {type(exc).__name__}: {exc}")
+        try:
+            tmp.unlink()
+        except Exception:
+            pass
 
 
 # ---- skill curation ------------------------------------------------------------
@@ -481,6 +612,11 @@ def install_profiles(staged: Path) -> tuple[list[str], bool]:
         installed.append(name)
         log(f"installed profile {name}")
         home = HERMES_HOME / "profiles" / name
+        # Log-only, for the same reason as sync_skills below: a credentials
+        # problem must not flip result to "partial" and force a re-clone on
+        # every boot. Before apply_cron on purpose: a scheduled job installed
+        # in this same run should never race its own home's .env.
+        sync_profile_env(home)
         ok = apply_cron(home, src / "cron" / "jobs.json") and ok
         # Log-only, for the same reason as the root call in main(): a transient
         # skills failure must not flip result to "partial" and force a re-clone
@@ -707,6 +843,9 @@ def main() -> int:
         # would re-clone from GitHub -- making the agent's boot depend on
         # network reachability for no benefit. Log-only, matching the hook.
         sync_skills(HERMES_HOME)
+        # Same log-only contract: the root home is also served under
+        # multiplex and needs its .env kept current.
+        sync_profile_env(HERMES_HOME)
 
         # Profiles run AFTER the root cron apply on purpose: moving a job from the
         # root declaration to a profile's must retire it from the root store and
