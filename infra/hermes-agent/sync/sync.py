@@ -205,13 +205,22 @@ def _managed_secret_values(src_dir: Path) -> dict[str, str]:
     return values
 
 
+# Matches an assignment line's LHS, tolerating a leading `export ` and
+# whitespace padding around `=` (both seen in hand-edited .env files) so a
+# re-sync UPDATES that line instead of appending a second, conflicting
+# definition for the same key. group(1) is the bare key name; the full match
+# (including any `export`/padding) is kept verbatim as the replacement's
+# prefix -- only the value itself changes.
+_ENV_ASSIGNMENT_RE = re.compile(r"^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*")
+
+
 def _merge_env_text(existing: str, managed: dict[str, str]) -> str:
     """Merge managed key=value pairs into existing .env text.
 
     Every unrelated line -- other keys, comments, blank lines -- is kept
     verbatim, including its own line ending; a managed key already present
-    has only its value replaced in place, and a managed key not present is
-    appended at the end.
+    (as `KEY=`, `export KEY=`, or padded `KEY = `) has only its value
+    replaced in place, and a managed key not present is appended at the end.
     """
     lines = existing.splitlines(keepends=True) if existing else []
     remaining = dict(managed)
@@ -219,10 +228,11 @@ def _merge_env_text(existing: str, managed: dict[str, str]) -> str:
     for line in lines:
         stripped = line.rstrip("\r\n")
         ending = line[len(stripped):]
-        eq = stripped.find("=")
-        key = stripped[:eq] if eq > 0 else None
+        match = _ENV_ASSIGNMENT_RE.match(stripped)
+        key = match.group(1) if match else None
         if key in remaining:
-            out.append(f"{key}={remaining.pop(key)}{ending}")
+            prefix = stripped[:match.end()]
+            out.append(f"{prefix}{remaining.pop(key)}{ending}")
         else:
             out.append(line)
     if remaining:
@@ -239,21 +249,33 @@ def sync_profile_env(home: Path) -> None:
     Merge, never clobber: every other line of an existing .env (root and
     each profile keep unrelated keys today) is preserved untouched; only the
     managed keys are set or updated. Written atomically (temp file +
-    os.replace in the same directory) at mode 0600. Log-only, like
+    os.replace in the same directory): the temp file is CREATED at mode 0600
+    via os.open (not written-then-chmod'd), because home lives on a
+    restic-backed PVC and a write-then-chmod window would put plaintext
+    credentials on disk at the process's default (world/group-readable)
+    mode, however briefly, before the chmod locked it down. Log-only, like
     sync_skills and curate_skills: never raises, never affects the caller's
     result -- a credentials problem must not take the gateway offline or
-    force a re-clone on every boot.
+    force a re-clone on every boot. Logs exactly one line per call, even when
+    zero keys are managed, so an operator grepping for a home's sync status
+    always finds one.
     """
     tmp = home / ".env.profile-sync.tmp"
     try:
         managed = _managed_secret_values(PROFILE_SECRET_SOURCE_DIR)
         if not managed:
+            log(f"env: 0 managed key(s) for {home}")
             return
         env_path = home / PROFILE_ENV_FILE
         existing = env_path.read_text(encoding="utf-8") if env_path.is_file() else ""
         merged = _merge_env_text(existing, managed)
         home.mkdir(parents=True, exist_ok=True)
-        tmp.write_text(merged, encoding="utf-8")
+        fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(merged)
+        # Neutralizes a permissive umask on the os.open() mode argument
+        # itself (POSIX allows umask to strip bits from the requested mode);
+        # a no-op when the platform already honoured 0o600 above.
         os.chmod(tmp, 0o600)
         os.replace(tmp, env_path)
         log(f"env: {len(managed)} managed key(s) written to {env_path}")

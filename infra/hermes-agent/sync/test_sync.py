@@ -516,6 +516,29 @@ def test_install_profiles_applies_the_profiles_declared_cron(monkeypatch):
     assert live["jobs"][0]["managed_by"] == "plder"
 
 
+def test_install_profiles_writes_env_before_applying_cron(monkeypatch):
+    """A job installed this same run must never race its own home's .env
+    (see the comment at the sync_profile_env call site in install_profiles)."""
+    staged = sync_module.STAGING
+    _profile(staged, "monitor", jobs=[{"id": "j1", "name": "test"}])
+    monkeypatch.setattr(sync_module.subprocess, "run", _fake_run([]))
+
+    order = []
+    monkeypatch.setattr(sync_module, "sync_profile_env", lambda home: order.append(("env", home)))
+    real_apply_cron = sync_module.apply_cron
+
+    def spy_apply_cron(home, declared_file):
+        order.append(("cron", home))
+        return real_apply_cron(home, declared_file)
+
+    monkeypatch.setattr(sync_module, "apply_cron", spy_apply_cron)
+
+    names, ok = sync_module.install_profiles(staged)
+    assert names == ["monitor"] and ok is True
+    assert [step for step, _ in order] == ["env", "cron"]
+    assert order[0][1] == order[1][1] == sync_module.HERMES_HOME / "profiles" / "monitor"
+
+
 def test_install_profiles_with_no_profiles_directory_is_a_noop(monkeypatch):
     calls = []
     monkeypatch.setattr(sync_module.subprocess, "run", _fake_run(calls))
@@ -1138,6 +1161,95 @@ def test_sync_profile_env_fresh_home_gets_exactly_the_managed_keys(tmp_path, mon
     # result (NTFS has no POSIX rwx bits), so the mode is verified by
     # intercepting the call rather than re-stat'ing the file afterwards.
     assert (env_path.with_name(".env.profile-sync.tmp"), 0o600) in chmod_calls
+
+
+def test_sync_profile_env_creates_the_temp_file_restricted_before_any_content(tmp_path, monkeypatch):
+    """The temp file must be born at 0600, not written world/group-readable
+    and chmod'd afterwards -- home lives on a restic-backed PVC, so a
+    write-then-chmod window would put plaintext credentials on disk, however
+    briefly, at the process's default (often 0644) mode. Windows' NTFS
+    stat() does not reliably reflect a specific POSIX mode (see the sibling
+    test above), so this is verified the same way: by intercepting the
+    os.open call and asserting the restrictive mode was requested at CREATE
+    time, before a single byte of the secret-bearing content is written."""
+    src = tmp_path / "secrets"
+    _write_secret(src, "OPENROUTER_API_KEY", "sk-or-abc123")
+    monkeypatch.setattr(sync_module, "PROFILE_SECRET_SOURCE_DIR", src)
+    home = tmp_path / "home"
+    home.mkdir()
+
+    open_calls = []
+    real_open = os.open
+
+    def spy_open(path, flags, mode=0o777, *a, **kw):
+        open_calls.append((Path(path), flags, mode))
+        return real_open(path, flags, mode, *a, **kw)
+
+    monkeypatch.setattr(sync_module.os, "open", spy_open)
+
+    sync_module.sync_profile_env(home)
+
+    tmp_path_used = home / ".env.profile-sync.tmp"
+    matching = [c for c in open_calls if c[0] == tmp_path_used]
+    assert matching, "sync_profile_env must create its temp file via os.open, not open()/write_text()"
+    path, flags, mode = matching[0]
+    assert mode == 0o600
+    assert flags & os.O_CREAT
+    assert (home / ".env").read_text(encoding="utf-8") == "OPENROUTER_API_KEY=sk-or-abc123\n"
+
+
+def test_sync_profile_env_logs_a_count_of_zero_when_source_is_missing(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(sync_module, "PROFILE_SECRET_SOURCE_DIR", tmp_path / "does-not-exist")
+    home = tmp_path / "home"
+    home.mkdir()
+
+    sync_module.sync_profile_env(home)
+
+    out = capsys.readouterr().out
+    assert "[profile-sync]" in out
+    assert "0 managed key(s)" in out
+    assert str(home) in out
+
+
+def test_sync_profile_env_logs_a_count_of_zero_when_source_is_empty(tmp_path, monkeypatch, capsys):
+    src = tmp_path / "secrets"
+    src.mkdir()
+    monkeypatch.setattr(sync_module, "PROFILE_SECRET_SOURCE_DIR", src)
+    home = tmp_path / "home"
+    home.mkdir()
+
+    sync_module.sync_profile_env(home)
+
+    out = capsys.readouterr().out
+    assert "0 managed key(s)" in out
+
+
+def test_sync_profile_env_updates_an_export_prefixed_key_in_place(tmp_path, monkeypatch):
+    src = tmp_path / "secrets"
+    _write_secret(src, "OPENROUTER_API_KEY", "sk-or-NEW")
+    monkeypatch.setattr(sync_module, "PROFILE_SECRET_SOURCE_DIR", src)
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / ".env").write_text("export OPENROUTER_API_KEY=sk-or-STALE\n", encoding="utf-8")
+
+    sync_module.sync_profile_env(home)
+
+    lines = (home / ".env").read_text(encoding="utf-8").splitlines()
+    assert lines == ["export OPENROUTER_API_KEY=sk-or-NEW"]
+
+
+def test_sync_profile_env_updates_a_padded_key_in_place(tmp_path, monkeypatch):
+    src = tmp_path / "secrets"
+    _write_secret(src, "OPENROUTER_API_KEY", "sk-or-NEW")
+    monkeypatch.setattr(sync_module, "PROFILE_SECRET_SOURCE_DIR", src)
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / ".env").write_text("OPENROUTER_API_KEY = sk-or-STALE\n", encoding="utf-8")
+
+    sync_module.sync_profile_env(home)
+
+    lines = (home / ".env").read_text(encoding="utf-8").splitlines()
+    assert lines == ["OPENROUTER_API_KEY = sk-or-NEW"]
 
 
 def test_sync_profile_env_keeps_unrelated_keys_and_updates_a_stale_value(tmp_path, monkeypatch):
