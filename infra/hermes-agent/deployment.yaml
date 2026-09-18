@@ -173,6 +173,14 @@ spec:
               mountPath: /opt/data/home/.ssh/config
               subPath: ssh_config
               readOnly: true
+            # sync.py writes each profile home's .env from these files. Cron builds a
+            # profile's secret scope WITHOUT hydrating external sources (unlike a
+            # gateway turn), so <home>/.env is the only hydration-free channel and a
+            # profile without one resolves no credentials at all. Mounted here as well
+            # as on the main container: this initContainer is what writes the files.
+            - name: profile-secrets
+              mountPath: /etc/hermes-profile-secrets
+              readOnly: true
         # Install Claude Code into a writable emptyDir at boot (same pattern as the
         # kubectl-copy initContainer above). The pod image is frozen and not customised,
         # so a tool that isn't in the image is injected this way -- emptyDir is
