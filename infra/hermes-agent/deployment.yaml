@@ -235,9 +235,45 @@ spec:
             # PATH so the gateway and any spawned shells can call `claude` directly.
             - name: PATH
               value: "/opt/tools/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games"
-          envFrom:
-            - secretRef:
-                name: hermes-secrets
+            # Explicit allowlist, NOT envFrom: the four SSH deploy keys used to reach
+            # this container's process environ via envFrom even though every
+            # consumer (ssh_config's IdentityFile lines) reads them as FILES, never
+            # as env vars -- envFrom was pure redundant exposure. /proc/<pid>/environ
+            # is readable by any uid-10000 process, i.e. by any terminal-capable
+            # bot's subprocess regardless of which profile's scope it runs under
+            # (docs/plans/2026-09-15-hermes-developer-meta-docs.md Task 1). Keep this
+            # list to exactly what is proven needed as a raw env var; the ssh-keys
+            # volumes below remain the only channel for GIT_DEPLOY_KEY,
+            # NIXOS_DEPLOY_KEY, FLEET_SSH_KEY and PLDER_DEPLOY_KEY_READ.
+            # DEVELOPER_GITHUB_PAT and PLDER_DEPLOY_KEY (write) must NEVER be added
+            # here -- they travel through the narrower channels in Tasks 3-6.
+            - name: OPENROUTER_API_KEY
+              valueFrom:
+                secretKeyRef: {name: hermes-secrets, key: OPENROUTER_API_KEY}
+            - name: HERMES_DASHBOARD_BASIC_AUTH_USERNAME
+              valueFrom:
+                secretKeyRef: {name: hermes-secrets, key: HERMES_DASHBOARD_BASIC_AUTH_USERNAME}
+            - name: HERMES_DASHBOARD_BASIC_AUTH_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: hermes-secrets, key: HERMES_DASHBOARD_BASIC_AUTH_PASSWORD}
+            - name: HERMES_DASHBOARD_BASIC_AUTH_SECRET
+              valueFrom:
+                secretKeyRef: {name: hermes-secrets, key: HERMES_DASHBOARD_BASIC_AUTH_SECRET}
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef: {name: hermes-secrets, key: TELEGRAM_BOT_TOKEN}
+            - name: TELEGRAM_ALLOWED_USERS
+              valueFrom:
+                secretKeyRef: {name: hermes-secrets, key: TELEGRAM_ALLOWED_USERS}
+            - name: TELEGRAM_HOME_CHANNEL
+              valueFrom:
+                secretKeyRef: {name: hermes-secrets, key: TELEGRAM_HOME_CHANNEL}
+            - name: TELEGRAM_CRON_THREAD_ID
+              valueFrom:
+                secretKeyRef: {name: hermes-secrets, key: TELEGRAM_CRON_THREAD_ID}
+            - name: CLAUDE_CODE_OAUTH_TOKEN
+              valueFrom:
+                secretKeyRef: {name: hermes-secrets, key: CLAUDE_CODE_OAUTH_TOKEN}
           volumeMounts:
             - name: data
               mountPath: /opt/data
