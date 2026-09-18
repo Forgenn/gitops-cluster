@@ -85,6 +85,18 @@ spec:
               else
                 echo "[ssh-key-perms] no plder key yet; config sync will soft-fail"
               fi
+              # PLDER_DEPLOY_KEY (write) is likewise OPTIONAL: it only feeds the
+              # meta bot's future pushes to plder, which are built to soft-fail.
+              # Same reasoning as the read key above -- `optional: true` on the
+              # volume plus this soft-fail branch keeps a missing/rotated write
+              # key from crash-looping this initContainer or, with
+              # strategy: Recreate, stalling the whole pod in ContainerCreating.
+              if cp /secrets/plder-deploy-key-write/PLDER_DEPLOY_KEY /ssh-keys/plder_deploy_key_write 2>/dev/null; then
+                chown 10000:10000 /ssh-keys/plder_deploy_key_write
+                chmod 600 /ssh-keys/plder_deploy_key_write
+              else
+                echo "[ssh-key-perms] no plder WRITE key yet; meta will soft-fail its pushes"
+              fi
               exit 0
           volumeMounts:
             - name: git-deploy-key
@@ -98,6 +110,9 @@ spec:
               readOnly: true
             - name: plder-deploy-key-read
               mountPath: /secrets/plder-deploy-key-read
+              readOnly: true
+            - name: plder-deploy-key-write
+              mountPath: /secrets/plder-deploy-key-write
               readOnly: true
             - name: ssh-keys
               mountPath: /ssh-keys
@@ -314,6 +329,15 @@ spec:
               mountPath: /opt/data/home/.ssh/nixos_deploy_key
               subPath: nixos_deploy_key
               readOnly: true
+            # meta's WRITE key for plder (github.com-plder-write alias only --
+            # never the read-only github.com-plder alias used by profile-sync's
+            # clone). Not in the explicit env: list above and never will be
+            # (Task 1, Ruling 1): the only channel is this file plus the
+            # ssh_config alias, so a leaked env dump can't expose it.
+            - name: ssh-keys
+              mountPath: /opt/data/home/.ssh/plder_deploy_key_write
+              subPath: plder_deploy_key_write
+              readOnly: true
             # LLM credentials as FILES, for the gateway's multiplexed profiles. See
             # the profile-secrets volume below for why envFrom alone is not enough.
             - name: profile-secrets
@@ -456,6 +480,21 @@ spec:
             items:
               - key: PLDER_DEPLOY_KEY_READ
                 path: PLDER_DEPLOY_KEY_READ
+        # meta's plder WRITE key, sourced from its own ExternalSecret/Secret
+        # (hermes-secrets-meta) rather than hermes-secrets -- an absent or
+        # rotated key here must only cost the meta bot's pushes, never
+        # hermes-secrets' refresh for everything else. `optional: true` for the
+        # same reason as plder-deploy-key-read above: without it kubelet fails
+        # MountVolume.SetUp when the key is missing and, with
+        # strategy: Recreate, that is a total outage over a config-only credential.
+        - name: plder-deploy-key-write
+          secret:
+            secretName: hermes-secrets-meta
+            optional: true
+            defaultMode: 0400
+            items:
+              - key: PLDER_DEPLOY_KEY
+                path: PLDER_DEPLOY_KEY
         - name: githooks
           configMap:
             name: hermes-githooks
