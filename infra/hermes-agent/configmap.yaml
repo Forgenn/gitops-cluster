@@ -40,6 +40,15 @@ data:
       IdentitiesOnly yes
       StrictHostKeyChecking accept-new
 
+    # meta's WRITE key for plder, kept on its own alias so meta's git remote never
+    # accidentally resolves to the read-only sync key or vice versa.
+    Host github.com-plder-write
+      HostName github.com
+      User git
+      IdentityFile /opt/data/home/.ssh/plder_deploy_key_write
+      IdentitiesOnly yes
+      StrictHostKeyChecking accept-new
+
     Host dolores.home dubois.home cuno.home katsuragi.home
       User hermes-agent
       IdentityFile /opt/data/home/.ssh/fleet_ssh_key
