@@ -219,9 +219,29 @@ spec:
             - |
               export PATH=/usr/local/bin:/usr/bin:/bin
               mkdir -p /opt/tools
-              npm install -g --prefix /opt/tools @anthropic-ai/claude-code >/dev/null 2>&1 || true
+              # Retry and LOG. This was `>/dev/null 2>&1 || true`, which hid a silent
+              # failure: on 2026-09-19 the pod started while cluster DNS was down, npm
+              # could not resolve the registry, and the container exited 0 with an empty
+              # /opt/tools -- so `claude` was missing from the agent with nothing logged.
+              # Claude models are reachable ONLY through this CLI (CLAUDE_CODE_OAUTH_TOKEN
+              # 401s against the Anthropic API), so a missing binary silently removes that
+              # capability. Still never fails the pod: exit 0 on every path.
+              ok=0
+              for attempt in 1 2 3; do
+                if npm install -g --prefix /opt/tools @anthropic-ai/claude-code 2>&1; then
+                  ok=1; break
+                fi
+                echo "[claude-install] attempt $attempt failed; retrying in 10s"
+                sleep 10
+              done
               chown -R 10000:10000 /opt/tools/lib /opt/tools/bin 2>/dev/null || true
               chmod -R a+rX /opt/tools 2>/dev/null || true
+              if [ "$ok" = "1" ] && [ -x /opt/tools/bin/claude ]; then
+                echo "[claude-install] OK: $(/opt/tools/bin/claude --version 2>&1 | head -1)"
+              else
+                echo "[claude-install] WARNING: claude CLI NOT installed -- bots cannot call claude -p until a later restart succeeds"
+              fi
+              exit 0
           volumeMounts:
             - name: claude-tools
               mountPath: /opt/tools
