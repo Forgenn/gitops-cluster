@@ -53,7 +53,7 @@ spec:
               drop: [ALL]
       containers:
         - name: backend
-          image: registry.monederobox.dev/loomie/backend:b9076ad
+          image: registry.monederobox.dev/loomie/backend:00b35bc
           ports:
             - containerPort: 8080
           securityContext:
@@ -147,7 +147,7 @@ spec:
               value: "http://loomie-pi-sidecar:50051"
             # MCP init container image for Claude Code tool access
             - name: MCP_IMAGE
-              value: "registry.monederobox.dev/loomie/mcp:b9076ad"
+              value: "registry.monederobox.dev/loomie/mcp:00b35bc"
           resources:
             requests:
               cpu: 100m
