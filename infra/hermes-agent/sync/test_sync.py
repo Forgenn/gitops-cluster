@@ -1123,7 +1123,10 @@ def test_install_profiles_curates_skills_after_the_skills_sync(monkeypatch):
 
 
 def test_sync_version_marks_skill_curation():
-    assert sync_module.SYNC_VERSION == 4
+    # Bump deliberately, with the sync.py comment: should_skip keys on this, so
+    # a behaviour change that does not bump it never re-applies on a live pod
+    # whose ref and image have not moved.
+    assert sync_module.SYNC_VERSION == 5
 
 
 # ---- profile .env sync from /etc/hermes-profile-secrets --------------------
@@ -1357,3 +1360,69 @@ def test_main_result_ok_when_profile_env_write_fails(tmp_path, monkeypatch):
     applied = _run_main(monkeypatch, fake_clone)
     assert applied["result"] == "ok"
     assert not (sync_module.HERMES_HOME / ".env").exists()
+
+
+# ---- per-profile secrets -------------------------------------------------------
+#
+# The shared PROFILE_SECRET_SOURCE_DIR lands in EVERY profile's .env. A
+# credential scoped to one bot (homelab-ops' GitHub merge PAT) must not, so it
+# gets its own mount read only into that profile's home.
+
+
+def test_per_profile_secret_reaches_only_that_profile(tmp_path, monkeypatch):
+    shared = tmp_path / "secrets"
+    _write_secret(shared, "OPENROUTER_API_KEY", "sk-or-abc123")
+    monkeypatch.setattr(sync_module, "PROFILE_SECRET_SOURCE_DIR", shared)
+    monkeypatch.setattr(
+        sync_module, "PROFILE_SECRET_SOURCE_DIR_TEMPLATE", str(tmp_path / "secrets-{profile}")
+    )
+    _write_secret(tmp_path / "secrets-homelab-ops", "HOMELAB_OPS_GITHUB_PAT", "ghp-secret")
+
+    owner = tmp_path / "profiles" / "homelab-ops"
+    owner.mkdir(parents=True)
+    other = tmp_path / "profiles" / "shopper"
+    other.mkdir(parents=True)
+
+    sync_module.sync_profile_env(owner)
+    sync_module.sync_profile_env(other)
+
+    owner_env = set((owner / ".env").read_text(encoding="utf-8").splitlines())
+    other_env = set((other / ".env").read_text(encoding="utf-8").splitlines())
+
+    assert "HOMELAB_OPS_GITHUB_PAT=ghp-secret" in owner_env
+    assert "OPENROUTER_API_KEY=sk-or-abc123" in owner_env
+    assert not any(line.startswith("HOMELAB_OPS_GITHUB_PAT") for line in other_env)
+    assert "OPENROUTER_API_KEY=sk-or-abc123" in other_env
+
+
+def test_missing_per_profile_dir_is_not_an_error(tmp_path, monkeypatch):
+    shared = tmp_path / "secrets"
+    _write_secret(shared, "OPENROUTER_API_KEY", "sk-or-abc123")
+    monkeypatch.setattr(sync_module, "PROFILE_SECRET_SOURCE_DIR", shared)
+    monkeypatch.setattr(
+        sync_module, "PROFILE_SECRET_SOURCE_DIR_TEMPLATE", str(tmp_path / "nope-{profile}")
+    )
+    home = tmp_path / "profiles" / "monitor"
+    home.mkdir(parents=True)
+
+    sync_module.sync_profile_env(home)
+
+    assert (home / ".env").read_text(encoding="utf-8").splitlines() == [
+        "OPENROUTER_API_KEY=sk-or-abc123"
+    ]
+
+
+def test_per_profile_secret_wins_over_a_shared_key_of_the_same_name(tmp_path, monkeypatch):
+    shared = tmp_path / "secrets"
+    _write_secret(shared, "SHARED_KEY", "from-shared")
+    monkeypatch.setattr(sync_module, "PROFILE_SECRET_SOURCE_DIR", shared)
+    monkeypatch.setattr(
+        sync_module, "PROFILE_SECRET_SOURCE_DIR_TEMPLATE", str(tmp_path / "secrets-{profile}")
+    )
+    _write_secret(tmp_path / "secrets-developer", "SHARED_KEY", "from-profile")
+    home = tmp_path / "profiles" / "developer"
+    home.mkdir(parents=True)
+
+    sync_module.sync_profile_env(home)
+
+    assert (home / ".env").read_text(encoding="utf-8").splitlines() == ["SHARED_KEY=from-profile"]

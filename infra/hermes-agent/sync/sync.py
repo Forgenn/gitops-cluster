@@ -36,8 +36,9 @@ _PROFILE_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 # should_skip, so changing sync behaviour re-applies once even when the ref and
 # image did not move. 2 = root config.yaml installed from plder; 3 = skills.disabled
 # generated from skills.allow.yaml; 4 = profile .env populated from
-# /etc/hermes-profile-secrets.
-SYNC_VERSION = 4
+# /etc/hermes-profile-secrets; 5 = per-profile secrets merged from
+# /etc/hermes-profile-secrets-<profile> into that profile's .env only.
+SYNC_VERSION = 5
 ROOT_CONFIG = "config.yaml"
 PREVIOUS_CONFIG = "config.yaml.previous"
 
@@ -177,6 +178,16 @@ def sync_skills(home: Path) -> bool:
 # Overridable by tests. Each file's NAME is the env var; its FIRST LINE is
 # the value, matching how Kubernetes projects a Secret's keys as files.
 PROFILE_SECRET_SOURCE_DIR = Path("/etc/hermes-profile-secrets")
+# Per-profile credentials, merged into ONLY that profile's .env. The shared
+# directory above lands in every home, which is right for OPENROUTER_API_KEY
+# and wrong for a credential scoped to one bot -- homelab-ops' GitHub merge PAT
+# must not become an environment variable in every other profile's agent turns.
+#
+# This exists because `secrets.command` (how the developer bot's PAT reaches
+# its scope) is a gateway-turn mechanism: the CRON path never hydrates external
+# secret sources, it reads <home>/.env plus a cache of a previous hydration. A
+# scheduled job therefore only ever sees what is written here.
+PROFILE_SECRET_SOURCE_DIR_TEMPLATE = "/etc/hermes-profile-secrets-{profile}"
 PROFILE_ENV_FILE = ".env"
 
 
@@ -263,6 +274,14 @@ def sync_profile_env(home: Path) -> None:
     tmp = home / ".env.profile-sync.tmp"
     try:
         managed = _managed_secret_values(PROFILE_SECRET_SOURCE_DIR)
+        # Per-profile keys are applied second so they win a name collision:
+        # a credential mounted specifically for this bot is more specific than
+        # the fleet-wide default of the same name.
+        managed.update(
+            _managed_secret_values(
+                Path(PROFILE_SECRET_SOURCE_DIR_TEMPLATE.format(profile=home.name))
+            )
+        )
         if not managed:
             log(f"env: 0 managed key(s) for {home}")
             return
