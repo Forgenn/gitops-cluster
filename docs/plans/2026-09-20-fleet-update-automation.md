@@ -1,8 +1,68 @@
 # Fleet update automation
 
 Date: 2026-09-20
-Status: **DESIGN — approved, not implemented**
+Status: **IMPLEMENTED 2026-09-20**, phases 0–4 and 6. Running with `dry_run: true`;
+phase 5 (flipping it) is the operator's call after reviewing a fortnight of output.
 Scope: `Forgenn/gitops-cluster` (this repo), `Forgenn/nixos-config`, `Forgenn/plder`
+Plan: `docs/plans/2026-09-20-fleet-update-automation-impl.md`
+
+## Delivery record (2026-09-20)
+
+| Phase | Landed |
+|---|---|
+| 0 gitops CI | `scripts/validate-manifests.sh` + `validate` check; 56 kustomizations, 27s (#31) |
+| 0 nixos CI | `flake-check` / `eval` (7 hosts) / `dry-run` (3) — nixos-config #3 |
+| 1 Renovate | automerge removed, labels are the risk signal (#31); nix manager enabled — nixos-config #4 |
+| 2 flake split | three tracks + `pkgsInput`; lock entries — nixos-config #4, #5 |
+| 3 credential | per-profile secrets, `hermes-secrets-homelab-ops` (#32) |
+| 4 the bot | `update-policy.yaml`, `policy.py`, `review.py`, 2 cron jobs — plder `3d9e2e4` |
+| 6 runbook | `docs/runbooks/cluster-nixos-rebuild.md` — nixos-config #6 |
+
+Verified rather than assumed: `review.py` was run against the live GitHub API from
+inside the pod before the cron job was declared. It read all nine open PRs and
+escalated every one with `required check 'validate' has not reported` — correct,
+because those branches predate the workflow. `merged: 0`.
+
+### Corrections this build forced on the design
+
+- **The developer bot's PAT pattern does not work for a cron job.** That PAT
+  reaches its scope through `secrets.command`, which is a *gateway-turn*
+  mechanism; the cron path never hydrates external secret sources. Following the
+  spec literally would have produced a job that silently had no credential. Fixed
+  by `sync.py`'s `PROFILE_SECRET_SOURCE_DIR_TEMPLATE` (`SYNC_VERSION` 4 → 5),
+  which merges a per-profile mount into that profile's `.env` only — putting the
+  PAT in the shared mount would have made it an environment variable in every
+  other profile's turns.
+- **PyYAML *is* available in the pod**, at `/opt/hermes/.venv/bin/python3` (6.0.3;
+  the system `python3` has none). The plan's hand-rolled YAML parser was deleted:
+  two parsers that disagree, in the file that gates merges, is a silent-corruption
+  bug.
+- **`labels:` replaces the label set in Renovate**, so a later matching rule would
+  have silently dropped `core-infra` — the label that keeps core infra out of the
+  auto-merge tier. All risk labels use `addLabels:`.
+- **kubeconform's template field is `ResourceAPIVersion`**, not `ResourceApiVersion`.
+- **ubuntu-24.04 runners already ship kustomize and helm**, and
+  `install_kustomize.sh` refuses to overwrite; tools go to `~/.local/bin`.
+
+### What the nixos CI found on its first run
+
+5 of 7 hosts did not evaluate **on `main`**, pre-dating this work:
+
+- **`hosts/revachol-cluster/revachol-common.nix:264`** sets
+  `restartTriggers = [ config.system.build.toplevel ]` — infinite recursion, since
+  the unit is part of `toplevel`. **The three cluster nodes cannot be rebuilt at
+  all**, which is the likely reason the 2026-09-08 iscsiadm fix never reached any
+  node despite being merged. The comment above it notes the tmpfiles `L+` symlink
+  is a second layer that works without the restart, so removing the line may be
+  the fix — left to the operator, as it changes behaviour around a known Longhorn
+  crashloop.
+- **`as-pm`** configures no bootloader anywhere. Left to the operator: a guessed
+  bootloader is how a machine becomes unbootable.
+- **`t440`** referenced `pkgs.i3-gaps` and `pkgs.rofi-wayland`, both renamed by
+  nixpkgs. Fixed — nixpkgs states both renames explicitly, so they are mechanical.
+
+The four still-failing hosts are `blocking: false` in the eval matrix: they run and
+show red, so the list stays visible and shrinks, rather than hiding behind a skip.
 
 Keep dependency and system updates moving without a human reading GitHub: deterministic
 CI produces facts, Renovate produces proposals, and the `homelab-ops` bot applies a
