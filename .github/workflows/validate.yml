@@ -1,0 +1,47 @@
+# Renders and schema-validates every kustomization in infra/.
+#
+# This is the check that Renovate and the homelab-ops update-review job gate
+# on. Before it existed this repo had no workflows at all, so Renovate's
+# automergeType 'branch' waited forever for a status that never appeared and
+# no dependency commit ever landed -- while ArgoCD auto-synced main to prod.
+# Design: docs/plans/2026-09-20-fleet-update-automation.md
+name: validate
+
+on:
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Install kustomize, helm and kubeconform
+        run: |
+          set -euo pipefail
+          curl -sSfL https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh \
+            | bash -s -- 5.7.1 /usr/local/bin
+          curl -sSfL https://get.helm.sh/helm-v3.19.0-linux-amd64.tar.gz \
+            | tar xz -C /tmp linux-amd64/helm
+          sudo mv /tmp/linux-amd64/helm /usr/local/bin/helm
+          curl -sSfL https://github.com/yannh/kubeconform/releases/download/v0.7.0/kubeconform-linux-amd64.tar.gz \
+            | tar xz -C /tmp kubeconform
+          sudo mv /tmp/kubeconform /usr/local/bin/kubeconform
+          kustomize version && helm version --short && kubeconform -v
+
+      - name: Build and validate manifests
+        run: ./scripts/validate-manifests.sh

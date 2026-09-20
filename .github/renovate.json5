@@ -17,14 +17,18 @@
     'Forgenn',
   ],
   commitMessagePrefix: 'chore(deps):',
-  automergeType: 'branch',
+  // Renovate no longer merges anything. It had automergeType 'branch' with the
+  // default ignoreTests:false, so it waited for a status check that this repo
+  // never produced -- zero dependency commits landed between April and
+  // September 2026. Rather than teach Renovate to merge, merge authority now
+  // sits in exactly one place: the homelab-ops update-review job, which reads
+  // the labels below as its risk signal. Two independent mergers would mean
+  // two audit trails. See docs/plans/2026-09-20-fleet-update-automation.md
   vulnerabilityAlerts: {
     enabled: true,
-    labels: [
+    addLabels: [
       'security',
     ],
-    automerge: true,
-    automergeType: 'branch',
   },
   packageRules: [
     {
@@ -56,98 +60,38 @@
         'gateway-helm',
         'volsync',
       ],
-      automerge: false,
-      automergeType: 'pr',
-      labels: [
-        'renovate',
+      // addLabels, not labels: `labels` REPLACES the set, so a later matching
+      // rule would silently drop 'core-infra' -- and that label is what keeps
+      // core infra out of the auto-merge tier.
+      addLabels: [
         'core-infra',
       ],
       minimumReleaseAge: '3 days',
     },
     {
-      description: 'Automerge helm chart patch updates',
-      matchManagers: [
-        'kustomize',
-      ],
-      matchUpdateTypes: [
-        'patch',
-      ],
-      automerge: true,
-    },
-    {
-      description: 'PR for helm chart minor updates',
+      description: 'Label helm chart minor updates',
       matchManagers: [
         'kustomize',
       ],
       matchUpdateTypes: [
         'minor',
       ],
-      automerge: false,
-      automergeType: 'pr',
-      labels: [
-        'renovate',
+      addLabels: [
         'helm-minor',
       ],
     },
     {
-      description: 'PR for helm chart major updates, low priority',
+      description: 'Label helm chart major updates, low priority',
       matchManagers: [
         'kustomize',
       ],
       matchUpdateTypes: [
         'major',
       ],
-      automerge: false,
-      automergeType: 'pr',
-      labels: [
-        'renovate',
+      addLabels: [
         'helm-major',
       ],
       prPriority: -1,
-    },
-    {
-      description: 'Automerge Docker image patch updates in values files',
-      matchManagers: [
-        'helm-values',
-      ],
-      matchUpdateTypes: [
-        'patch',
-      ],
-      automerge: true,
-    },
-    {
-      description: 'PR for Docker image minor/major updates',
-      matchManagers: [
-        'helm-values',
-      ],
-      matchUpdateTypes: [
-        'minor',
-        'major',
-      ],
-      automerge: false,
-      automergeType: 'pr',
-    },
-    {
-      description: 'Automerge raw deployment image patch updates',
-      matchManagers: [
-        'custom.regex',
-      ],
-      matchUpdateTypes: [
-        'patch',
-      ],
-      automerge: true,
-    },
-    {
-      description: 'PR for raw deployment image minor/major updates',
-      matchManagers: [
-        'custom.regex',
-      ],
-      matchUpdateTypes: [
-        'minor',
-        'major',
-      ],
-      automerge: false,
-      automergeType: 'pr',
     },
     {
       description: 'Group *arr suite updates into one PR',
@@ -156,8 +100,9 @@
         'lscr.io/linuxserver/qbittorrent',
       ],
       groupName: 'arr-suite',
-      automerge: false,
-      automergeType: 'pr',
+      addLabels: [
+        'group:arr-suite',
+      ],
     },
     {
       description: 'Group media app image updates',
@@ -167,8 +112,9 @@
         'ghcr.io/kareadita/kavita',
       ],
       groupName: 'media-apps',
-      automerge: false,
-      automergeType: 'pr',
+      addLabels: [
+        'group:media-apps',
+      ],
     },
     {
       description: 'Wait 2 days after release before raising a PR',
@@ -177,6 +123,45 @@
         'patch',
       ],
       minimumReleaseAge: '2 days',
+    },
+    // Classification labels. The update-review policy matches on these and
+    // nothing else -- it never parses a branch name or a PR title. Keep these
+    // rules last so addLabels applies on top of every rule above.
+    {
+      description: 'Classification label: patch',
+      matchUpdateTypes: [
+        'patch',
+      ],
+      addLabels: [
+        'patch',
+      ],
+    },
+    {
+      description: 'Classification label: minor',
+      matchUpdateTypes: [
+        'minor',
+      ],
+      addLabels: [
+        'minor',
+      ],
+    },
+    {
+      description: 'Classification label: major',
+      matchUpdateTypes: [
+        'major',
+      ],
+      addLabels: [
+        'major',
+      ],
+    },
+    {
+      description: 'Classification label: digest',
+      matchUpdateTypes: [
+        'digest',
+      ],
+      addLabels: [
+        'digest',
+      ],
     },
   ],
   'helm-values': {
