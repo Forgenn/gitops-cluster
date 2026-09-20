@@ -1,8 +1,45 @@
 # Hermes agent configuration as code
 
 Date: 2026-09-12
-Status: design agreed, not yet implemented
+Status: **IMPLEMENTED 2026-09-13 → 2026-09-20.** All six phases done and verified live.
 Scope: `infra/hermes-agent/` (this repo) + `Forgenn/plder` (agent config monorepo)
+
+## Delivery record (2026-09-20)
+
+Seven bots served — `default, monitor, homelab-ops, shopper, research, projects,
+developer, meta` — each with its own persona, curated skills, per-platform toolsets,
+Telegram topic and routines. The operator confirmed the personas reply in their topics.
+
+| Phase | Plan | Landed |
+|---|---|---|
+| 1 volsync | — | 2026-09-13; all 24 backups fresh since |
+| 2 capture | — | plder private, `pi/` + `hermes/`, read deploy key |
+| 3 root sync | `2026-09-13-hermes-config-sync-root.md` | `sync.py` initContainer, cron upsert |
+| 4 monitor bot | `2026-09-13-hermes-monitor-bot.md` | multiplex, routing, profile cron |
+| 6 CI | `2026-09-14-hermes-ci-single-source.md` | plder is the only config source; a push deploys itself |
+| 5 roster | `2026-09-14-hermes-bot-roster.md` | memory 3Gi, skill allowlists, toolsets, push guard, 4 bots |
+| 5 cont. | `2026-09-15-hermes-developer-meta-docs.md` | developer + meta, credential isolation, install docs |
+
+Open items from this spec, now answered:
+- **`skills/custom/` loading** — proven: the loader lists a custom skill with
+  `category='custom'` beside bundled ones, and allowlist curation never disables it.
+- **Env expansion in `jobs.json`** — there is none (`cron/jobs.py` expands `~` in script
+  paths only), so a secret must never be written into a job.
+- **Telegram `profile_routes`** — proven for private-chat topics: all seven session keys
+  matched `agent:<profile>:telegram:dm:7850573137:<thread>`.
+
+Corrections the build forced on this design, each verified live:
+- Under multiplex a profile's secret scope is authoritative, and the **cron path never
+  hydrates external secret sources** — so each profile home needs its own `.env`
+  (written by `sync.py`), or scheduled jobs resolve no credentials.
+- The default profile additionally needs `override_existing: true`, because sources skip
+  keys that `envFrom` already set.
+- `hermes cron run` executes **inline in the CLI**, so it proves nothing about the
+  gateway; real-path probes must be scheduled and fired by the ticker.
+- Claude is **not** usable as a configured model: `CLAUDE_CODE_OAUTH_TOKEN` returns 401
+  against the Anthropic API. The subscription is reachable only via `claude -p`, so only
+  terminal-capable bots can use it. Operator policy now pins every model setting to
+  `deepseek/deepseek-v4.1-flash`, enforced by CI.
 
 ## Summary
 
