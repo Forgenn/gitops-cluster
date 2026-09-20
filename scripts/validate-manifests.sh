@@ -11,9 +11,14 @@
 # Requires kustomize, helm and kubeconform on PATH.
 set -uo pipefail
 
-CRD_SCHEMA='https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceApiVersion}}.json'
+# Note the capitalisation: kubeconform's field is ResourceAPIVersion, not
+# ResourceApiVersion. Getting it wrong fails every file with "can't evaluate
+# field ResourceApiVersion" rather than anything schema-related.
+CRD_SCHEMA='https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
 failed=0
 count=0
+rendered="$(mktemp)"
+trap 'rm -f "$rendered"' EXIT
 
 # Bundled upstream charts carry their own templates and non-ASCII READMEs;
 # they are excluded from Renovate too (see .github/renovate.json5 ignorePaths).
@@ -33,15 +38,20 @@ for dir in "${targets[@]}"; do
     failed=1
     continue
   fi
+  # Via a file, not a pipe: when kubeconform exits early the pipe closes and
+  # the writer dies with "printf: write error: Broken pipe", which buries the
+  # real diagnostic.
+  printf '%s\n' "$out" > "$rendered"
   # -ignore-missing-schemas: an exotic CRD absent from the catalog passes
   # rather than failing a gate the merge bot depends on. Deliberate v1 trade;
   # tightening it is a separate decision.
-  if ! printf '%s\n' "$out" | kubeconform \
+  if ! kubeconform \
       -strict \
       -ignore-missing-schemas \
       -schema-location default \
       -schema-location "$CRD_SCHEMA" \
-      -summary; then
+      -summary \
+      "$rendered"; then
     echo "::error file=${dir}/kustomization.yaml::kubeconform rejected the rendered manifests"
     failed=1
   fi
