@@ -1,0 +1,10 @@
+# Shell scripts must keep LF endings and stay executable: they are committed
+# from a Windows workstation but run on ubuntu-24.04 runners and in-cluster,
+# where a CRLF shebang fails with a bare "bad interpreter" or "not found".
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Manifests and workflow files are read by Linux tooling only.
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json5 text eol=lf
