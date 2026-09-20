@@ -196,6 +196,18 @@ spec:
             - name: profile-secrets
               mountPath: /etc/hermes-profile-secrets
               readOnly: true
+            # Per-profile credentials: merged into ONLY that profile's .env
+            # (sync.py PROFILE_SECRET_SOURCE_DIR_TEMPLATE). homelab-ops' GitHub
+            # merge PAT must not become an env var in every other profile's
+            # turns, which is what the shared mount above would do. It cannot
+            # ride `secrets.command` like the developer PAT: that is a
+            # gateway-turn mechanism and the cron path never hydrates external
+            # secret sources -- and this credential is used by a cron job.
+            # optional: true -- the operator may not have created the Infisical
+            # path yet; the pod must never fail to start over it.
+            - name: profile-secrets-homelab-ops
+              mountPath: /etc/hermes-profile-secrets-homelab-ops
+              readOnly: true
         # Install Claude Code into a writable emptyDir at boot (same pattern as the
         # kubectl-copy initContainer above). The pod image is frozen and not customised,
         # so a tool that isn't in the image is injected this way -- emptyDir is
@@ -511,6 +523,20 @@ spec:
             items:
               - key: DEVELOPER_GITHUB_PAT
                 path: DEVELOPER_GITHUB_PAT
+        # homelab-ops' GitHub merge PAT (gitops-cluster + nixos-config only,
+        # Contents + Pull requests read/write). Unlike the developer PAT above
+        # this one is consumed by a CRON job, so it must reach the profile's
+        # .env -- see the profile-sync mount and sync.py's
+        # PROFILE_SECRET_SOURCE_DIR_TEMPLATE. `optional: true` for the same
+        # reason as every other operator-created credential here.
+        - name: profile-secrets-homelab-ops
+          secret:
+            secretName: hermes-secrets-homelab-ops
+            optional: true
+            defaultMode: 0440
+            items:
+              - key: HOMELAB_OPS_GITHUB_PAT
+                path: HOMELAB_OPS_GITHUB_PAT
         # `optional: true` is REQUIRED here, unlike the three keys above. With an
         # `items:` selector and no `optional`, kubelet refuses to mount the volume
         # at all when the key is missing from hermes-secrets -- MountVolume.SetUp
