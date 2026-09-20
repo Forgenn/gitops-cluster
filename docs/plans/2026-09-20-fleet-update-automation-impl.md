@@ -1,5 +1,29 @@
 # Fleet Update Automation Implementation Plan
 
+> **EXECUTED 2026-09-20.** All nine tasks landed; the spec
+> (`2026-09-20-fleet-update-automation.md`) carries the delivery record and the
+> corrections the build forced. Kept for the reasoning, not as a to-do list.
+>
+> Where this plan and the shipped code disagree, **the code is right**. The
+> three places they diverge:
+> 1. **Task 6's `policy.py` uses real PyYAML.** The pod has it at
+>    `/opt/hermes/.venv/bin/python3` (6.0.3); only the system `python3` lacks it.
+>    The hand-rolled parser this plan originally specified was deleted before it
+>    shipped — two parsers that disagree, in the file that gates merges, is a
+>    silent-corruption bug.
+> 2. **Task 8's credential does not follow the developer pattern.** That PAT
+>    reaches its scope via `secrets.command`, a *gateway-turn* mechanism, and
+>    this credential is used by a *cron job* — which never hydrates external
+>    secret sources. `sync.py` gained
+>    `PROFILE_SECRET_SOURCE_DIR_TEMPLATE` (`SYNC_VERSION` 4 → 5) instead.
+> 3. **Task 2's eval matrix carries a `blocking` flag.** Four hosts do not
+>    evaluate on `main` for reasons pre-dating this work; they run, show red, and
+>    do not gate. See the spec.
+>
+> Also learned the hard way, and now handled in `review.py`: unauthenticated
+> GitHub reads are **60/hour**, and one pass over ten open PRs costs about
+> thirty.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make dependency and system updates flow without a human reading GitHub — deterministic CI produces facts, Renovate produces proposals, and the `homelab-ops` bot merges the low-risk classes while escalating the rest to Telegram with a `claude -p` verdict.
