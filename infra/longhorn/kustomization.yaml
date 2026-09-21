@@ -6,6 +6,7 @@ resources:
   - namespace.yaml
   - httproute-internal.yaml
   - snapshot-class.yaml
+  - setting-concurrent-replica-rebuild.yaml
 
 helmCharts:
   - name: longhorn
