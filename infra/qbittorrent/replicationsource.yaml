@@ -22,7 +22,12 @@ spec:
     pruneIntervalDays: 7
     cacheCapacity: 5Gi
     repository: qbittorrent-config-restic-config
-    unlock: unlock-2
+    # Bumped to unlock-3 (2026-09-22): the previous run as the app uid (runAsUser
+    # 1000) finally read qbittorrent.log and saved its snapshot, but then died at
+    # `forget` on a lock left by a root mover on 2026-09-21T01:42Z. unlock-2 was
+    # already consumed (status.restic.lastUnlocked), so no further unlock ran.
+    # VolSync runs `restic unlock` before the backup only when this string changes.
+    unlock: unlock-3
     retain:
       daily: 7
       within: 3d
