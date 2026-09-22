@@ -7,6 +7,10 @@ kind: ReplicationSource
 metadata:
   name: zot-pvc
 spec:
+  # Explicit, because the RS was left paused live on 2026-09-19 to stop the failing
+  # sync loop from that day's cluster incident. Git is the source of truth: keep it
+  # unpaused so ArgoCD re-enables the backup instead of the drift persisting.
+  paused: false
   sourcePVC: zot-pvc-zot-0
   trigger:
     schedule: "0 9 * * *"
@@ -15,6 +19,12 @@ spec:
     pruneIntervalDays: 14
     cacheCapacity: 15Gi
     repository: zot-restic-config
+    # The 2026-09-19 run was killed mid-backup and left a lock in the repo, so the
+    # next run failed at `forget` with "repository is already locked by PID 44 on
+    # volsync-src-zot-pvc-zrfsj" and VolSync retried forever. VolSync runs
+    # `restic unlock` before the backup on the next sync; bump this string to
+    # schedule another one. See infra/qbittorrent/replicationsource.yaml (unlock-2).
+    unlock: unlock-1
     moverSecurityContext:
       runAsUser: 0
       runAsGroup: 0
