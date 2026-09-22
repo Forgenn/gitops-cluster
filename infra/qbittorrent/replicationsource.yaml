@@ -8,10 +8,16 @@ spec:
     schedule: "0 2 * * *"
   restic:
     copyMethod: Direct
-    # runAsGroup matches this app's PGID so the mover can read LSIO's mode-660 ASP.NET
-    # key files without needing DAC_OVERRIDE (see infra/lidarr for the full explanation).
+    # The mover has to run as this app's uid, not root. /config/qBittorrent/logs/
+    # qbittorrent.log stopped being readable by a root mover (uid 0, gid 1000,
+    # capabilities dropped -> no DAC_OVERRIDE) on 2026-09-19: restic fails with
+    # "open qBittorrent/logs/qbittorrent.log: permission denied", exit code 3, which
+    # fails the whole Job, and VolSync retries every ~30s (1400+ snapshots in the
+    # repo). Everything else in this volume is uid/gid 1000, and the log file has
+    # never been captured since, so running as 1000/1000 reads it as the owner.
+    # Same shape as navidrome/backup.yaml, which works with a Longhorn cache PVC.
     moverSecurityContext:
-      runAsUser: 0
+      runAsUser: 1000
       runAsGroup: 1000
     pruneIntervalDays: 7
     cacheCapacity: 5Gi
