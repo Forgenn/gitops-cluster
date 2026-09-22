@@ -1,0 +1,29 @@
+# Dedicated JetStream store for opencloud's embedded nats-server.
+#
+# WHY: the embedded nats-server keeps its JetStream filestore under
+# /var/lib/opencloud/nats/jetstream, which sits on the opencloud-opencloud-data PVC
+# (longhorn RWX => NFS through the longhorn share-manager). That filestore is
+# corrupted and nats can no longer use it reliably:
+#   WRN Filestore [KV_eventhistory] Stream state detected prior state,
+#       could not locate msg block 2 / Recovering stream state from index errored
+#   WRN Missing consumer checksum for ".../main-queue/obs/sse-*/meta.sum"
+# Consequence: nats needs ~30s to even reach "Server is ready", the other opencloud
+# services fail to connect in that window (nats-js-kv id cache, events), the suture
+# supervisor burns its 5-failure budget, reaches restarting:false and then panics at
+# opencloud/pkg/runtime/service/service.go:380 -> CrashLoopBackOff (800+ restarts).
+#
+# FIX: give JetStream its own private, non-shared, block-backed (RWO) volume. The
+# corrupted files on the data PVC are NOT deleted - they are simply masked by this
+# mount and stay recoverable for forensics. RWO (not RWX) is deliberate: JetStream
+# needs dependable fsync/rename semantics from a real local filesystem.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: opencloud-nats-store
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: longhorn

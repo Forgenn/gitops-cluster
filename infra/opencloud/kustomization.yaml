@@ -5,6 +5,7 @@ namespace: opencloud
 
 resources:
   - httproute.yaml
+  - nats-store.yaml
   - backup
   - s3-secret.yaml
   - network-policies.yaml
@@ -44,6 +45,30 @@ patches:
                     value: "true"
                   - name: STORAGE_USERS_POSIX_WATCH_FS
                     value: "true"
+  # JetStream corruption: the embedded nats-server wrote its filestore into
+  # /var/lib/opencloud/nats/jetstream on the shared RWX data volume and the store is
+  # now unreadable ("prior state file", "Missing consumer checksum"), so nats takes
+  # ~30s to come up, every other service exhausts its 5-failure budget meanwhile and
+  # the supervisor panics (service.go:380) -> CrashLoopBackOff. Mount a dedicated RWO
+  # volume over that path: fresh, private JetStream store; the old files stay on the
+  # data PVC untouched (masked, not deleted). See nats-store.yaml.
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: opencloud-opencloud
+      spec:
+        template:
+          spec:
+            volumes:
+              - name: nats-store
+                persistentVolumeClaim:
+                  claimName: opencloud-nats-store
+            containers:
+              - name: opencloud
+                volumeMounts:
+                  - name: nats-store
+                    mountPath: /var/lib/opencloud/nats
   # We have to set the local DNS server, as its trying to resolve the pocket-id instance
   # without our local dns server, it is not public.
   - patch: |-
