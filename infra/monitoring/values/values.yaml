@@ -413,6 +413,12 @@ prometheus:
     # continuously CPU-throttled at 500m. Every OOM drops the in-memory head block, so
     # actual usable retention was far less than 24h. Found via the Opus 5 audit.
     retention: 15d
+    # A size bound was missing entirely: the running Prometheus only ever got
+    # --storage.tsdb.retention.time=15d (no --storage.tsdb.retention.size), so the
+    # volume had no guardrail other than time. 15d of blocks reached ~16.2GiB of the
+    # 20Gi PVC (12.7% free) and KubePersistentVolumeFillingUp went pending on
+    # 2026-09-23. Keep a real size cap below capacity so the disk cannot fill first.
+    retentionSize: 16GB
     # dolores isn't a k8s node, so the chart's own DaemonSet-based node-exporter (below)
     # never reaches it. Static target instead -- node_exporter enabled directly in its
     # NixOS config, firewalled to just the 3 cluster node IPs.
