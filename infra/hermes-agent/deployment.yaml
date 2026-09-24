@@ -41,7 +41,7 @@ spec:
       # shell/coreutils, verified live before picking it.
       initContainers:
         - name: kubectl-copy
-          image: alpine/k8s:1.35.6
+          image: alpine/k8s:1.35.8
           command: ["cp", "/usr/bin/kubectl", "/kubectl-bin/kubectl"]
           volumeMounts:
             - name: kubectl-bin
@@ -56,7 +56,7 @@ spec:
         # so a /root mount was never readable by the process doing git -- the durable
         # fix is to serve the identity from the app's real home on the shared PVC.
         - name: ssh-key-perms
-          image: alpine/k8s:1.35.6
+          image: alpine/k8s:1.35.8
           command:
             - sh
             - -c
