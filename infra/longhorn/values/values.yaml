@@ -51,4 +51,4 @@ defaultSettings:
 
   # Replica settings
   replicaReplenishmentWaitInterval: "600" # Wait 10min before creating new replica
-  concurrentReplicaRebuildPerNodeLimit: "5"
+  concurrentReplicaRebuildPerNodeLimit: "1" # Temporarily 1 (was 5) during 2026-09-24 recovery: rebuild IO was starving etcd
