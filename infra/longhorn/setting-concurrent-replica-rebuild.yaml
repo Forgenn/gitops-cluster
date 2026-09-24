@@ -3,4 +3,4 @@ kind: Setting
 metadata:
   name: concurrent-replica-rebuild-per-node-limit
   namespace: longhorn-system
-value: "1" # Temporarily 1 (was 5) during 2026-09-24 recovery: rebuild IO was starving etcd
+value: "2" # Temporarily 2 (was 5) during 2026-09-24 recovery: rebuild IO was starving etcd
