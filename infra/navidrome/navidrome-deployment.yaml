@@ -36,10 +36,11 @@ spec:
               value: "true"
             - name: ND_LOGLEVEL
               value: "info"
-            # The .m3u files live next to their tracks (e.g. Pol/Liquid Funk/Liquid Funk.m3u),
-            # not in a playlists/ folder, so search the whole library (Navidrome's default).
+            # The genre .m3u files live next to their tracks (e.g. Pol/Liquid Funk/Liquid Funk.m3u).
+            # Only match one level under Pol/: deeper folders (Pol/Album, Pol/OST, Pol/Downloads)
+            # hold ~20 album-rip .m3u files that would import as junk, mostly-empty playlists.
             - name: ND_PLAYLISTSPATH
-              value: ".:**/**"
+              value: "playlists:playlists/**:Pol/*"
             # Imported playlists are owned by the first admin ("admin"); make them public so
             # the everyday user (the one Symfonium logs in as) can see them.
             - name: ND_DEFAULTPLAYLISTPUBLICVISIBILITY
