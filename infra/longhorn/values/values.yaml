@@ -52,3 +52,11 @@ defaultSettings:
   # Replica settings
   replicaReplenishmentWaitInterval: "600" # Wait 10min before creating new replica
   concurrentReplicaRebuildPerNodeLimit: "2" # Temporarily 2 (was 5) during 2026-09-24 recovery: rebuild IO was starving etcd
+
+# The Longhorn manager API (port 9500) has no authentication; reachability is its
+# only access control. These chart policies admit only Longhorn's own components.
+# The UI's ingress from Envoy is in network-policy-ui.yaml (the UI proxies /v1 to
+# the manager API, so pods must not reach it directly).
+networkPolicies:
+  enabled: true
+  type: k3s
