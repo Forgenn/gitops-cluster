@@ -12,17 +12,17 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: hermes-agent-observe
-  # Read/observe scope that goes beyond the built-in `view` ClusterRole so hermes-agent
-  # can actually DIAGNOSE the cluster it monitors (the daily exception report + incident
-  # investigation). `view` only shows standard built-ins; it omits the operator CRs we
-  # keep hitting blind-spots on (CNPG Cluster, ExternalSecret, Application/ApplicationSet,
-  # and secrets contents for reading volumes/replication). This role is READ-ONLY.
-  # Write stays in a separate, deliberately narrow role (hermes-agent-remediate) that is
-  # bound only if the operator opts in.
+  # Read/observe scope beyond the built-in `view` ClusterRole, so hermes-agent can
+  # diagnose the cluster: CNPG Clusters, ExternalSecrets, ArgoCD Applications,
+  # Longhorn and volsync CRs. Deliberately NO core `secrets`: that grant exposed
+  # every Secret, including the Infisical machine identity, the ArgoCD admin
+  # secret and the etcd-backup S3 key. The approval policy is not a barrier (a
+  # bot can call the API with the pod's service-account token directly).
+  # Removed 2026-09-30, docs/plans/2026-09-29-phase0-stop-the-bleeding.md. READ-ONLY.
 rules:
   # Standard worklois + built-ins (superset of view that view misses)
   - apiGroups: [""]
-    resources: ["pods", "services", "configmaps", "secrets", "endpoints",
+    resources: ["pods", "services", "configmaps", "endpoints",
                 "persistentvolumeclaims", "events", "replicationcontrollers",
                 "serviceaccounts", "limitranges", "resourcequotas", "namespaces"]
     verbs: ["get", "list", "watch"]
