@@ -13,6 +13,7 @@ resources:
   - service.yaml
   - httproute.yaml
   - network-policies.yaml
+  - network-policy-egress.yaml
   - backup-restic-config.yaml
   - backup.yaml
 
