@@ -24,6 +24,7 @@ Each directory in the `infra` directory represents a separate application or com
 - No automated image update tooling (Renovate/Dependabot) is configured
 - `infra/monitoring/kustomization.yaml`'s blanket `namespace: monitoring` rewrites chart-generated objects that belong in `kube-system`. The `kube-etcd` and `coredns` headless Services land in `monitoring` while their ServiceMonitors still select `kube-system`, so both have zero endpoints: etcd and CoreDNS are entirely unscraped and all 15 etcd alerts are silently dead. See `docs/plans/2026-08-27-alerting-redesign.md`
 - Prometheus' and Grafana's PVCs are `ReadWriteMany` on Longhorn, which serves RWX via an NFS share-manager. Prometheus' TSDB is not NFS-safe and its volume has flipped read-only at least once, crashlooping the pod. Both are single-replica and should be `ReadWriteOnce`
+- ArgoCD ignores `spec.template.spec.terminationGracePeriodSeconds` on every Deployment and StatefulSet (`infra/argocd/values/values.yaml` ignoreDifferences + `RespectIgnoreDifferences`), so a grace period declared in a manifest is never applied by sync. Apply it once by hand (server-side, field manager `argocd-controller`); hermes-agent's 150 s was set this way on 2026-09-30
 
 ## Technical Debt
 
