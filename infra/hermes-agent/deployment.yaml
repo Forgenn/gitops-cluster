@@ -423,10 +423,42 @@ spec:
               port: 9119
             initialDelaySeconds: 20
             periodSeconds: 30
+        # Litestream: streams every SQLite write under /opt/data to Hetzner object
+        # storage within about a second (7-day point-in-time restore). This is the
+        # "no history loss" layer; the nightly volsync snapshot is the long-term copy.
+        # Runs as the data owner (10000) and holds only the bucket credentials --
+        # never mount hermes-secrets here.
+        - name: litestream
+          image: litestream/litestream:0.5.17
+          args: ["replicate", "-config", "/etc/litestream/litestream.yml"]
+          securityContext:
+            runAsUser: 10000
+            runAsGroup: 10000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          envFrom:
+            - secretRef:
+                name: hermes-litestream
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /opt/data
+            - name: litestream-config
+              mountPath: /etc/litestream
+              readOnly: true
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: hermes-data
+        - name: litestream-config
+          configMap:
+            name: hermes-litestream-config
         - name: run
           emptyDir: {}
         - name: tmp
