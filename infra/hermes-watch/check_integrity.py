@@ -60,6 +60,21 @@ def managed_files(dist: Path) -> list[str]:
     return out
 
 
+def config_differs(plder_file: Path, pod_text: str) -> bool:
+    try:
+        want = yaml.safe_load(plder_file.read_text(encoding="utf-8")) or {}
+        have = yaml.safe_load(pod_text) or {}
+    except yaml.YAMLError:
+        return True
+    for cfg in (want, have):
+        skills = cfg.get("skills")
+        if isinstance(skills, dict):
+            skills.pop("disabled", None)
+            if not skills:
+                cfg.pop("skills")
+    return want != have
+
+
 def pod_hashes(pod: str, home: str, rels: list[str]) -> dict[str, str]:
     if not rels:
         return {}
@@ -114,6 +129,13 @@ def main() -> int:
             rels = managed_files(dist)
             have = pod_hashes(pod, home, rels)
             for rel in rels:
+                if name != "root" and rel == "config.yaml":
+                    # sync.py adds skills.disabled (computed from skills.allow.yaml) to each
+                    # profile's installed config; compare everything else as parsed YAML.
+                    # An added command_allowlist ("always" approval) still shows up here.
+                    if config_differs(dist / rel, kexec(pod, "cat", f"{home}/config.yaml")):
+                        problems.append(f"config differs from plder {ref} (beyond skills.disabled): {name}/config.yaml")
+                    continue
                 if have.get(rel) != sha(dist / rel):
                     problems.append(f"file differs from plder {ref}: {name}/{rel}" if rel in have
                                     else f"file missing in pod: {name}/{rel}")
