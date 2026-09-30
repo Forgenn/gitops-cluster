@@ -44,7 +44,7 @@ spec:
       # shell/coreutils, verified live before picking it.
       initContainers:
         - name: kubectl-copy
-          image: alpine/k8s:1.35.6
+          image: alpine/k8s:1.35.6@sha256:b7a12c5ddf261994c33d2eaaa06fd69a0803ff6b38683bfa3d30a76dcdf92807
           command: ["cp", "/usr/bin/kubectl", "/kubectl-bin/kubectl"]
           volumeMounts:
             - name: kubectl-bin
@@ -59,7 +59,7 @@ spec:
         # so a /root mount was never readable by the process doing git -- the durable
         # fix is to serve the identity from the app's real home on the shared PVC.
         - name: ssh-key-perms
-          image: alpine/k8s:1.35.6
+          image: alpine/k8s:1.35.6@sha256:b7a12c5ddf261994c33d2eaaa06fd69a0803ff6b38683bfa3d30a76dcdf92807
           command:
             - sh
             - -c
@@ -143,7 +143,7 @@ spec:
         # anything sync.py writes onto the PVC has to stay readable/writable by the
         # gateway afterwards.
         - name: profile-sync
-          image: nousresearch/hermes-agent:v2026.8.19
+          image: nousresearch/hermes-agent:v2026.8.19@sha256:3811ed13da874fba2ac99b6d492db9a203d34cb6dccf90d886948c00d0ccec09
           command: ["/opt/hermes/.venv/bin/python", "/sync/sync.py"]
           securityContext:
             runAsUser: 10000
@@ -227,7 +227,7 @@ spec:
         # cannot exec -- "cannot execute: required file not found". Built on glibc, the
         # resulting binary runs on the Debian pod.
         - name: claude-install
-          image: node:24.20.0-trixie-slim
+          image: node:24.20.0-trixie-slim@sha256:50c3b2f6988dfc307b86e5301d69611af31f4789bdf232863b07d3b02fe55ae0
           command:
             - sh
             - -c
@@ -241,9 +241,11 @@ spec:
               # Claude models are reachable ONLY through this CLI (CLAUDE_CODE_OAUTH_TOKEN
               # 401s against the Anthropic API), so a missing binary silently removes that
               # capability. Still never fails the pod: exit 0 on every path.
+              # claude-code is pinned (Renovate bumps it after a 7-day release delay,
+              # hardening plan Task 11): it runs next to every bot's credentials.
               ok=0
               for attempt in 1 2 3; do
-                if npm install -g --prefix /opt/tools @anthropic-ai/claude-code 2>&1; then
+                if npm install -g --prefix /opt/tools @anthropic-ai/claude-code@2.1.286 2>&1; then
                   ok=1; break
                 fi
                 echo "[claude-install] attempt $attempt failed; retrying in 10s"
@@ -262,7 +264,7 @@ spec:
               mountPath: /opt/tools
       containers:
         - name: hermes-agent
-          image: nousresearch/hermes-agent:v2026.8.19
+          image: nousresearch/hermes-agent:v2026.8.19@sha256:3811ed13da874fba2ac99b6d492db9a203d34cb6dccf90d886948c00d0ccec09
           args: ["gateway", "run"]
           ports:
             - name: dashboard
@@ -438,7 +440,7 @@ spec:
         # Runs as the data owner (10000) and holds only the bucket credentials --
         # never mount hermes-secrets here.
         - name: litestream
-          image: litestream/litestream:0.5.17
+          image: litestream/litestream:0.5.17@sha256:4b02b9859a6b6b4087d8b8944e15f7e984bd7957cba322bbeee38b0e27b9656a
           args: ["replicate", "-config", "/etc/litestream/litestream.yml"]
           securityContext:
             runAsUser: 10000
