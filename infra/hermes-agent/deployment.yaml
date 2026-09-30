@@ -408,11 +408,9 @@ spec:
           securityContext:
             readOnlyRootFilesystem: false
             allowPrivilegeEscalation: false
-          # Probes were pointed at port 8642 ("api"), but nothing actually binds there --
-          # only the dashboard (9119) is confirmed live in the container's own startup
-          # log ("HERMES_DASHBOARD_READY port=9119"). That caused a permanent
-          # crash-loop: readiness failed immediately (connection refused), liveness
-          # failed after 3x30s and killed the container, repeat forever (232 restarts).
+          # Probes use the dashboard (9119), which always runs. Do not point them at
+          # 8642: the API server is off on this instance (plder hermes/root/config.yaml),
+          # and pointing probes at it once caused a 232-restart crash-loop.
           readinessProbe:
             httpGet:
               path: /health
