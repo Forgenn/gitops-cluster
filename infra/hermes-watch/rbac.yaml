@@ -1,0 +1,36 @@
+# Out-of-pod integrity checks for Hermes (gitops docs/plans/2026-09-28-hermes-hardening.md Task 13).
+# Exec into the Hermes pod and read its Deployment; nothing else. This token never
+# enters the Hermes pod, so a hijacked bot can't silence or fool the check.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hermes-watch
+  namespace: hermes-watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: hermes-watch
+  namespace: hermes
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list]
+  - apiGroups: [""]
+    resources: [pods/exec]
+    verbs: [create]
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: hermes-watch
+  namespace: hermes
+subjects:
+  - {kind: ServiceAccount, name: hermes-watch, namespace: hermes-watch}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: hermes-watch

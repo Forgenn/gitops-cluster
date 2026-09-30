@@ -1,0 +1,61 @@
+# Hourly integrity check (check_integrity.py). Runs the Hermes image (python, git,
+# ssh, sha256sum) with kubectl copied in, as a non-root user, with its own service
+# account. No volume or credential of the Hermes pod is mounted here.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hermes-integrity
+  namespace: hermes-watch
+spec:
+  schedule: "17 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 600
+      template:
+        spec:
+          serviceAccountName: hermes-watch
+          restartPolicy: Never
+          securityContext:
+            runAsUser: 65534
+            runAsGroup: 65534
+            fsGroup: 65534
+          initContainers:
+            - name: kubectl-copy
+              image: alpine/k8s:1.35.6@sha256:b7a12c5ddf261994c33d2eaaa06fd69a0803ff6b38683bfa3d30a76dcdf92807
+              command: ["cp", "/usr/bin/kubectl", "/tools/kubectl"]
+              volumeMounts:
+                - {name: tools, mountPath: /tools}
+          containers:
+            - name: check
+              image: nousresearch/hermes-agent:v2026.8.19@sha256:3811ed13da874fba2ac99b6d492db9a203d34cb6dccf90d886948c00d0ccec09
+              command: ["/opt/hermes/.venv/bin/python", "/scripts/check_integrity.py"]
+              env:
+                - {name: HOME, value: /tmp}
+                - {name: PATH, value: "/tools:/usr/local/bin:/usr/bin:/bin"}
+                # 1 = print findings instead of sending them (first-run false-positive check).
+                - {name: DRY, value: "1"}
+                - name: TELEGRAM_BOT_TOKEN
+                  valueFrom: {secretKeyRef: {name: hermes-watch, key: TELEGRAM_BOT_TOKEN}}
+                - name: TELEGRAM_CHAT_ID
+                  valueFrom: {secretKeyRef: {name: hermes-watch, key: TELEGRAM_CHAT_ID}}
+              resources:
+                requests: {cpu: 20m, memory: 64Mi}
+                limits: {memory: 256Mi}
+              volumeMounts:
+                - {name: tools, mountPath: /tools}
+                - {name: scripts, mountPath: /scripts, readOnly: true}
+                - {name: plder-key, mountPath: /keys, readOnly: true}
+          volumes:
+            - name: tools
+              emptyDir: {}
+            - name: scripts
+              configMap: {name: hermes-watch-scripts}
+            - name: plder-key
+              secret:
+                secretName: hermes-watch
+                defaultMode: 0400
+                items: [{key: plder_read, path: plder_read}]
