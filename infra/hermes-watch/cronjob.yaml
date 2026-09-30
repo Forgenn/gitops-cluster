@@ -36,8 +36,9 @@ spec:
               env:
                 - {name: HOME, value: /tmp}
                 - {name: PATH, value: "/tools:/usr/local/bin:/usr/bin:/bin"}
-                # 1 = print findings instead of sending them (first-run false-positive check).
-                - {name: DRY, value: "1"}
+                # "1" prints findings instead of sending them. Live since 2026-09-30 after a
+                # clean dry run and a tamper test (SOUL.md edit detected, then re-synced).
+                - {name: DRY, value: "0"}
                 - name: TELEGRAM_BOT_TOKEN
                   valueFrom: {secretKeyRef: {name: hermes-watch, key: TELEGRAM_BOT_TOKEN}}
                 - name: TELEGRAM_CHAT_ID
