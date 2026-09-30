@@ -22,9 +22,20 @@ spec:
     # ALL capabilities including DAC_OVERRIDE, so plain root can't read it, and group
     # access wouldn't help even if it had it since the directory has no group bits set.
     # Must run as the exact owning UID.
+    # volsync runs `restic unlock` once whenever this value changes. The lock
+    # was left by a mover that ran as UID 0 (2026-09-29); change the value
+    # again to clear a future stale lock.
+    unlock: "2026-09-29"
     moverSecurityContext:
       runAsUser: 10000
       runAsGroup: 10000
+      # The cache PVC was first written by a root mover, so a uid-10000 mover
+      # got "permission denied" on /cache. fsGroup makes kubelet chown the
+      # volume to gid 10000 on mount. OnRootMismatch: in Direct mode the mover also
+      # mounts the live hermes-data volume, and a full recursive chgrp of ~30k files
+      # every night is pointless once ownership is right.
+      fsGroup: 10000
+      fsGroupChangePolicy: OnRootMismatch
     retain:
       daily: 7
       within: 3d
