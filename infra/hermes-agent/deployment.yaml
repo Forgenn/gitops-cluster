@@ -18,6 +18,9 @@ spec:
       securityContext:
         fsGroup: 10000
       serviceAccountName: hermes-agent
+      # Hermes drains in-flight answers for up to 120 s (plder agent.restart_drain_timeout);
+      # give it 30 s beyond that before SIGKILL.
+      terminationGracePeriodSeconds: 150
       # This pod uses the default cluster DNS (kube-system's CoreDNS), which never
       # learned .home -- that's a separate CoreDNS instance from the one serving the
       # LAN (infra/coredns). Not changing dnsPolicy since that'd risk breaking this
@@ -271,6 +274,12 @@ spec:
           env:
             - name: HERMES_DASHBOARD
               value: "1"
+            # s6-overlay kills everything 3 s after TERM by default; let the gateway drain
+            # (agent.restart_drain_timeout 120 s + margin, within terminationGracePeriodSeconds 150).
+            - name: S6_KILL_GRACETIME
+              value: "140000"
+            - name: S6_SERVICES_GRACETIME
+              value: "140000"
             - name: HERMES_DASHBOARD_BASIC_AUTH_ENABLED
               value: "true"
             - name: HERMES_UID
