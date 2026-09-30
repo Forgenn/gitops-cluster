@@ -14,7 +14,13 @@ spec:
   trigger:
     schedule: "0 2 * * *"
   restic:
-    copyMethod: Direct
+    # Snapshot, not Direct: Direct copied state.db and its WAL file by file while
+    # the gateway was writing, so a restore could come back torn. A Longhorn
+    # snapshot captures db + WAL atomically (crash-consistent). Litestream
+    # (deployment.yaml) adds continuous point-in-time copies on top.
+    copyMethod: Snapshot
+    storageClassName: longhorn
+    volumeSnapshotClassName: longhorn
     pruneIntervalDays: 7
     cacheCapacity: 3Gi
     repository: hermes-bucket-restic-config
