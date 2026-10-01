@@ -37,3 +37,8 @@ configMapGenerator:
       - pre-push=githooks/pre_push.py
       - gitconfig=githooks/gitconfig
       - git-credential-developer-pat=githooks/git_credential_developer_pat.py
+      - git-credential-github-app=githooks/git_credential_github_app.py
+  # GitHub App token minter for the github-app-token sidecar (phase 2 Task 3).
+  - name: hermes-github-app
+    files:
+      - mint_token.py=github-app/mint_token.py

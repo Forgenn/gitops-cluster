@@ -2,6 +2,7 @@
 import io
 import json
 import tarfile
+import time
 from pathlib import Path
 
 import pytest
@@ -135,3 +136,12 @@ def test_main_alerts_when_the_check_cannot_run(monkeypatch):
     monkeypatch.setattr(ci, "check", boom)
     assert ci.main() == 2
     assert sent and "could not run" in sent[0] and "RuntimeError" in sent[0]
+
+
+def test_token_freshness_flags_stale_missing_and_unparseable():
+    now = 1_790_000_000  # 2026-09-22T...Z
+    iso = lambda t: time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t))
+    assert ci.token_problems(iso(now + 3000).encode(), now) == []
+    assert ci.token_problems(iso(now + 120).encode(), now) == ["GitHub App token is stale or expiring (sidecar github-app-token not refreshing)"]
+    assert ci.token_problems(b"", now) == ["GitHub App token missing in pod (/run/github-token/expires_at)"]
+    assert ci.token_problems(b"garbage", now) == ["GitHub App token expiry unreadable in pod"]
