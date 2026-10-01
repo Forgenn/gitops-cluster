@@ -10,7 +10,8 @@ service account:
    and a managed directory may hold nothing plder does not ship;
 2. every scheduled job must be declared in plder, and a declared job must still carry
    its declared prompt, schedule and the rest;
-3. the Telegram bot must have no webhook set (Hermes polls; a webhook diverts it).
+3. the Telegram bot must have no webhook set (Hermes polls; a webhook diverts it);
+4. the GitHub App token the bots push with must be fresh (the sidecar refreshes it).
 
 In the pod it runs only root-owned binaries (/bin/tar, /bin/cat) under a clean PATH:
 /opt/tools/bin comes first on the pod's PATH and every bot can write to it. Hashing and
@@ -23,6 +24,7 @@ Remediation for a file mismatch (a plain restart does not re-sync an unchanged r
   kubectl -n hermes exec <pod> -c hermes-agent -- rm -f /opt/data/.agent-config/applied
   kubectl -n hermes rollout restart deploy/hermes-agent
 """
+import calendar
 import hashlib
 import io
 import json
@@ -164,6 +166,20 @@ def compare_cron(name: str, declared: dict, live: dict) -> list[str]:
     return problems
 
 
+def token_problems(expires_at: bytes, now: float) -> list[str]:
+    """The github-app-token sidecar rewrites a 1-hour token every 30 minutes."""
+    text = expires_at.decode("utf-8", "replace").strip()
+    if not text:
+        return ["GitHub App token missing in pod (/run/github-token/expires_at)"]
+    try:
+        exp = calendar.timegm(time.strptime(text, "%Y-%m-%dT%H:%M:%SZ"))
+    except ValueError:
+        return ["GitHub App token expiry unreadable in pod"]
+    if exp - now < 300:
+        return ["GitHub App token is stale or expiring (sidecar github-app-token not refreshing)"]
+    return []
+
+
 def pick_pod(pods: dict) -> str | None:
     for p in pods.get("items", []):
         st = p.get("status", {})
@@ -260,6 +276,7 @@ def check() -> list[str] | None:
                 continue
             problems += compare_cron(name, declared, live)
 
+    problems += token_problems(kexec(pod, "/bin/cat", "/run/github-token/expires_at"), time.time())
     if webhook_set():
         problems.append("Telegram bot has a webhook set (Hermes polls; a webhook diverts every message)")
     print(f"plder {ref}, pod {pod}: {len(problems)} problem(s)")
