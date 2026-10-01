@@ -37,11 +37,14 @@ spec:
       runAsGroup: 10000
       # The cache PVC was first written by a root mover, so a uid-10000 mover
       # got "permission denied" on /cache. fsGroup makes kubelet chown the
-      # volume to gid 10000 on mount. OnRootMismatch: in Direct mode the mover also
-      # mounts the live hermes-data volume, and a full recursive chgrp of ~30k files
-      # every night is pointless once ownership is right.
+      # volume to gid 10000 on mount. OnRootMismatch: the snapshot clone is already
+      # 10000-owned, and a full recursive chgrp of ~30k files every night is pointless.
       fsGroup: 10000
       fsGroupChangePolicy: OnRootMismatch
+    # Weeks and months too: memory poisoning found after a week must be recoverable
+    # (Litestream keeps only 7 days).
     retain:
       daily: 7
+      weekly: 5
+      monthly: 6
       within: 3d
