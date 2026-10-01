@@ -143,7 +143,7 @@ spec:
         # anything sync.py writes onto the PVC has to stay readable/writable by the
         # gateway afterwards.
         - name: profile-sync
-          image: nousresearch/hermes-agent:v2026.8.19@sha256:3811ed13da874fba2ac99b6d492db9a203d34cb6dccf90d886948c00d0ccec09
+          image: nousresearch/hermes-agent:v2026.9.24@sha256:fca358f12efd65bfaaca05884166f15c0e2788375ca30d77061ac1ebc96452b7
           command: ["/opt/hermes/.venv/bin/python", "/sync/sync.py"]
           securityContext:
             runAsUser: 10000
@@ -170,9 +170,9 @@ spec:
             - name: GIT_CONFIG_VALUE_0
               value: /staging
             - name: AGENT_CONFIG_REF
-              value: "1dae5767c8bd"
+              value: "8a26b3e3916a"
             - name: AGENT_IMAGE
-              value: "nousresearch/hermes-agent:v2026.8.19"
+              value: "nousresearch/hermes-agent:v2026.9.24"
             - name: PYTHONPATH
               value: /sync
           volumeMounts:
@@ -264,7 +264,7 @@ spec:
               mountPath: /opt/tools
       containers:
         - name: hermes-agent
-          image: nousresearch/hermes-agent:v2026.8.19@sha256:3811ed13da874fba2ac99b6d492db9a203d34cb6dccf90d886948c00d0ccec09
+          image: nousresearch/hermes-agent:v2026.9.24@sha256:fca358f12efd65bfaaca05884166f15c0e2788375ca30d77061ac1ebc96452b7
           args: ["gateway", "run"]
           ports:
             - name: dashboard
