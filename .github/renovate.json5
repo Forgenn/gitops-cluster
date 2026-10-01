@@ -32,13 +32,6 @@
   },
   packageRules: [
     {
-      // Supply-chain delay for code that runs next to every bot's credentials
-      // (gitops docs/plans/2026-09-28-hermes-hardening.md Task 11).
-      matchPackageNames: ['nousresearch/hermes-agent', '@anthropic-ai/claude-code'],
-      minimumReleaseAge: '7 days',
-      automerge: false,
-    },
-    {
       description: 'Ignore internal loomie images (managed by CI, not Renovate)',
       enabled: false,
       matchPackageNames: [
@@ -131,6 +124,14 @@
       ],
       minimumReleaseAge: '2 days',
     },
+    {
+      // Supply-chain delay for code that runs next to every bot's credentials
+      // (gitops docs/plans/2026-09-28-hermes-hardening.md Task 11).
+      // After 'Wait 2 days': later rules win, and that one would cut this to 2 days.
+      matchPackageNames: ['nousresearch/hermes-agent', '@anthropic-ai/claude-code'],
+      minimumReleaseAge: '7 days',
+      automerge: false,
+    },
     // Classification labels. The update-review policy matches on these and
     // nothing else -- it never parses a branch name or a PR title. Keep these
     // rules last so addLabels applies on top of every rule above.
@@ -186,6 +187,9 @@
       ],
       matchStrings: [
         'image:\\s+(?<depName>[a-z0-9._\\-/]+):(?<currentValue>[a-zA-Z0-9._\\-]+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?',
+        // sync.py records the image it synced for and re-syncs (skills.disabled) only
+        // when ref or AGENT_IMAGE changes, so it must move with the image line.
+        'name: AGENT_IMAGE\\s+value:\\s+"(?<depName>nousresearch/hermes-agent):(?<currentValue>[a-zA-Z0-9._\\-]+)"',
       ],
       datasourceTemplate: 'docker',
       versioningTemplate: 'docker',
