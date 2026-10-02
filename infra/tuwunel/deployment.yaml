@@ -18,6 +18,9 @@ spec:
       # The first boot after an upgrade may run a one-time database migration; a kill midway
       # leaves it half migrated (tuwunel docs/deploying/kubernetes.md).
       terminationGracePeriodSeconds: 120
+      # Tuwunel reads every TUWUNEL_* env var as config; the Service named "tuwunel" would
+      # inject TUWUNEL_PORT=tcp://... and break startup.
+      enableServiceLinks: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
