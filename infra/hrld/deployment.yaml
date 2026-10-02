@@ -29,7 +29,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: hrld
-          image: registry.monederobox.dev/hrld/hrld:e0735fb@sha256:a9a2db3fbf2bf80060ae149afc1fe6e1dbfd664f503a5c03fe8dea6fd9faf374
+          image: registry.monederobox.dev/hrld/hrld:1964e81@sha256:ca7dc044275010dda674ae98701a137e50c0532f67de46d81553e017ef1eb1f3
           env:
             - name: HRLD_CONFIG
               value: /etc/hrld/hrld.yaml
