@@ -14,38 +14,12 @@ data:
   # host aliases and identity-file paths; the actual keys come from the hermes-secrets
   # Secret and are copied into /opt/data/home/.ssh by the ssh-key-perms initContainer.
   ssh_config: |
-    Host github.com
-      User git
-      IdentityFile /opt/data/home/.ssh/git_deploy_key
-      IdentitiesOnly yes
-      StrictHostKeyChecking accept-new
-
-    # nixos-config repo uses its OWN deploy key (GitHub deploy keys are per-repo).
-    # Match on the unique host, so pushes to this repo use the nixos key and pushes
-    # to gitops-cluster still use git_deploy_key.
-    Host github.com-nixos
-      HostName github.com
-      User git
-      IdentityFile /opt/data/home/.ssh/nixos_deploy_key
-      IdentitiesOnly yes
-      StrictHostKeyChecking accept-new
-
-    # plder repo uses its OWN deploy key (GitHub deploy keys are per-repo). Match
-    # on the unique host, so the config-sync initContainer's clone uses the plder
-    # key without touching git_deploy_key or nixos_deploy_key.
+    # The only GitHub SSH identity left: profile-sync's read-only plder clone.
+    # Every bot push goes over HTTPS with the GitHub App token (/etc/gitconfig).
     Host github.com-plder
       HostName github.com
       User git
       IdentityFile /opt/data/home/.ssh/plder_deploy_key_read
-      IdentitiesOnly yes
-      StrictHostKeyChecking accept-new
-
-    # meta's WRITE key for plder, kept on its own alias so meta's git remote never
-    # accidentally resolves to the read-only sync key or vice versa.
-    Host github.com-plder-write
-      HostName github.com
-      User git
-      IdentityFile /opt/data/home/.ssh/plder_deploy_key_write
       IdentitiesOnly yes
       StrictHostKeyChecking accept-new
 
