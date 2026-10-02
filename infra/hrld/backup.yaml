@@ -1,0 +1,24 @@
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: hrld-data
+spec:
+  sourcePVC: hrld-data
+  trigger:
+    schedule: "25 2 * * *"
+  restic:
+    copyMethod: Snapshot
+    storageClassName: longhorn
+    volumeSnapshotClassName: longhorn
+    pruneIntervalDays: 14
+    cacheCapacity: 1Gi
+    repository: hrld-restic-config
+    moverSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+    retain:
+      daily: 7
+      weekly: 5
+      monthly: 6
+      within: 3d

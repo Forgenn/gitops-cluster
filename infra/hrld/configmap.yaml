@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hrld-config
+  namespace: hrld
+data:
+  hrld.yaml: |
+    # Secrets are file paths (mounted from Kubernetes Secrets), never inline values.
+    homeserver:
+      url: http://tuwunel.tuwunel.svc.cluster.local:8008
+      serverName: matrix.monederobox.dev
+    appservice:
+      port: 9000
+      asTokenFile: /secrets/appservice/as_token
+      hsTokenFile: /secrets/appservice/hs_token
+    storageDir: /data
+    # @hrld_probe: an appservice-controlled user for the H0 exit checks; remove after H0.
+    allowUsers: ["@pol:matrix.monederobox.dev", "@hrld_probe:matrix.monederobox.dev"]
+    model:
+      provider: openrouter
+      modelId: deepseek/deepseek-v4.1-flash
+      apiKeyFile: /secrets/openrouter/api_key
+    bots:
+      - id: test
+        localpart: hrld_test
+        displayName: hrld (test)
+        instructions: You are hrld's test bot. Answer briefly and plainly.
