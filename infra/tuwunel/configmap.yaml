@@ -13,10 +13,13 @@ data:
     port = 8008
     allow_federation = false
     trusted_servers = []
-    # Open only with the token from Infisical /tuwunel/REGISTRATION_TOKEN, for Pol's first
-    # login; set to false once @pol exists.
-    allow_registration = true
+    # Closed after Pol registered @ntb (2026-10-02). Appservice users (hrld bots) are
+    # registered by the appservice and are not affected. To add an account: set true for the
+    # registration, then back to false.
+    allow_registration = false
     registration_token_file = "/secrets/registration/token"
+    # Tuwunel appends a heart emoji to new display names by default.
+    new_user_displayname_suffix = ""
     # Element X logs in through Tuwunel's own OIDC page (no MAS).
     oidc_native_auth = true
     # The hrld appservice registration, rendered by ESO from Infisical (tokens never in git).
