@@ -15,7 +15,7 @@ data:
       hsTokenFile: /secrets/appservice/hs_token
     storageDir: /data
     # @hrld_probe: an appservice-controlled user for the H0 exit checks; remove after H0.
-    allowUsers: ["@pol:matrix.monederobox.dev", "@hrld_probe:matrix.monederobox.dev"]
+    allowUsers: ["@ntb:matrix.monederobox.dev", "@hrld_probe:matrix.monederobox.dev"]
     model:
       provider: openrouter
       modelId: deepseek/deepseek-v4.1-flash
