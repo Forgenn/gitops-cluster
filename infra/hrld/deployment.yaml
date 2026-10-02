@@ -17,6 +17,8 @@ spec:
         app: hrld
     spec:
       enableServiceLinks: false
+      imagePullSecrets:
+        - name: registry-credentials
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
