@@ -1,0 +1,62 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tuwunel-default-deny-ingress
+  namespace: tuwunel
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tuwunel-allow-from-envoy-gateway
+  namespace: tuwunel
+spec:
+  podSelector:
+    matchLabels:
+      app: tuwunel
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway
+      ports:
+        - protocol: TCP
+          port: 8008
+---
+# hrld (the appservice) calls the client-server API directly.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tuwunel-allow-from-hrld
+  namespace: tuwunel
+spec:
+  podSelector:
+    matchLabels:
+      app: tuwunel
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: hrld
+      ports:
+        - protocol: TCP
+          port: 8008
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tuwunel-allow-intra-namespace
+  namespace: tuwunel
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: tuwunel

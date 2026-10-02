@@ -1,0 +1,46 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: tuwunel
+  namespace: tuwunel
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: envoy-gateway
+      namespace: envoy-gateway
+      sectionName: https
+  hostnames:
+    - "matrix.monederobox.dev"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: tuwunel
+          port: 8008
+          weight: 1
+---
+# Tailnet and LAN only, like the other internal routes. Federation is off; nothing outside
+# needs to reach the homeserver.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: tuwunel-internal
+  namespace: tuwunel
+spec:
+  targetRefs:
+    - group: "gateway.networking.k8s.io"
+      name: tuwunel
+      kind: HTTPRoute
+  authorization:
+    defaultAction: Deny
+    rules:
+      - action: Allow
+        principal:
+          clientCIDRs:
+            - 100.64.0.0/10
+            - 192.168.1.0/24

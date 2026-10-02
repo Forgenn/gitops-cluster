@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tuwunel
+  namespace: tuwunel
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tuwunel
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: tuwunel
+    spec:
+      # The first boot after an upgrade may run a one-time database migration; a kill midway
+      # leaves it half migrated (tuwunel docs/deploying/kubernetes.md).
+      terminationGracePeriodSeconds: 120
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: tuwunel
+          image: ghcr.io/matrix-construct/tuwunel:v1.9.3@sha256:678b7f5350e06a41614444497c587da9dddf66767e4068a27480402f3c1367d0
+          env:
+            - name: TUWUNEL_CONFIG
+              value: /etc/tuwunel/tuwunel.toml
+          ports:
+            - name: http
+              containerPort: 8008
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          # As tuwunel docs/deploying/kubernetes.md: the startup budget covers a long migration.
+          startupProbe:
+            exec:
+              command: ["tuwunel", "--health-check"]
+            periodSeconds: 10
+            failureThreshold: 180
+          livenessProbe:
+            exec:
+              command: ["tuwunel", "--health-check"]
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command: ["tuwunel", "--health-check"]
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/tuwunel
+            - name: config
+              mountPath: /etc/tuwunel/tuwunel.toml
+              subPath: tuwunel.toml
+              readOnly: true
+            - name: appservices
+              mountPath: /etc/tuwunel/appservices
+              readOnly: true
+            - name: registration
+              mountPath: /secrets/registration
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: tuwunel-data
+        - name: config
+          configMap:
+            name: tuwunel-config
+        - name: appservices
+          secret:
+            secretName: tuwunel-appservice
+            defaultMode: 0440
+        - name: registration
+          secret:
+            secretName: tuwunel-registration
+            defaultMode: 0440
+        - name: tmp
+          emptyDir: {}
