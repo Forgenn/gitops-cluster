@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hrld
+  namespace: hrld
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hrld
+  # SQLite has a single owner in H0 (Postgres + leases come in H1).
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: hrld
+    spec:
+      enableServiceLinks: false
+      imagePullSecrets:
+        - name: registry-credentials
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: hrld
+          image: registry.monederobox.dev/hrld/hrld:fed8d49@sha256:7968a71fbf83fd32fea79f34b48e3d79c14f8fb2cb7c6259724531137c684b6f
+          env:
+            - name: HRLD_CONFIG
+              value: /etc/hrld/hrld.yaml
+          ports:
+            - name: appservice
+              containerPort: 9000
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          readinessProbe:
+            tcpSocket:
+              port: 9000
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/hrld
+              readOnly: true
+            - name: appservice
+              mountPath: /secrets/appservice
+              readOnly: true
+            - name: openrouter
+              mountPath: /secrets/openrouter
+              readOnly: true
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          configMap:
+            name: hrld-config
+        - name: appservice
+          secret:
+            secretName: hrld-appservice
+            defaultMode: 0440
+        - name: openrouter
+          secret:
+            secretName: hrld-openrouter
+            defaultMode: 0440
+        - name: data
+          persistentVolumeClaim:
+            claimName: hrld-data
+        - name: tmp
+          emptyDir: {}

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hrld
+  namespace: hrld
+spec:
+  selector:
+    app: hrld
+  ports:
+    - name: appservice
+      port: 9000
+      targetPort: 9000
+      protocol: TCP

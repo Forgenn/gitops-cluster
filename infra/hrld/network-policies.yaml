@@ -1,0 +1,85 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hrld-default-deny-ingress
+  namespace: hrld
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress: []
+---
+# Only the homeserver pushes appservice transactions to hrld.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hrld-allow-from-tuwunel
+  namespace: hrld
+spec:
+  podSelector:
+    matchLabels:
+      app: hrld
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: tuwunel
+      ports:
+        - protocol: TCP
+          port: 9000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hrld-allow-intra-namespace
+  namespace: hrld
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: hrld
+---
+# Egress: DNS, the homeserver, and the public internet (OpenRouter); nothing else in the
+# cluster or on the LAN. Volsync movers are not selected (app: hrld only).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hrld-egress
+  namespace: hrld
+spec:
+  podSelector:
+    matchLabels:
+      app: hrld
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: tuwunel
+      ports:
+        - { protocol: TCP, port: 8008 }
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+              - 100.64.0.0/10
+              - 169.254.0.0/16
+              - 127.0.0.0/8
+      ports:
+        - { protocol: TCP, port: 443 }
