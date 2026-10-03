@@ -62,7 +62,7 @@ spec:
             matchLabels:
               kubernetes.io/metadata.name: hrld
 ---
-# Egress: DNS, the homeserver, and the public internet (OpenRouter, the Litestream bucket); nothing else in the
+# Egress: DNS, the homeserver, and the public internet (OpenRouter); nothing else in the
 # cluster or on the LAN. Volsync movers are not selected (app: hrld only).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
