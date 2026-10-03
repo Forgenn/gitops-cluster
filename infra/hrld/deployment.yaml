@@ -17,6 +17,41 @@ spec:
         app: hrld
     spec:
       enableServiceLinks: false
+      # On shutdown each bot's SQLite does a TRUNCATE checkpoint, which can wait on
+      # Litestream's read lock (up to the 5 s busy timeout per database).
+      terminationGracePeriodSeconds: 120
+      # Litestream as a NATIVE sidecar (restartPolicy: Always): it starts before hrld and
+      # stops after it, and its readiness does not count toward the pod's, so a backup
+      # failure never takes the bots off the Service. Replicates /data/*.sqlite only; the
+      # crypto store (/data/crypto) is excluded on purpose (hrld docs/runbooks/restore.md).
+      # Holds only the bucket credentials; never mount the appservice or OpenRouter secrets here.
+      initContainers:
+        - name: litestream
+          image: litestream/litestream:0.5.17@sha256:4b02b9859a6b6b4087d8b8944e15f7e984bd7957cba322bbeee38b0e27b9656a
+          restartPolicy: Always
+          args: ["replicate", "-config", "/etc/litestream/litestream.yml"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          envFrom:
+            - secretRef:
+                name: hrld-litestream
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: litestream-config
+              mountPath: /etc/litestream
+              readOnly: true
+            - name: litestream-tmp
+              mountPath: /tmp
       imagePullSecrets:
         - name: registry-credentials
       securityContext:
@@ -70,6 +105,11 @@ spec:
             - name: tmp
               mountPath: /tmp
       volumes:
+        - name: litestream-config
+          configMap:
+            name: hrld-litestream-config
+        - name: litestream-tmp
+          emptyDir: {}
         - name: config
           configMap:
             name: hrld-config
