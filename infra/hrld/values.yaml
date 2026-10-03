@@ -1,0 +1,42 @@
+# hrld chart values for monederobox (schema: charts/hrld/values.schema.json in the hrld repo).
+imagePullSecrets:
+  - name: registry-credentials
+
+config:
+  homeserver:
+    url: http://tuwunel.tuwunel.svc.cluster.local:8008
+    serverName: matrix.monederobox.dev
+  allowUsers: ["@ntb:matrix.monederobox.dev"]
+  model:
+    provider: openrouter
+    modelId: deepseek/deepseek-v4.1-flash
+  bots:
+    - id: test
+      localpart: hrld_test
+      displayName: hrld (test)
+      instructions: You are hrld's test bot. Answer briefly and plainly.
+
+secrets:
+  appservice:
+    name: hrld-appservice
+  modelApiKey:
+    name: hrld-openrouter
+    key: api_key
+
+# The PVC (pvc.yaml) holds the conversations and the E2EE crypto stores: never let the chart own it.
+persistence:
+  existingClaim: hrld-data
+
+metrics:
+  serviceMonitor:
+    enabled: true
+    labels: { release: prometheus }
+  prometheusRule:
+    enabled: true
+    labels: { app: kube-prometheus-stack, release: prometheus }
+  dashboard:
+    enabled: true
+    namespace: monitoring
+
+# The client API stays off until loomie calls it (then: api.enabled, api.oidc for Pocket ID,
+# api.allowFrom for the loomie namespace).
