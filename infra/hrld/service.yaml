@@ -11,3 +11,7 @@ spec:
       port: 9000
       targetPort: 9000
       protocol: TCP
+    - name: metrics
+      port: 9464
+      targetPort: 9464
+      protocol: TCP

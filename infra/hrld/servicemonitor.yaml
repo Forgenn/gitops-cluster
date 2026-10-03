@@ -1,0 +1,17 @@
+# Prometheus scrapes hrld's /metrics (OpenTelemetry Prometheus exporter, port 9464).
+# release: prometheus is what the Prometheus CR's serviceMonitorSelector matches.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hrld
+  namespace: hrld
+  labels:
+    release: prometheus
+    app: hrld
+spec:
+  selector:
+    matchLabels:
+      app: hrld
+  endpoints:
+    - port: metrics
+      interval: 30s
