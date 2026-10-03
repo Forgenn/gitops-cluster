@@ -17,6 +17,16 @@ spec:
         app: hrld
     spec:
       enableServiceLinks: false
+      imagePullSecrets:
+        - name: registry-credentials
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: hrld
           image: registry.monederobox.dev/hrld/hrld:2d4f9c0@sha256:385b3f7a41ded95b686bbe9969055124bc7df2c54b3e3c99bcb8067dcc28f2dc
