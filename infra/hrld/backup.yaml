@@ -2,6 +2,7 @@ apiVersion: volsync.backube/v1alpha1
 kind: ReplicationSource
 metadata:
   name: hrld-data
+  namespace: hrld
 spec:
   sourcePVC: hrld-data
   trigger:

@@ -2,6 +2,7 @@ apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
   name: hrld-restic-config
+  namespace: hrld
 spec:
   secretStoreRef:
     name: infisical-cluster-secret-store

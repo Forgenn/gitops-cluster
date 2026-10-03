@@ -10,7 +10,6 @@ resources:
   - retuned-alerts.yaml
   - node-exporter-full-dashboard.yaml
   - argocd-dashboard.yaml
-  - hrld-dashboard.yaml
   - grafana-admin-externalsecret.yaml
   - grafana-oidc-externalsecret.yaml
   - telegram-credentials-externalsecret.yaml
