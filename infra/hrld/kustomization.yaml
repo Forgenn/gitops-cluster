@@ -14,3 +14,5 @@ resources:
   - network-policies.yaml
   - backup-restic-config.yaml
   - backup.yaml
+  - servicemonitor.yaml
+  - prometheusrule.yaml

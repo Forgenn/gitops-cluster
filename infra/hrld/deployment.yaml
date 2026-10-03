@@ -8,7 +8,7 @@ spec:
   selector:
     matchLabels:
       app: hrld
-  # SQLite has a single owner in H0 (Postgres + leases come in H1).
+  # One replica: the E2EE crypto store is local SQLite only, so hrld cannot run twice.
   strategy:
     type: Recreate
   template:
@@ -29,13 +29,16 @@ spec:
           type: RuntimeDefault
       containers:
         - name: hrld
-          image: registry.monederobox.dev/hrld/hrld:58f0043@sha256:f202dae0f5f5303a124341dd566e1e3446819e0a915d1ee12b2214afab4f0e43
+          image: registry.monederobox.dev/hrld/hrld:b307816@sha256:7d44b4ad57dd7c122fe056e2f31b1f49b287a27d86927a9c2d65ad9d3eeb6098
           env:
             - name: HRLD_CONFIG
               value: /etc/hrld/hrld.yaml
           ports:
             - name: appservice
               containerPort: 9000
+              protocol: TCP
+            - name: metrics
+              containerPort: 9464
               protocol: TCP
           securityContext:
             allowPrivilegeEscalation: false

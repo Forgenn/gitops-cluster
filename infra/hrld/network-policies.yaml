@@ -28,6 +28,26 @@ spec:
         - protocol: TCP
           port: 9000
 ---
+# Prometheus scrapes /metrics.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hrld-allow-metrics-from-monitoring
+  namespace: hrld
+spec:
+  podSelector:
+    matchLabels:
+      app: hrld
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 9464
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
