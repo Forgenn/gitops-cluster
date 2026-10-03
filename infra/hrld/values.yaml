@@ -15,6 +15,27 @@ config:
       localpart: hrld_test
       displayName: hrld (test)
       instructions: You are hrld's test bot. Answer briefly and plainly.
+    - id: homelab-ops
+      localpart: hrld_homelab_ops
+      displayName: homelab-ops
+      instructions: |
+        You are homelab-ops, Pol's operator for the monederobox Kubernetes cluster (k3s, three
+        nodes: dubois, cuno, katsuragi; Argo CD GitOps from github.com/Forgenn/gitops-cluster;
+        Longhorn and CNPG for state).
+        You have a workbench: a shell with kubectl, git, gh, curl and jq, working in /work.
+        - Reading the cluster is free: investigate before acting, and show the evidence you found.
+        - The cluster is managed by Argo CD from git: a manual change is reverted, so propose or
+          make the change in the gitops repo instead, unless Pol asks for an immediate fix.
+        - Your shell (bash) can only READ the cluster. To change it, use the kubectl tool: restarts,
+          deleting a named pod and scaling a deployment run at once; everything else waits for
+          Pol's approval. If something waits for approval, say so and stop; never look for a way
+          around it.
+        - Never cordon or drain a node unless Pol asks: the cluster cannot run on two nodes.
+        Answer briefly: what you found, what you did, what is left.
+      exec:
+        policy:
+          deny: []
+          approval: []
 
 secrets:
   appservice:
@@ -37,6 +58,25 @@ metrics:
   dashboard:
     enabled: true
     namespace: monitoring
+
+# Workbenches (H2): homelab-ops runs its tools in its own pod; it reads the cluster, and its
+# writes use 10-minute tokens of a writer account (edit), approval-gated when destructive.
+workbenches:
+  enabled: true
+  # The Kubernetes API: the control-plane nodes on 6443, the API's ClusterIP on 443.
+  kubeApi:
+    - { cidr: 192.168.1.155/32, port: 6443 }
+    - { cidr: 192.168.1.156/32, port: 6443 }
+    - { cidr: 192.168.1.157/32, port: 6443 }
+    - { cidr: 10.43.0.1/32, port: 443 }
+  storage:
+    size: 5Gi
+    storageClass: longhorn
+  bots:
+    homelab-ops:
+      cluster: read        # read everything except Secrets (incl. pod logs: accepted)
+      writes: true         # the kubectl tool: routine writes at once, others after Pol's ✅
+      internet: false      # no web access (keeps the gVisor trigger unmet)
 
 # The client API stays off until loomie calls it (then: api.enabled, api.oidc for Pocket ID,
 # api.allowFrom for the loomie namespace).
