@@ -3,6 +3,8 @@ kind: Service
 metadata:
   name: hrld
   namespace: hrld
+  labels:
+    app: hrld  # selected by the ServiceMonitor
 spec:
   selector:
     app: hrld
