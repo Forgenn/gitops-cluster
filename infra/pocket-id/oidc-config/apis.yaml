@@ -1,0 +1,20 @@
+# Pocket ID API resources (RFC 8707), declared here because Pocket ID keeps them in its database.
+# Applied by scripts/pocket-id-apply.py (idempotent): it creates missing APIs, sets their permissions,
+# and sets each listed client's grant. It never deletes an API or a grant that is not listed here.
+# Not a Kubernetes resource: kustomize does not read this folder.
+#
+# A client asks for a token with `resource=<resource>`; the token's `aud` is then the resource and
+# its scopes the granted permissions, so the API can reject tokens minted for anything else.
+apis:
+  - name: hrld
+    # Identifier only (stamped into `aud`); it never changes, or every issued token breaks.
+    resource: https://hrld.monederobox.dev
+    permissions:
+      - key: "hrld:chat"
+        name: Chat with hrld bots
+        description: List bots and conversations, send messages, follow events.
+    clients:
+      # loomie acts for the logged-in user (authorization code), never as itself.
+      - name: loomie
+        userDelegated: ["hrld:chat"]
+        clientCredentials: []
