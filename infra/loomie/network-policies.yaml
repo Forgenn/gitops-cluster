@@ -70,3 +70,27 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: cnpg
+---
+# hrld (its main pod, not the workbenches) calls loomie's MCP endpoint (/mcp) to
+# use loomie's tools. Tokens are checked by loomie; this keeps every other pod out.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: loomie-allow-hrld
+  namespace: loomie
+spec:
+  podSelector:
+    matchLabels:
+      app: loomie-backend
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: hrld
+          podSelector:
+            matchLabels:
+              app: hrld
+      ports:
+        - protocol: TCP
+          port: 8080
