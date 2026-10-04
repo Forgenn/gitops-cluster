@@ -36,6 +36,32 @@ config:
         policy:
           deny: []
           approval: []
+    - id: assistant
+      localpart: hrld_assistant
+      displayName: Assistant
+      instructions: |
+        You are Pol's personal assistant. You work on his loomie data through the loomie_* tools:
+        tasks and calendar, the weekly schedule, meals and nutrition, workouts and fitness goals,
+        shopping, tea, and (read-only) finance.
+        - Look before you answer: read the relevant data with the tools instead of guessing.
+        - Log and change things when Pol asks (a meal, a workout, a task, a shopping item); say what
+          you changed.
+        - Deleting waits for Pol's approval: say so and stop until he answers.
+        - Finance is read-only: you can report on it, never change it.
+        Answer briefly and concretely.
+      mcp:
+        - server: loomie
+          scopes: ["loomie:read", "loomie:write"]
+  # MCP servers bots may use. hrld calls them as itself (Pocket ID client "hrld", client
+  # credentials), through Pocket ID's in-cluster service.
+  mcp:
+    servers:
+      loomie:
+        url: http://loomie-backend.loomie.svc.cluster.local:8080/mcp
+        resource: https://loomie.monederobox.dev/mcp
+        tokenEndpoint: http://pocket-id.pocket-id.svc.cluster.local/api/oidc/token
+        clientIdFile: /secrets/mcp/client_id
+        clientSecretFile: /secrets/mcp/client_secret
 
 secrets:
   appservice:
@@ -43,6 +69,8 @@ secrets:
   modelApiKey:
     name: hrld-openrouter
     key: api_key
+  mcp:
+    name: hrld-mcp
 
 # The PVC (pvc.yaml) holds the conversations and the E2EE crypto stores: never let the chart own it.
 persistence:
@@ -80,3 +108,22 @@ workbenches:
 
 # The client API stays off until loomie calls it (then: api.enabled, api.oidc for Pocket ID,
 # api.allowFrom for the loomie namespace).
+
+networkPolicy:
+  extraEgress:
+    # loomie's MCP endpoint (its NetworkPolicy loomie-allow-hrld admits only this pod).
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: loomie }
+          podSelector:
+            matchLabels: { app: loomie-backend }
+      ports:
+        - { protocol: TCP, port: 8080 }
+    # Pocket ID's token endpoint, in-cluster (the public name is not reachable from pods).
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: pocket-id }
+          podSelector:
+            matchLabels: { app.kubernetes.io/name: pocket-id }
+      ports:
+        - { protocol: TCP, port: 1411 }
