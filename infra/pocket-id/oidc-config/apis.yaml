@@ -18,3 +18,18 @@ apis:
       - name: loomie
         userDelegated: ["hrld:chat"]
         clientCredentials: []
+  - name: loomie
+    # loomie's MCP server (tools over loomie's data), consumed by hrld bots.
+    resource: https://loomie.monederobox.dev/mcp
+    permissions:
+      - key: "loomie:read"
+        name: Read loomie data
+        description: Read tools (fitness, nutrition, tasks, schedule, shopping, tea, finance summaries).
+      - key: "loomie:write"
+        name: Change loomie data
+        description: Write tools (log meals and workouts, tasks, schedule, shopping). Finance stays read-only.
+    clients:
+      # hrld acts as itself (client credentials); bots run without a person signed in.
+      - name: hrld
+        userDelegated: []
+        clientCredentials: ["loomie:read", "loomie:write"]
