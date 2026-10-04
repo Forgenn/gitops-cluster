@@ -117,6 +117,16 @@ spec:
             # The backend finishes sign-in itself (BFF): the browser never sees a token.
             - name: OIDC_REDIRECT_URL
               value: "https://loomie.monederobox.dev/api/v1/auth/oidc/callback"
+            # MCP endpoint (/mcp) for hrld bots: Pocket ID client credentials,
+            # API resource "loomie" (gitops infra/pocket-id/oidc-config/apis.yaml).
+            - name: MCP_ENABLED
+              value: "true"
+            - name: MCP_RESOURCE
+              value: "https://loomie.monederobox.dev/mcp"
+            - name: MCP_ALLOWED_CLIENTS
+              value: "572bb0e1-4dd4-4082-9a91-3af9fa880deb" # Pocket ID client "hrld"
+            - name: MCP_USER_OIDC_SUBJECT
+              value: "657b4b32-0264-422e-b505-159488890cc4" # Pocket ID user cfv
             # Push notifications (FCM)
             - name: FCM_SA_KEY
               valueFrom:
