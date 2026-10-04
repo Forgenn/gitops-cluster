@@ -117,14 +117,10 @@ spec:
             # The backend finishes sign-in itself (BFF): the browser never sees a token.
             - name: OIDC_REDIRECT_URL
               value: "https://loomie.monederobox.dev/api/v1/auth/oidc/callback"
-            # Chat with hrld's bots (/api/hrld): sign-in also asks Pocket ID for an hrld token,
-            # kept encrypted in the session row.
-            - name: HRLD_API_URL
-              value: "http://hrld.hrld.svc.cluster.local:8080"
-            - name: HRLD_RESOURCE
-              value: "https://hrld.monederobox.dev"
-            - name: HRLD_SCOPES
-              value: "hrld:chat"
+            # Chat backends (/api/agents), as name=url|resource: each is connected per session
+            # with a Pocket ID token for its resource, kept encrypted.
+            - name: AGENT_BACKENDS
+              value: "hrld=http://hrld.hrld.svc.cluster.local:8080|https://hrld.monederobox.dev"
             - name: TOKEN_ENCRYPTION_KEY
               valueFrom:
                 secretKeyRef:
