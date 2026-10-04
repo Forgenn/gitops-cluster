@@ -63,6 +63,23 @@ config:
         clientIdFile: /secrets/mcp/client_id
         clientSecretFile: /secrets/mcp/client_secret
 
+# The client API, for loomie's Chat page: Pocket ID access tokens for the hrld resource, from Pol.
+api:
+  enabled: true
+  port: 8080
+  oidc:
+    issuer: https://pocket-id.monederobox.dev
+    # Keys from Pocket ID's in-cluster service (its public name is not reachable from pods).
+    jwksUri: http://pocket-id.pocket-id.svc.cluster.local/.well-known/jwks.json
+    audiences: ["https://hrld.monederobox.dev"]
+    allowSubjects: ["657b4b32-0264-422e-b505-159488890cc4"] # Pocket ID user cfv
+    requiredScopes: ["hrld:chat"]
+  allowFrom:
+    - namespaceSelector:
+        matchLabels: { kubernetes.io/metadata.name: loomie }
+      podSelector:
+        matchLabels: { app: loomie-backend }
+
 secrets:
   appservice:
     name: hrld-appservice
