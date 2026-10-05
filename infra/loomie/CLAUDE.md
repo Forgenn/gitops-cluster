@@ -12,21 +12,14 @@ loomie/
   backend/
     deployment.yaml       # Go API server
     service.yaml          # ClusterIP service
-    rbac.yaml             # ServiceAccount + Role for K8s API
+    rbac.yaml             # ServiceAccount (no API access; token not mounted)
   frontend/
     deployment.yaml       # SvelteKit app
     service.yaml          # ClusterIP service
-  sidecar/
-    deployment.yaml       # Pi agent sidecar (Node.js, pi-agent-core)
-    service.yaml          # ClusterIP service on port 50051
-  searxng/
-    deployment.yaml       # SearXNG metasearch engine (internal)
-    service.yaml          # ClusterIP service on port 8080
-    configmap.yaml        # SearXNG settings (JSON API, engines, no limiter)
   database/
     cluster.yaml          # CNPG PostgreSQL cluster
   secrets/
-    externalsecret.yaml   # ANTHROPIC_API_KEY, JWT_SECRET, OIDC, FCM, PI_SIDECAR_TOKEN
+    externalsecret.yaml   # TOKEN_ENCRYPTION_KEY, OIDC, FCM, Strava
     registry-secret.yaml  # Docker registry auth
 ```
 
@@ -46,11 +39,11 @@ Project: `revachol-cluster-a82f`, Environment: `prod`
 
 | Path | Description |
 |------|-------------|
-| `/loomie/ANTHROPIC_API_KEY` | Anthropic API key |
-| `/loomie/JWT_SECRET` | JWT signing secret |
-| `/loomie/OIDC_CLIENT_ID` | Pocket ID OAuth client ID |
-| `/loomie/OIDC_CLIENT_SECRET` | Pocket ID OAuth client secret |
-| `/loomie/NTFY_TOKEN` | ntfy.sh push notification token |
+| `/loomie/TOKEN_ENCRYPTION_KEY` | Encrypts agent-backend tokens at rest |
+| `/pocket-id/loomie/client-id` | Pocket ID OAuth client ID |
+| `/pocket-id/loomie/client-secret` | Pocket ID OAuth client secret |
+| `/loomie/FCM_SA_KEY` | FCM push notifications |
+| `/loomie/STRAVA_*` | Strava integration |
 
 ## Troubleshooting
 
@@ -70,19 +63,12 @@ kubectl rollout restart deployment loomie-backend -n loomie
 ```
 registry.monederobox.dev/loomie/backend:latest
 registry.monederobox.dev/loomie/frontend:latest
-registry.monederobox.dev/loomie/pi-sidecar:latest
-registry.monederobox.dev/loomie/env-node-20:latest
-registry.monederobox.dev/loomie/env-python-3.12:latest
-registry.monederobox.dev/loomie/env-go-1.22:latest
 ```
 
 ## Service Connectivity
 
 ```
 frontend → backend (port 8080)
-backend → pi-sidecar (port 50051, via PI_SIDECAR_URL)
-pi-sidecar → backend (port 8080, tool callbacks via LOOMIE_API_URL)
-pi-sidecar → searxng (port 8080, web search via SEARXNG_URL)
-pi-sidecar → external LLM APIs (Anthropic OAuth, GLM API key)
-searxng → external search engines (Google, DuckDuckGo, Bing, Wikipedia)
+backend → hrld (port 8080, /api/agents proxy; AGENT_BACKENDS)
+hrld → backend (port 8080, /mcp tools for bots)
 ```
