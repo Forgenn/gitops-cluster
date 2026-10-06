@@ -7,9 +7,11 @@ config:
     url: http://tuwunel.tuwunel.svc.cluster.local:8008
     serverName: matrix.monederobox.dev
   allowUsers: ["@ntb:matrix.monederobox.dev"]
+  # Z.AI GLM (Coding Plan). Back to OpenRouter: provider openrouter, modelId
+  # deepseek/deepseek-v4.1-flash, and secrets.modelApiKey.name hrld-openrouter.
   model:
-    provider: openrouter
-    modelId: deepseek/deepseek-v4.1-flash
+    provider: zai
+    modelId: glm-5.3
   bots:
     - id: test
       localpart: hrld_test
@@ -84,7 +86,7 @@ secrets:
   appservice:
     name: hrld-appservice
   modelApiKey:
-    name: hrld-openrouter
+    name: hrld-glm
     key: api_key
   mcp:
     name: hrld-mcp
