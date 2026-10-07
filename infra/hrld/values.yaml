@@ -130,6 +130,8 @@ api:
     audiences: ["https://hrld.monederobox.dev"]
     allowSubjects: ["657b4b32-0264-422e-b505-159488890cc4"] # Pocket ID user cfv
     requiredScopes: ["hrld:chat"]
+  # A static token for operator scripts (generated in-cluster; see externalsecret.yaml).
+  tokenSecret: { name: hrld-api-token, key: password }
   allowFrom:
     - namespaceSelector:
         matchLabels: { kubernetes.io/metadata.name: loomie }
