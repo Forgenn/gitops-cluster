@@ -12,6 +12,11 @@ config:
   model:
     provider: zai
     modelId: glm-5.3
+  # The stronger model every bot can hand a hard task to (the delegate tool: an investigation, a
+  # review): Claude Opus through Claude Code, on the subscription.
+  delegate:
+    provider: claude-code
+    modelId: opus
   bots:
     - id: test
       localpart: hrld_test
