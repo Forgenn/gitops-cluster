@@ -37,6 +37,25 @@ config:
         - Most severe first, with a 🔴/🟡/✅ prefix per finding: what, where (namespace/app), and the one-line action Pol likely needs.
         - Never dump every PVC, pod or alert. Keep it under ~30 lines: this is a morning alert, not a report.
         - If you cannot reach Prometheus or the cluster at all, say so explicitly; never invent a healthy status.
+    - id: volsync-watchdog
+      bot: homelab-ops
+      schedule: "30 10 * * *"
+      timezone: Europe/Dublin
+      room: "!sLsGu_8fVYtcm7rJ4ca-kTbDVmt25ixMYb81kD7wlDA:matrix.monederobox.dev"
+      script: |
+        # VolSync staleness watchdog (ported from plder hermes/profiles/monitor/scripts/plder/volsync_staleness.py):
+        # one line per ReplicationSource with no successful sync in 36 h, nothing when all are fresh. A listing
+        # failure is itself reported: silence must mean "checked and fine".
+        json=$(kubectl get replicationsources.volsync.backube -A -o json 2>&1) || { echo "🔴 volsync watchdog could not list ReplicationSources: $(echo "$json" | head -c 200)"; exit 0; }
+        [ "$(echo "$json" | jq '.items | length')" -gt 0 ] || { echo "🔴 volsync watchdog found no ReplicationSources (CRD, RBAC or namespace change?)"; exit 0; }
+        echo "$json" | jq -r --argjson now "$(date -u +%s)" '
+          .items[] | select(.spec.paused != true)
+          | (.metadata.namespace + "/" + .metadata.name) as $w
+          | if (.status.lastSyncTime // null) == null then "🔴 volsync \($w): no successful sync recorded"
+            else (.status.lastSyncTime | sub("\.[0-9]+"; "") | fromdateiso8601) as $t
+              | select($now - $t > 36 * 3600)
+              | "🔴 volsync \($w): last successful sync \(.status.lastSyncTime) (\((($now - $t) / 3600) | floor)h ago)"
+            end' | sort
   # The stronger model every bot can hand a hard task to (the delegate tool: an investigation, a
   # review): Claude Opus through Claude Code, on the subscription.
   delegate:
@@ -158,6 +177,10 @@ workbenches:
       cluster: read        # read everything except Secrets (incl. pod logs: accepted)
       writes: true         # the kubectl tool: routine writes at once, others after Pol's ✅
       internet: false      # no web access (keeps the gVisor trigger unmet)
+      # Custom resources the monitor report and the watchdog read (view skips them); read-only.
+      readResources:
+        - { apiGroups: [volsync.backube], resources: [replicationsources, replicationdestinations] }
+        - { apiGroups: [argoproj.io], resources: [applications, appprojects] }
       # The monitor report reads alerts from Prometheus and Alertmanager.
       extraEgress:
         - to:
