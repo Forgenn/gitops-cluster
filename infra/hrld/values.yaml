@@ -12,6 +12,31 @@ config:
   model:
     provider: zai
     modelId: glm-5.3
+  # Scheduled prompts (H3). The monitor report runs here beside Hermes's Telegram one for a week.
+  jobs:
+    - id: monitor-report
+      bot: homelab-ops
+      schedule: "0 9 * * *"
+      timezone: Europe/Dublin
+      room: "!sLsGu_8fVYtcm7rJ4ca-kTbDVmt25ixMYb81kD7wlDA:matrix.monederobox.dev"   # homelab-ops <-> Pol
+      prompt: |
+        You are the cluster monitor for this homelab k3s cluster. Run a health check and report ONLY what Pol genuinely needs to act on or be aware of. Do not report healthy status beyond the one-line all-clear.
+
+        ACCESS: you work in your workbench with read-only cluster access: run kubectl through bash (get, list, logs; no Secrets). You cannot change anything here, and you should not: this is a report. Prometheus is http://prometheus-kube-prometheus-prometheus.monitoring.svc:9090 and Alertmanager is http://prometheus-kube-prometheus-alertmanager.monitoring.svc:9093; query their JSON APIs with curl (and jq).
+
+        CHECK, in this order:
+        1. PROMETHEUS ALERTS, the source of truth: /api/v1/alerts. List firing alerts (except Watchdog and anything silenced) with alertname, severity, namespace/app and the summary; note pending alerts about to fire. If Prometheus is down or unreachable, SAY SO FIRST: it means no alert can fire.
+        2. ALERTMANAGER: /api/v2/alerts, to confirm what is active or suppressed.
+        3. STORAGE: kubectl get pvc -A and KubePersistentVolumeFillingUp alerts. Report a PVC only when it is a real concern (under ~10% free).
+        4. ARGOCD: kubectl get applications -n argocd. Report apps that are Degraded, OutOfSync or otherwise broken; ignore Healthy+Synced.
+        5. WORKLOADS: kubectl get pods -A. Report CrashLoopBackOff, ImagePullBackOff, pods not Ready for long. Ignore normal Running pods.
+        6. BACKUP FRESHNESS: kubectl get replicationsources.volsync.backube -A -o json. Flag a source if spec.paused is true, status.lastSyncTime is missing (never backed up), or lastSyncTime is older than 36 hours. Do NOT trust status.latestMoverStatus.result: it is the last run's result and can say Successful for a backup dead for weeks. Judge by lastSyncTime age only. Give namespace/name, hours since the last sync (or never) and whether it is paused. 🔴 if paused, never synced or older than 72h; 🟡 if 36-72h. Do not list healthy sources.
+
+        REPORTING RULES:
+        - Exceptions only. If everything is healthy, send one line: "✅ Cluster healthy: Prometheus up, no firing alerts, storage and backups OK." and nothing more.
+        - Most severe first, with a 🔴/🟡/✅ prefix per finding: what, where (namespace/app), and the one-line action Pol likely needs.
+        - Never dump every PVC, pod or alert. Keep it under ~30 lines: this is a morning alert, not a report.
+        - If you cannot reach Prometheus or the cluster at all, say so explicitly; never invent a healthy status.
   # The stronger model every bot can hand a hard task to (the delegate tool: an investigation, a
   # review): Claude Opus through Claude Code, on the subscription.
   delegate:
@@ -49,7 +74,7 @@ config:
       # Claude through Claude Code on the subscription; the other bots run on the default (GLM).
       model:
         provider: claude-code
-        modelId: sonnet
+        modelId: opus
       instructions: |
         You are Pol's personal assistant. You work on his loomie data through the loomie_* tools:
         tasks and calendar, the weekly schedule, meals and nutrition, workouts and fitness goals,
@@ -133,6 +158,17 @@ workbenches:
       cluster: read        # read everything except Secrets (incl. pod logs: accepted)
       writes: true         # the kubectl tool: routine writes at once, others after Pol's ✅
       internet: false      # no web access (keeps the gVisor trigger unmet)
+      # The monitor report reads alerts from Prometheus and Alertmanager.
+      extraEgress:
+        - to:
+            - namespaceSelector:
+                matchLabels: { kubernetes.io/metadata.name: monitoring }
+              podSelector:
+                matchExpressions:
+                  - { key: app.kubernetes.io/name, operator: In, values: [prometheus, alertmanager] }
+          ports:
+            - { protocol: TCP, port: 9090 }
+            - { protocol: TCP, port: 9093 }
 
 # The client API stays off until loomie calls it (then: api.enabled, api.oidc for Pocket ID,
 # api.allowFrom for the loomie namespace).
