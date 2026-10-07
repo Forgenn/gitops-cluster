@@ -41,6 +41,10 @@ config:
     - id: assistant
       localpart: hrld_assistant
       displayName: Assistant
+      # Claude through Claude Code on the subscription; the other bots run on the default (GLM).
+      model:
+        provider: claude-code
+        modelId: sonnet
       instructions: |
         You are Pol's personal assistant. You work on his loomie data through the loomie_* tools:
         tasks and calendar, the weekly schedule, meals and nutrition, workouts and fitness goals,
@@ -146,3 +150,19 @@ networkPolicy:
             matchLabels: { app.kubernetes.io/name: pocket-id }
       ports:
         - { protocol: TCP, port: 1411 }
+
+# The Claude Code token for bots on claude-code (hrld reads it from this env var).
+extraEnv:
+  - name: CLAUDE_CODE_OAUTH_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: hrld-claude
+        key: token
+
+# Each active Claude conversation holds a Claude Code process (~150-300 MB; at most 3 live).
+resources:
+  requests:
+    cpu: 50m
+    memory: 256Mi
+  limits:
+    memory: 1536Mi
