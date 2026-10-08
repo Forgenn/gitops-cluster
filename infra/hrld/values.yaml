@@ -57,6 +57,22 @@ config:
               | select($now - $t > 36 * 3600)
               | "🔴 volsync \($w): last successful sync \(.status.lastSyncTime) (\((($now - $t) / 3600) | floor)h ago)"
             end' | sort
+    # Dependency updates (Renovate), ported from Hermes's homelab-ops: reviewed weekly; merging waits for Pol.
+    - id: dependency-review
+      bot: homelab-ops
+      schedule: "0 8 * * 1"
+      timezone: Europe/Dublin
+      prompt: |
+        Weekly dependency review of Forgenn/gitops-cluster and Forgenn/nixos-config. list_prs on both. If neither
+        has an open pull request, answer exactly [SILENT]. For each dependency update (Renovate), pr_view it and
+        judge it: the release notes in its description, breaking changes, what the diff touches, and its checks.
+        Report, under 25 lines:
+        - anything labelled security first;
+        - one line per pull request: repo#number, title, checks, your verdict (merge / Pol should look / hold)
+          and the reason in one sentence;
+        - every pull request open more than 14 days, oldest first, naming how long the oldest has waited.
+        Then call merge_pr for each one you judged "merge" whose checks are green: Pol approves each merge.
+        Never merge around a red check.
     # Wave 1 of the cutover (H5): the digests of research and shopper, to each bot's chat with Pol.
     - id: research-digest
       bot: research
