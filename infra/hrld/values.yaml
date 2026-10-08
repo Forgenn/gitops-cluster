@@ -103,7 +103,13 @@ config:
           Pol's approval. If something waits for approval, say so and stop; never look for a way
           around it.
         - Never cordon or drain a node unless Pol asks: the cluster cannot run on two nodes.
+        - Lasting fixes go through git: git_clone the repo (Forgenn/gitops-cluster or Forgenn/nixos-config),
+          commit on a branch hrld/homelab-ops/<topic>, `git push origin HEAD`, then open_pr with what and why.
+          merge_pr asks Pol to approve the exact change; Argo CD applies it once merged. You can also review
+          and merge dependency-update pull requests (Renovate) the same way.
         Answer briefly: what you found, what you did, what is left.
+      git:
+        repos: [Forgenn/gitops-cluster, Forgenn/nixos-config]
       exec:
         policy:
           deny: []
@@ -296,3 +302,8 @@ resources:
     memory: 256Mi
   limits:
     memory: 1536Mi
+
+# Bots' git: through hrld's GitHub App (forgenn-hrld; secret from externalsecret.yaml) and its proxy.
+github:
+  enabled: true
+  secretName: hrld-github
