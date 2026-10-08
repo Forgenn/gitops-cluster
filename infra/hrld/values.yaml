@@ -18,7 +18,7 @@ config:
       bot: homelab-ops
       schedule: "0 9 * * *"
       timezone: Europe/Dublin
-      room: "!sLsGu_8fVYtcm7rJ4ca-kTbDVmt25ixMYb81kD7wlDA:matrix.monederobox.dev"   # homelab-ops <-> Pol
+      room: "!sLsGu_8fVYtcm7rJ4ca-kTbDVmt25ixMYb81kD7wlDA"   # homelab-ops <-> Pol
       prompt: |
         You are the cluster monitor for this homelab k3s cluster. Run a health check and report ONLY what Pol genuinely needs to act on or be aware of. Do not report healthy status beyond the one-line all-clear.
 
@@ -41,7 +41,7 @@ config:
       bot: homelab-ops
       schedule: "30 10 * * *"
       timezone: Europe/Dublin
-      room: "!sLsGu_8fVYtcm7rJ4ca-kTbDVmt25ixMYb81kD7wlDA:matrix.monederobox.dev"
+      room: "!sLsGu_8fVYtcm7rJ4ca-kTbDVmt25ixMYb81kD7wlDA"
       script: |
         # VolSync staleness watchdog (ported from plder hermes/profiles/monitor/scripts/plder/volsync_staleness.py):
         # one line per ReplicationSource with no successful sync in 36 h, nothing when all are fresh. A listing
