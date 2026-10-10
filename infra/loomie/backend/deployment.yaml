@@ -55,7 +55,7 @@ spec:
               drop: [ALL]
       containers:
         - name: backend
-          image: registry.monederobox.dev/loomie/backend:32269a7
+          image: registry.monederobox.dev/loomie/backend:9f69dab
           ports:
             - containerPort: 8080
           securityContext:
