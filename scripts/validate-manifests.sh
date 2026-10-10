@@ -33,6 +33,12 @@ fi
 for dir in "${targets[@]}"; do
   count=$((count + 1))
   if ! out=$(kustomize build --enable-helm "$dir" 2>&1); then
+    # A chart from the private registry (registry.monederobox.dev) cannot be pulled without its credentials,
+    # which this public repo's CI does not hold: say so instead of failing every change to that app.
+    if grep -q 'basic credential not found' <<<"$out"; then
+      echo "::warning file=${dir}/kustomization.yaml::not validated: its chart is in the private registry (no credentials in CI)"
+      continue
+    fi
     echo "::error file=${dir}/kustomization.yaml::kustomize build failed"
     printf '%s\n' "$out" | tail -30
     failed=1
