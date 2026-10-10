@@ -97,7 +97,7 @@ config:
   # instructions and settings (hrld/bots/<id>) and the plugins (pi/plugins). Here: what each bot may reach.
   plder:
     repo: Forgenn/plder
-    ref: 40d9b26083d4c556716b271e092d68213f513521
+    ref: c22845db419c3d02c72d094265a7178799445699
   # The stronger model every bot can hand a hard task to (the delegate tool: an investigation, a
   # review): Claude Opus through Claude Code, on the subscription.
   delegate:
@@ -120,6 +120,15 @@ config:
       localpart: hrld_shopper
     - id: projects
       localpart: hrld_projects
+    - id: developer
+      localpart: hrld_developer
+      # Application repos only: never gitops-cluster, nixos-config or plder.
+      git:
+        repos: [Forgenn/loomie, Forgenn/hrld]
+      exec:
+        policy:
+          deny: []
+          approval: []
     - id: assistant
       localpart: hrld_assistant
       mcp:
@@ -193,6 +202,12 @@ workbenches:
     size: 5Gi
     storageClass: longhorn
   bots:
+    # No cluster access and no internet: it clones and pushes through hrld's git proxy only, and the
+    # repos' CI runs the tests. Internet (installing dependencies, running tests here) waits for gVisor.
+    developer:
+      cluster: none
+      writes: false
+      internet: false
     homelab-ops:
       cluster: read        # read everything except Secrets (incl. pod logs: accepted)
       writes: true         # the kubectl tool: routine writes at once, others after Pol's ✅
