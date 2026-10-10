@@ -97,7 +97,7 @@ config:
   # instructions and settings (hrld/bots/<id>) and the plugins (pi/plugins). Here: what each bot may reach.
   plder:
     repo: Forgenn/plder
-    ref: 491b3345d20ecdf33fe26b5e1a19a11e516a484a
+    ref: 7c55db3a39daf33e4bb7f4591c58cbb124ddd9c4
   # The stronger model every bot can hand a hard task to (the delegate tool: an investigation, a
   # review): Claude Opus through Claude Code, on the subscription.
   delegate:
