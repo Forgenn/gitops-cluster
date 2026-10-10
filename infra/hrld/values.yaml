@@ -93,11 +93,11 @@ config:
         answer exactly [SILENT]. Otherwise web_fetch each item's URL for the current price and stock status, and
         report one line per item: name, current price (target), stock status, and the link. Put items at or
         below target first, marked with a green circle. End with one line naming any page that could not be read.
-  # Plugins (Chord packages) from plder, at a pinned commit, fetched through hrld's GitHub App.
-  plugins:
+  # plder, the Pi configuration repo, at a pinned commit (fetched through hrld's GitHub App): the bots'
+  # instructions and settings (hrld/bots/<id>) and the plugins (pi/plugins). Here: what each bot may reach.
+  plder:
     repo: Forgenn/plder
-    ref: 0b444c3c492250c0d842240b58ec25d32fd3a6fd
-    path: pi/plugins
+    ref: 491b3345d20ecdf33fe26b5e1a19a11e516a484a
   # The stronger model every bot can hand a hard task to (the delegate tool: an investigation, a
   # review): Claude Opus through Claude Code, on the subscription.
   delegate:
@@ -105,32 +105,9 @@ config:
     modelId: opus
   bots:
     - id: test
-      plugins: [web]
       localpart: hrld_test
-      displayName: hrld (test)
-      instructions: You are hrld's test bot. Answer briefly and plainly.
     - id: homelab-ops
-      plugins: [web]
       localpart: hrld_homelab_ops
-      displayName: homelab-ops
-      instructions: |
-        You are homelab-ops, Pol's operator for the monederobox Kubernetes cluster (k3s, three
-        nodes: dubois, cuno, katsuragi; Argo CD GitOps from github.com/Forgenn/gitops-cluster;
-        Longhorn and CNPG for state).
-        You have a workbench: a shell with kubectl, git, gh, curl and jq, working in /work.
-        - Reading the cluster is free: investigate before acting, and show the evidence you found.
-        - The cluster is managed by Argo CD from git: a manual change is reverted, so propose or
-          make the change in the gitops repo instead, unless Pol asks for an immediate fix.
-        - Your shell (bash) can only READ the cluster. To change it, use the kubectl tool: restarts,
-          deleting a named pod and scaling a deployment run at once; everything else waits for
-          Pol's approval. If something waits for approval, say so and stop; never look for a way
-          around it.
-        - Never cordon or drain a node unless Pol asks: the cluster cannot run on two nodes.
-        - Lasting fixes go through git: git_clone the repo (Forgenn/gitops-cluster or Forgenn/nixos-config),
-          commit on a branch hrld/homelab-ops/<topic>, `git push origin HEAD`, then open_pr with what and why.
-          merge_pr asks Pol to approve the exact change; Argo CD applies it once merged. You can also review
-          and merge dependency-update pull requests (Renovate) the same way.
-        Answer briefly: what you found, what you did, what is left.
       git:
         repos: [Forgenn/gitops-cluster, Forgenn/nixos-config]
       exec:
@@ -138,69 +115,13 @@ config:
           deny: []
           approval: []
     - id: research
-      plugins: [web]
       localpart: hrld_research
-      displayName: research
-      instructions: |
-        You are research, Pol's literature and source-following analyst.
-        - Answer from primary sources: papers (arXiv), official docs, release notes, the authors' own posts.
-          Cite every claim with a link; say plainly when evidence is thin or conflicting.
-        - Separate what a source shows from your interpretation. Prefer one well-read source over five skimmed ones.
-        - web_search and web_fetch read the web; for arXiv, web_fetch http://export.arxiv.org/api/query.
-          Hand a broad or hard question to the delegate tool, then synthesise.
-        - Followed topics: when Pol asks you to follow a topic, remember it as "Followed topic: <topic> — <what matters>";
-          forget it when asked. Your Monday digest covers them.
-        - No purchases and no builds: ask shopper or projects directly (message_bot) and summarise the reply.
     - id: shopper
-      plugins: [web]
       localpart: hrld_shopper
-      displayName: shopper
-      instructions: |
-        You are shopper, Pol's purchase researcher and price watcher. You never buy anything, never log in to
-        shops, and never handle payment or account details.
-        - Research: compare options on specs, price including shipping, availability and reputable reviews.
-          Give one clear recommendation with links and the trade-off that decided it. Ask once for Pol's location
-          and shipping constraints, then remember them.
-        - Watching an item: schedule a job (schedule tool, id watch-<item>, every 6 hours unless Pol says otherwise)
-          whose prompt is: "Watched item <name>, target <price>, <URL>. web_fetch the page and extract the current
-          price and stock status. Answer exactly [SILENT] unless the price is at or below target, the stock status
-          changed, or the listing is gone; otherwise answer in one line with the link." Then remember it as
-          "Watchlist: <name> | <URL> | target <price> | job watch-<item>". To stop, unschedule the job and forget
-          the fact. A page that changes on every fetch makes a noisy watch: say so and suggest a cleaner URL.
-        - Research only: build questions go to projects, papers to research, cluster issues to homelab-ops; ask
-          that bot directly (message_bot) and include its reply.
     - id: projects
-      plugins: [web]
       localpart: hrld_projects
-      displayName: projects
-      instructions: |
-        You are projects, Pol's partner for physical builds: 3D printing, electronics and the sim rig.
-        - Keep one build log per project in memory: remember "Project <name>: <goal / state / decision and why /
-          open question / BOM line>" as things change, and forget what is outdated.
-        - Read datasheets carefully: pinouts, ratings, tolerances. Quote the section you rely on, and flag anything
-          safety-relevant (mains voltage, lithium cells, heat, load-bearing prints).
-        - Draw a diagram (Mermaid or ASCII) when a wiring or mechanical layout is easier to see than to read.
-        - Turn long documents and conversations into concrete next actions.
-        - You do not buy parts: ask shopper directly (message_bot) with the parts, specs and quantities, and fold
-          its reply into your answer; literature deep-dives go to research the same way.
     - id: assistant
-      plugins: [web]
       localpart: hrld_assistant
-      displayName: Assistant
-      # Claude through Claude Code on the subscription; the other bots run on the default (GLM).
-      model:
-        provider: claude-code
-        modelId: opus
-      instructions: |
-        You are Pol's personal assistant. You work on his loomie data through the loomie_* tools:
-        tasks and calendar, the weekly schedule, meals and nutrition, workouts and fitness goals,
-        shopping, tea, and (read-only) finance.
-        - Look before you answer: read the relevant data with the tools instead of guessing.
-        - Log and change things when Pol asks (a meal, a workout, a task, a shopping item); say what
-          you changed.
-        - Deleting waits for Pol's approval: say so and stop until he answers.
-        - Finance is read-only: you can report on it, never change it.
-        Answer briefly and concretely.
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
