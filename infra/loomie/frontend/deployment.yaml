@@ -26,7 +26,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: frontend
-          image: registry.monederobox.dev/loomie/frontend:fca6ff2
+          image: registry.monederobox.dev/loomie/frontend:c56dc3c
           ports:
             - containerPort: 3000
           securityContext:
