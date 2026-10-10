@@ -7,6 +7,9 @@ config:
     url: http://tuwunel.tuwunel.svc.cluster.local:8008
     serverName: matrix.monederobox.dev
   allowUsers: ["@ntb:matrix.monederobox.dev"]
+  # loomie posts into Matrix room conversations as Pol (needs his non-exclusive namespace in
+  # the Tuwunel registration). Pol verifies the "loomie (via hrld)" session once from Element.
+  postAs: "@ntb:matrix.monederobox.dev"
   # Z.AI GLM (Coding Plan). Back to OpenRouter: provider openrouter, modelId
   # deepseek/deepseek-v4.1-flash, and secrets.modelApiKey.name hrld-openrouter.
   model:
