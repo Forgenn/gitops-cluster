@@ -12,7 +12,7 @@ config:
   model:
     provider: zai
     modelId: glm-5.3
-  # Scheduled prompts (H3). The monitor report runs here beside Hermes's Telegram one for a week.
+  # Scheduled prompts (H3).
   jobs:
     - id: monitor-report
       bot: homelab-ops
