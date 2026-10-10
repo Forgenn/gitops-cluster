@@ -15,7 +15,7 @@ resources:
 helmCharts:
   - name: hrld
     repo: oci://registry.monederobox.dev/hrld/charts
-    version: 0.1.0-build.81
+    version: 0.1.0-build.82
     releaseName: hrld
     namespace: hrld
     valuesFile: values.yaml
