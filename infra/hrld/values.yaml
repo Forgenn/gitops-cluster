@@ -123,6 +123,12 @@ config:
       localpart: hrld_research
     - id: shopper
       localpart: hrld_shopper
+      # loomie's tea library (what Pol tried, liked, wants) and shopping list: only these tools, so the
+      # write scope reaches nothing but the tea wishlist and the shopping list.
+      mcp:
+        - server: loomie
+          scopes: ["loomie:read", "loomie:write"]
+          tools: [get_tea_context, add_tea_to_buy, list_shopping_items, add_shopping_item]
     - id: projects
       localpart: hrld_projects
     - id: developer
