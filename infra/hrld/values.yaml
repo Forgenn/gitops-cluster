@@ -195,6 +195,8 @@ metrics:
 # writes use 10-minute tokens of a writer account (edit), approval-gated when destructive.
 workbenches:
   enabled: true
+  # Every workbench runs under gVisor: they run code the bots write or download.
+  runtimeClassName: gvisor
   # The Kubernetes API: the control-plane nodes on 6443, the API's ClusterIP on 443.
   kubeApi:
     - { cidr: 192.168.1.155/32, port: 6443 }
@@ -205,12 +207,12 @@ workbenches:
     size: 5Gi
     storageClass: longhorn
   bots:
-    # Builds and tests in each repo's Nix dev shell (nix develop), which needs internet: that waits for
-    # gVisor on the nodes (nixos-config #13). Until then the repos' CI runs the checks.
+    # Builds and tests in each repo's Nix dev shell (nix develop), downloading from the internet;
+    # safe to allow because the workbench runs under gVisor. No cluster or LAN access.
     developer:
       cluster: none
       writes: false
-      internet: false
+      internet: true
       nix: { size: 10Gi }  # the Nix store: dev shells' tools, downloaded once
       resources:
         requests: { cpu: 100m, memory: 1Gi, ephemeral-storage: 256Mi }
