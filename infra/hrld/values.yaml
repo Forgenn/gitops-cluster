@@ -161,6 +161,12 @@ config:
         tokenEndpoint: http://pocket-id.pocket-id.svc.cluster.local/api/oidc/token
         clientIdFile: /secrets/mcp/client_id
         clientSecretFile: /secrets/mcp/client_secret
+  # Phone alerts: answers and approvals in loomie Chat conversations are reported to loomie (through
+  # the loomie MCP server above), which pushes what Pol has not seen to his phone.
+  alerts:
+    mcpServer: loomie
+    backend: hrld
+    scopes: ["loomie:read", "loomie:write"]
 
 # The client API, for loomie's Chat page: Pocket ID access tokens for the hrld resource, from Pol.
 api:
