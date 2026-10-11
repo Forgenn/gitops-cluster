@@ -100,7 +100,7 @@ config:
   # instructions and settings (hrld/bots/<id>) and the plugins (pi/plugins). Here: what each bot may reach.
   plder:
     repo: Forgenn/plder
-    ref: d686d8bbdc5b3c599541bca991c12e06fc163d62
+    ref: fa0f40515eb3a6e09cf4ead5de7ef7d25269ab49
   # The stronger model every bot can hand a hard task to (the delegate tool: an investigation, a
   # review): Claude Opus through Claude Code, on the subscription.
   delegate:
@@ -125,9 +125,9 @@ config:
       localpart: hrld_projects
     - id: developer
       localpart: hrld_developer
-      # Application repos only: never gitops-cluster, nixos-config or plder.
+      # Every repo, by pull request; merging waits for Pol's approval (merge_pr).
       git:
-        repos: [Forgenn/loomie, Forgenn/hrld]
+        repos: [Forgenn/loomie, Forgenn/hrld, Forgenn/plder, Forgenn/gitops-cluster, Forgenn/nixos-config]
       exec:
         policy:
           deny: []
@@ -205,12 +205,16 @@ workbenches:
     size: 5Gi
     storageClass: longhorn
   bots:
-    # No cluster access and no internet: it clones and pushes through hrld's git proxy only, and the
-    # repos' CI runs the tests. Internet (installing dependencies, running tests here) waits for gVisor.
+    # Builds and tests in each repo's Nix dev shell (nix develop), which needs internet: that waits for
+    # gVisor on the nodes (nixos-config #13). Until then the repos' CI runs the checks.
     developer:
       cluster: none
       writes: false
       internet: false
+      nix: { size: 10Gi }  # the Nix store: dev shells' tools, downloaded once
+      resources:
+        requests: { cpu: 100m, memory: 1Gi, ephemeral-storage: 256Mi }
+        limits: { cpu: "2", memory: 3Gi, ephemeral-storage: 1Gi }
     homelab-ops:
       cluster: read        # read everything except Secrets (incl. pod logs: accepted)
       writes: true         # the kubectl tool: routine writes at once, others after Pol's ✅
