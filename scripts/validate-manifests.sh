@@ -32,22 +32,24 @@ fi
 
 for dir in "${targets[@]}"; do
   count=$((count + 1))
-  if ! out=$(kustomize build --enable-helm "$dir" 2>&1); then
+  # Not "out": nix develop exports that name, and a render this size in the environment breaks every
+  # later exec ("Argument list too long").
+  if ! manifests=$(kustomize build --enable-helm "$dir" 2>&1); then
     # A chart from the private registry (registry.monederobox.dev) cannot be pulled without its credentials,
     # which this public repo's CI does not hold: say so instead of failing every change to that app.
-    if grep -q 'basic credential not found' <<<"$out"; then
+    if grep -q 'basic credential not found' <<<"$manifests"; then
       echo "::warning file=${dir}/kustomization.yaml::not validated: its chart is in the private registry (no credentials in CI)"
       continue
     fi
     echo "::error file=${dir}/kustomization.yaml::kustomize build failed"
-    printf '%s\n' "$out" | tail -30
+    printf '%s\n' "$manifests" | tail -30
     failed=1
     continue
   fi
   # Via a file, not a pipe: when kubeconform exits early the pipe closes and
   # the writer dies with "printf: write error: Broken pipe", which buries the
   # real diagnostic.
-  printf '%s\n' "$out" > "$rendered"
+  printf '%s\n' "$manifests" > "$rendered"
   # -ignore-missing-schemas: an exotic CRD absent from the catalog passes
   # rather than failing a gate the merge bot depends on. Deliberate v1 trade;
   # tightening it is a separate decision.
