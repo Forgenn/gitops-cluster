@@ -8,6 +8,7 @@ kind: Kustomization
 # No `namespace:` override: the chart places the Grafana dashboard in `monitoring`.
 resources:
   - pvc.yaml
+  - runtimeclass.yaml
   - externalsecret.yaml
   - backup-restic-config.yaml
   - backup.yaml
