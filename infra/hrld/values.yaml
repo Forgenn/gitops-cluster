@@ -36,7 +36,8 @@ config:
         6. BACKUP FRESHNESS: kubectl get replicationsources.volsync.backube -A -o json. Flag a source if spec.paused is true, status.lastSyncTime is missing (never backed up), or lastSyncTime is older than 36 hours. Do NOT trust status.latestMoverStatus.result: it is the last run's result and can say Successful for a backup dead for weeks. Judge by lastSyncTime age only. Give namespace/name, hours since the last sync (or never) and whether it is paused. 🔴 if paused, never synced or older than 72h; 🟡 if 36-72h. Do not list healthy sources.
 
         REPORTING RULES:
-        - Exceptions only. If everything is healthy, send one line: "✅ Cluster healthy: Prometheus up, no firing alerts, storage and backups OK." and nothing more.
+        - Exceptions only. If everything is healthy, answer exactly [SILENT]: Pol gets no message on a good day.
+        - Report a finding only once while it stays the same: if your previous report (earlier in this conversation) already said it, leave it out unless it got worse. If that leaves nothing, answer exactly [SILENT].
         - Most severe first, with a 🔴/🟡/✅ prefix per finding: what, where (namespace/app), and the one-line action Pol likely needs.
         - Never dump every PVC, pod or alert. Keep it under ~30 lines: this is a morning alert, not a report.
         - If you cannot reach Prometheus or the cluster at all, say so explicitly; never invent a healthy status.
@@ -86,16 +87,17 @@ config:
         none, answer exactly [SILENT]. For each topic, find material published in the last 7 days: web_search,
         and for research topics web_fetch http://export.arxiv.org/api/query. Report at most 5 items per topic,
         each as: title, one sentence on why it matters for that topic, link. Prefer primary sources and cite
-        every item. If a topic had nothing material, write "nothing material" under it.
+        every item. Leave out topics with nothing material; if no topic has anything, answer exactly [SILENT].
     - id: shopper-digest
       bot: shopper
       schedule: "0 10 * * 6"
       timezone: Europe/Dublin
       prompt: |
         Weekly watchlist digest. Look at the facts you remember that start with "Watchlist:". If there are none,
-        answer exactly [SILENT]. Otherwise web_fetch each item's URL for the current price and stock status, and
-        report one line per item: name, current price (target), stock status, and the link. Put items at or
-        below target first, marked with a green circle. End with one line naming any page that could not be read.
+        answer exactly [SILENT]. Otherwise web_fetch each item's URL for the current price and stock status.
+        Report only items that are news: at or below target (green circle, first), price changed since your last
+        digest (earlier in this conversation), stock status changed, or the page could not be read. One line per
+        item: name, current price (target), stock status, and the link. If no item is news, answer exactly [SILENT].
   # plder, the Pi configuration repo, at a pinned commit (fetched through hrld's GitHub App): the bots'
   # instructions and settings (hrld/bots/<id>) and the plugins (pi/plugins). Here: what each bot may reach.
   plder:
