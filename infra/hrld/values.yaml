@@ -102,12 +102,18 @@ config:
   # instructions and settings (hrld/bots/<id>) and the plugins (pi/plugins). Here: what each bot may reach.
   plder:
     repo: Forgenn/plder
-    ref: 1e803287abc6aa217d095f3396fdc15345092c92
+    ref: ab8395daeeac878331cdd0ab9343ee3567425c99
   # The stronger model every bot can hand a hard task to (the delegate tool: an investigation, a
   # review): Claude Opus through Claude Code, on the subscription.
   delegate:
     provider: claude-code
     modelId: opus
+  # Model fallback: when a conversation's model fails before answering (a Claude session limit, an
+  # outage, a removed model), the turn goes to these in order. Each bot still tries its own model first.
+  fallback:
+    - { provider: claude-code, modelId: opus }
+    - { provider: zai, modelId: glm-5.3 }
+    - { provider: openrouter, modelId: deepseek/deepseek-v4.1-flash }
   bots:
     - id: test
       localpart: hrld_test
@@ -155,6 +161,12 @@ config:
         tokenEndpoint: http://pocket-id.pocket-id.svc.cluster.local/api/oidc/token
         clientIdFile: /secrets/mcp/client_id
         clientSecretFile: /secrets/mcp/client_secret
+  # Phone alerts: answers and approvals in loomie Chat conversations are reported to loomie (through
+  # the loomie MCP server above), which pushes what Pol has not seen to his phone.
+  alerts:
+    mcpServer: loomie
+    backend: hrld
+    scopes: ["loomie:read", "loomie:write"]
 
 # The client API, for loomie's Chat page: Pocket ID access tokens for the hrld resource, from Pol.
 api:
@@ -169,6 +181,8 @@ api:
     requiredScopes: ["hrld:chat"]
   # A static token for operator scripts (generated in-cluster; see externalsecret.yaml).
   tokenSecret: { name: hrld-api-token, key: password }
+  # Read-only, GET /v1/ops only; given to the workbenches below with ops: true.
+  opsTokenSecret: { name: hrld-api-ops-token, key: password }
   allowFrom:
     - namespaceSelector:
         matchLabels: { kubernetes.io/metadata.name: loomie }
@@ -225,10 +239,11 @@ workbenches:
       resources:
         requests: { cpu: 100m, memory: 1Gi, ephemeral-storage: 256Mi }
         limits: { cpu: "2", memory: 3Gi, ephemeral-storage: 1Gi }
+      ops: true            # hrld's read-only operations view (HRLD_OPS_URL / HRLD_OPS_TOKEN)
     homelab-ops:
       cluster: read        # read everything except Secrets (incl. pod logs: accepted)
       writes: true         # the kubectl tool: routine writes at once, others after Pol's ✅
-      internet: false      # no web access (keeps the gVisor trigger unmet)
+      internet: true       # public internet (80/443; never the cluster or LAN): runs under gVisor
       # Custom resources the monitor report and the watchdog read (view skips them); read-only.
       readResources:
         - { apiGroups: [volsync.backube], resources: [replicationsources, replicationdestinations] }
@@ -244,6 +259,7 @@ workbenches:
           ports:
             - { protocol: TCP, port: 9090 }
             - { protocol: TCP, port: 9093 }
+      ops: true            # hrld's read-only operations view (HRLD_OPS_URL / HRLD_OPS_TOKEN)
 
 # The client API stays off until loomie calls it (then: api.enabled, api.oidc for Pocket ID,
 # api.allowFrom for the loomie namespace).
@@ -267,13 +283,19 @@ networkPolicy:
       ports:
         - { protocol: TCP, port: 1411 }
 
-# The Claude Code token for bots on claude-code (hrld reads it from this env var).
+# The Claude Code token for bots on claude-code, and the OpenRouter key for the fallback's last step
+# (hrld reads each from its env var).
 extraEnv:
   - name: CLAUDE_CODE_OAUTH_TOKEN
     valueFrom:
       secretKeyRef:
         name: hrld-claude
         key: token
+  - name: OPENROUTER_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: hrld-openrouter
+        key: api_key
 
 # Each active Claude conversation holds a Claude Code process (~150-300 MB; at most 3 live).
 resources:
