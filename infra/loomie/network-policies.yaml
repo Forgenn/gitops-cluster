@@ -2,8 +2,7 @@
 #
 # Posture: default-deny ingress namespace-wide, then explicitly allow:
 #   1. envoy-gateway → backend / frontend (the only externally-reachable hop)
-#   2. any loomie pod → any loomie pod (frontend → backend, backend ↔ sidecar,
-#      sidecar → searxng, anything → CNPG)
+#   2. any loomie pod → any loomie pod (frontend → backend, anything → CNPG)
 #   3. cnpg controller (in `cnpg` ns) → CNPG cluster pods (so the operator can
 #      reach the instance manager for health checks, failover, backup CR sync)
 #
@@ -33,7 +32,6 @@ spec:
         values:
           - loomie-backend
           - loomie-frontend
-          - loomie-searxng
   policyTypes: [Ingress]
   ingress:
     - from:
