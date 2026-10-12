@@ -108,6 +108,12 @@ config:
   delegate:
     provider: claude-code
     modelId: opus
+  # Model fallback: when a conversation's model fails before answering (a Claude session limit, an
+  # outage, a removed model), the turn goes to these in order. Each bot still tries its own model first.
+  fallback:
+    - { provider: claude-code, modelId: opus }
+    - { provider: zai, modelId: glm-5.3 }
+    - { provider: openrouter, modelId: deepseek/deepseek-v4.1-flash }
   bots:
     - id: test
       localpart: hrld_test
@@ -267,13 +273,19 @@ networkPolicy:
       ports:
         - { protocol: TCP, port: 1411 }
 
-# The Claude Code token for bots on claude-code (hrld reads it from this env var).
+# The Claude Code token for bots on claude-code, and the OpenRouter key for the fallback's last step
+# (hrld reads each from its env var).
 extraEnv:
   - name: CLAUDE_CODE_OAUTH_TOKEN
     valueFrom:
       secretKeyRef:
         name: hrld-claude
         key: token
+  - name: OPENROUTER_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: hrld-openrouter
+        key: api_key
 
 # Each active Claude conversation holds a Claude Code process (~150-300 MB; at most 3 live).
 resources:
