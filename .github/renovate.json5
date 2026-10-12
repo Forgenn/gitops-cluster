@@ -178,7 +178,7 @@
         '/infra/.+/navidrome-deployment\\.yaml$/',
       ],
       matchStrings: [
-        'image:\\s+(?<depName>[a-z0-9._\\-/]+):(?<currentValue>[a-zA-Z0-9._\\-]+)',
+        'image:\\s+(?<depName>[a-z0-9._\\-/]+):(?<currentValue>[a-zA-Z0-9._\\-]+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?',
       ],
       datasourceTemplate: 'docker',
       versioningTemplate: 'docker',

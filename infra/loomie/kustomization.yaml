@@ -9,8 +9,6 @@ resources:
   - database/
   - backend/
   - frontend/
-  - sidecar/
-  - searxng/
   - httproute.yaml
   - network-policies.yaml
   - rate-limit.yaml

@@ -30,7 +30,9 @@ externalSecrets:
 # Generate with: echo -n 'admin:yourpassword' | base64
 authHeader: ""
 
-# Zot configuration
+# Zot configuration. mountConfig makes the chart mount it at /etc/zot;
+# without it zot runs the image's default config, not this one.
+mountConfig: true
 configFiles:
   config.json: |
     {
@@ -50,7 +52,7 @@ configFiles:
           },
           "openid": {
             "providers": {
-              "pocketid": {
+              "oidc": {
                 "issuer": "https://pocket-id.monederobox.dev",
                 "credentialsFile": "/secret/oidc/credentials.json",
                 "scopes": ["openid", "profile", "email", "groups"]

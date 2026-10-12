@@ -36,6 +36,16 @@ spec:
   authorization:
     defaultAction: Deny
     rules:
+      # Cluster nodes: pods leave through them (flannel masquerade), so this is how pod
+      # traffic arrives. This app has no login of its own (the Longhorn API is fully
+      # unauthenticated), so never serve pods. Rules match in order: Deny first.
+      # docs/plans/2026-09-29-phase0-stop-the-bleeding.md Task 6 Step 1b.
+      - action: Deny
+        principal:
+          clientCIDRs:
+            - 192.168.1.155/32
+            - 192.168.1.156/32
+            - 192.168.1.157/32
       - action: Allow
         principal:
           clientCIDRs:

@@ -122,6 +122,20 @@ server:
 
 repoServer:
   replicas: 1
+  # Private OCI charts (zot) for kustomize helmCharts: helm reads its registry login from
+  # this file (helm-registry-externalsecret.yaml). Read-only, repo-server only.
+  env:
+    - name: HELM_REGISTRY_CONFIG
+      value: /helm-registry/config.json
+  volumes:
+    - name: helm-registry-config
+      secret:
+        secretName: helm-registry-config
+        optional: true
+  volumeMounts:
+    - name: helm-registry-config
+      mountPath: /helm-registry
+      readOnly: true
 
 applicationSet:
   replicas: 1

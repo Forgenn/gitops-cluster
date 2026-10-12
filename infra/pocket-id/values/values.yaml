@@ -136,3 +136,9 @@ persistence:
 secret:
   create: false
   name: pocket-id-secret
+# Pocket ID v2 on the 1.5.4 chart: chart 2.x drops labels from the StatefulSet's
+# volumeClaimTemplates, which Kubernetes does not allow changing on an existing StatefulSet.
+# The rendered manifests are otherwise identical, so only the image moves.
+pocketID:
+  image:
+    tag: "v2.17.0@sha256:19f556d5852115c8ebbef271f6f7cf610d8803312a1fa63f29e1b342fe9d2939"
