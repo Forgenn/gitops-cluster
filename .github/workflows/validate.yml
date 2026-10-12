@@ -25,29 +25,19 @@ jobs:
   validate:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
+    defaults:
+      run:
+        shell: nix develop -c bash -e {0}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
 
-      # Into ~/.local/bin, not /usr/local/bin: ubuntu-24.04 runners already ship
-      # kustomize and helm, and install_kustomize.sh refuses to overwrite
-      # ("/usr/local/bin/kustomize exists. Remove it first."). Pinning our own
-      # copies also keeps the check reproducible when the runner image moves.
-      - name: Install kustomize, helm and kubeconform
-        run: |
-          set -euo pipefail
-          mkdir -p "$HOME/.local/bin"
-          curl -sSfL https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh \
-            | bash -s -- 5.7.1 "$HOME/.local/bin"
-          curl -sSfL https://get.helm.sh/helm-v3.19.0-linux-amd64.tar.gz \
-            | tar xz -C /tmp linux-amd64/helm
-          mv /tmp/linux-amd64/helm "$HOME/.local/bin/helm"
-          curl -sSfL https://github.com/yannh/kubeconform/releases/download/v0.7.0/kubeconform-linux-amd64.tar.gz \
-            | tar xz -C /tmp kubeconform
-          mv /tmp/kubeconform "$HOME/.local/bin/kubeconform"
-          # GITHUB_PATH applies to later steps, so this step cannot use it yet.
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      # kustomize, helm and kubeconform come from the flake's dev shell (flake.nix): the versions
+      # `nix develop` gives on a laptop and in the developer bot's workbench.
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Tool versions
         run: kustomize version && helm version --short && kubeconform -v
