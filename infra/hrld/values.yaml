@@ -237,7 +237,7 @@ workbenches:
     homelab-ops:
       cluster: read        # read everything except Secrets (incl. pod logs: accepted)
       writes: true         # the kubectl tool: routine writes at once, others after Pol's ✅
-      internet: false      # no web access (keeps the gVisor trigger unmet)
+      internet: true       # public internet (80/443; never the cluster or LAN): runs under gVisor
       # Custom resources the monitor report and the watchdog read (view skips them); read-only.
       readResources:
         - { apiGroups: [volsync.backube], resources: [replicationsources, replicationdestinations] }
