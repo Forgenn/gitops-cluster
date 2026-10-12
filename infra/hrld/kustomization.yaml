@@ -8,6 +8,7 @@ kind: Kustomization
 # No `namespace:` override: the chart places the Grafana dashboard in `monitoring`.
 resources:
   - pvc.yaml
+  - runtimeclass.yaml
   - externalsecret.yaml
   - backup-restic-config.yaml
   - backup.yaml
@@ -15,7 +16,7 @@ resources:
 helmCharts:
   - name: hrld
     repo: oci://registry.monederobox.dev/hrld/charts
-    version: 0.1.0-build.39
+    version: 0.1.0-build.97
     releaseName: hrld
     namespace: hrld
     valuesFile: values.yaml
