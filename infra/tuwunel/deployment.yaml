@@ -27,8 +27,13 @@ spec:
         runAsGroup: 1000
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
+        # NOT RuntimeDefault: after the k3s v1.35.6 node rebuild (2026-10-11) containerd's
+        # default seccomp profile blocks io_uring (EPERM). Tuwunel's RocksDB backend needs
+        # io_uring: without it requests stall and `tuwunel --health-check` exceeds its
+        # probe timeout, so kubelet killed the pod every ~50s (CrashLoop since the rebuild).
+        # Acceptable risk: single private non-federating homeserver, NetworkPolicies in place.
         seccompProfile:
-          type: RuntimeDefault
+          type: Unconfined
       containers:
         - name: tuwunel
           image: ghcr.io/matrix-construct/tuwunel:v1.9.3@sha256:678b7f5350e06a41614444497c587da9dddf66767e4068a27480402f3c1367d0
@@ -48,16 +53,19 @@ spec:
           startupProbe:
             exec:
               command: ["tuwunel", "--health-check"]
+            timeoutSeconds: 5
             periodSeconds: 10
             failureThreshold: 180
           livenessProbe:
             exec:
               command: ["tuwunel", "--health-check"]
+            timeoutSeconds: 5
             periodSeconds: 10
             failureThreshold: 3
           readinessProbe:
             exec:
               command: ["tuwunel", "--health-check"]
+            timeoutSeconds: 5
             periodSeconds: 10
             failureThreshold: 3
           resources:
