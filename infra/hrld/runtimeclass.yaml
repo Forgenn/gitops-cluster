@@ -1,0 +1,7 @@
+# gVisor: pods with runtimeClassName gvisor run under its user-space kernel (runsc), which
+# nixos-config's k3s-gvisor module installs on every node. hrld's workbenches use it.
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: gvisor
+handler: runsc

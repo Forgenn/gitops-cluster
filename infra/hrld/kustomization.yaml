@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# hrld from its Helm chart (Forgenn/hrld charts/hrld, published to zot by CI; the repo-server
+# pulls it with infra/argocd/helm-registry-externalsecret.yaml). Each chart build pins its
+# image (tag + digest): bump `version` to deploy a new build.
+# Cluster-specific pieces stay here: secrets (Infisical), the PVC, and the VolSync backup.
+# No `namespace:` override: the chart places the Grafana dashboard in `monitoring`.
+resources:
+  - pvc.yaml
+  - runtimeclass.yaml
+  - externalsecret.yaml
+  - backup-restic-config.yaml
+  - backup.yaml
+
+helmCharts:
+  - name: hrld
+    repo: oci://registry.monederobox.dev/hrld/charts
+    version: 0.1.0-build.97
+    releaseName: hrld
+    namespace: hrld
+    valuesFile: values.yaml

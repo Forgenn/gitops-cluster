@@ -1,0 +1,311 @@
+# hrld chart values for monederobox (schema: charts/hrld/values.schema.json in the hrld repo).
+imagePullSecrets:
+  - name: registry-credentials
+
+config:
+  homeserver:
+    url: http://tuwunel.tuwunel.svc.cluster.local:8008
+    serverName: matrix.monederobox.dev
+  allowUsers: ["@ntb:matrix.monederobox.dev"]
+  # loomie posts into Matrix room conversations as Pol (needs his non-exclusive namespace in
+  # the Tuwunel registration). Pol verifies the "loomie (via hrld)" session once from Element.
+  postAs: "@ntb:matrix.monederobox.dev"
+  # Z.AI GLM (Coding Plan). Back to OpenRouter: provider openrouter, modelId
+  # deepseek/deepseek-v4.1-flash, and secrets.modelApiKey.name hrld-openrouter.
+  model:
+    provider: zai
+    modelId: glm-5.3
+  # Scheduled prompts (H3).
+  jobs:
+    - id: monitor-report
+      bot: homelab-ops
+      schedule: "0 9 * * *"
+      timezone: Europe/Dublin
+      room: "!sLsGu_8fVYtcm7rJ4ca-kTbDVmt25ixMYb81kD7wlDA"   # homelab-ops <-> Pol
+      prompt: |
+        You are the cluster monitor for this homelab k3s cluster. Run a health check and report ONLY what Pol genuinely needs to act on or be aware of. Do not report healthy status beyond the one-line all-clear.
+
+        ACCESS: you work in your workbench with read-only cluster access: run kubectl through bash (get, list, logs; no Secrets). You cannot change anything here, and you should not: this is a report. Prometheus is http://prometheus-kube-prometheus-prometheus.monitoring.svc:9090 and Alertmanager is http://prometheus-kube-prometheus-alertmanager.monitoring.svc:9093; query their JSON APIs with curl (and jq).
+
+        CHECK, in this order:
+        1. PROMETHEUS ALERTS, the source of truth: /api/v1/alerts. List firing alerts (except Watchdog and anything silenced) with alertname, severity, namespace/app and the summary; note pending alerts about to fire. If Prometheus is down or unreachable, SAY SO FIRST: it means no alert can fire.
+        2. ALERTMANAGER: /api/v2/alerts, to confirm what is active or suppressed.
+        3. STORAGE: kubectl get pvc -A and KubePersistentVolumeFillingUp alerts. Report a PVC only when it is a real concern (under ~10% free).
+        4. ARGOCD: kubectl get applications -n argocd. Report apps that are Degraded, OutOfSync or otherwise broken; ignore Healthy+Synced.
+        5. WORKLOADS: kubectl get pods -A. Report CrashLoopBackOff, ImagePullBackOff, pods not Ready for long. Ignore normal Running pods.
+        6. BACKUP FRESHNESS: kubectl get replicationsources.volsync.backube -A -o json. Flag a source if spec.paused is true, status.lastSyncTime is missing (never backed up), or lastSyncTime is older than 36 hours. Do NOT trust status.latestMoverStatus.result: it is the last run's result and can say Successful for a backup dead for weeks. Judge by lastSyncTime age only. Give namespace/name, hours since the last sync (or never) and whether it is paused. 🔴 if paused, never synced or older than 72h; 🟡 if 36-72h. Do not list healthy sources.
+
+        REPORTING RULES:
+        - Exceptions only. If everything is healthy, answer exactly [SILENT]: Pol gets no message on a good day.
+        - Report a finding only once while it stays the same: if your previous report (earlier in this conversation) already said it, leave it out unless it got worse. If that leaves nothing, answer exactly [SILENT].
+        - Most severe first, with a 🔴/🟡/✅ prefix per finding: what, where (namespace/app), and the one-line action Pol likely needs.
+        - Never dump every PVC, pod or alert. Keep it under ~30 lines: this is a morning alert, not a report.
+        - If you cannot reach Prometheus or the cluster at all, say so explicitly; never invent a healthy status.
+    - id: volsync-watchdog
+      bot: homelab-ops
+      schedule: "30 10 * * *"
+      timezone: Europe/Dublin
+      room: "!sLsGu_8fVYtcm7rJ4ca-kTbDVmt25ixMYb81kD7wlDA"
+      script: |
+        # VolSync staleness watchdog (ported from plder hermes/profiles/monitor/scripts/plder/volsync_staleness.py):
+        # one line per ReplicationSource with no successful sync in 36 h, nothing when all are fresh. A listing
+        # failure is itself reported: silence must mean "checked and fine".
+        set -o pipefail
+        json=$(kubectl get replicationsources.volsync.backube -A -o json 2>&1) || { echo "🔴 volsync watchdog could not list ReplicationSources: $(echo "$json" | head -c 200)"; exit 0; }
+        [ "$(echo "$json" | jq '.items | length')" -gt 0 ] || { echo "🔴 volsync watchdog found no ReplicationSources (CRD, RBAC or namespace change?)"; exit 0; }
+        echo "$json" | jq -r --argjson now "$(date -u +%s)" '
+          .items[] | select(.spec.paused != true)
+          | (.metadata.namespace + "/" + .metadata.name) as $w
+          | if (.status.lastSyncTime // null) == null then "🔴 volsync \($w): no successful sync recorded"
+            else (.status.lastSyncTime | sub("[.][0-9]+"; "") | fromdateiso8601) as $t
+              | select($now - $t > 36 * 3600)
+              | "🔴 volsync \($w): last successful sync \(.status.lastSyncTime) (\((($now - $t) / 3600) | floor)h ago)"
+            end' | sort
+    # Dependency updates (Renovate), ported from Hermes's homelab-ops: reviewed weekly; merging waits for Pol.
+    - id: dependency-review
+      bot: homelab-ops
+      schedule: "0 8 * * 1"
+      timezone: Europe/Dublin
+      prompt: |
+        Weekly dependency review of Forgenn/gitops-cluster and Forgenn/nixos-config. list_prs on both. If neither
+        has an open pull request, answer exactly [SILENT]. For each dependency update (Renovate), pr_view it and
+        judge it: the release notes in its description, breaking changes, what the diff touches, and its checks.
+        Report, under 25 lines:
+        - anything labelled security first;
+        - one line per pull request: repo#number, title, checks, your verdict (merge / Pol should look / hold)
+          and the reason in one sentence;
+        - every pull request open more than 14 days, oldest first, naming how long the oldest has waited.
+        Then call merge_pr for each one you judged "merge" whose checks are green: Pol approves each merge.
+        Never merge around a red check.
+    # Wave 1 of the cutover (H5): the digests of research and shopper, to each bot's chat with Pol.
+    - id: research-digest
+      bot: research
+      schedule: "0 8 * * 1"
+      timezone: Europe/Dublin
+      prompt: |
+        Weekly research digest. Look at the facts you remember that start with "Followed topic:". If there are
+        none, answer exactly [SILENT]. For each topic, find material published in the last 7 days: web_search,
+        and for research topics web_fetch http://export.arxiv.org/api/query. Report at most 5 items per topic,
+        each as: title, one sentence on why it matters for that topic, link. Prefer primary sources and cite
+        every item. Leave out topics with nothing material; if no topic has anything, answer exactly [SILENT].
+    - id: shopper-digest
+      bot: shopper
+      schedule: "0 10 * * 6"
+      timezone: Europe/Dublin
+      prompt: |
+        Weekly watchlist digest. Look at the facts you remember that start with "Watchlist:". If there are none,
+        answer exactly [SILENT]. Otherwise web_fetch each item's URL for the current price and stock status.
+        Report only items that are news: at or below target (green circle, first), price changed since your last
+        digest (earlier in this conversation), stock status changed, or the page could not be read. One line per
+        item: name, current price (target), stock status, and the link. If no item is news, answer exactly [SILENT].
+  # plder, the Pi configuration repo, at a pinned commit (fetched through hrld's GitHub App): the bots'
+  # instructions and settings (hrld/bots/<id>) and the plugins (pi/plugins). Here: what each bot may reach.
+  plder:
+    repo: Forgenn/plder
+    ref: ab8395daeeac878331cdd0ab9343ee3567425c99
+  # The stronger model every bot can hand a hard task to (the delegate tool: an investigation, a
+  # review): Claude Opus through Claude Code, on the subscription.
+  delegate:
+    provider: claude-code
+    modelId: opus
+  # Model fallback: when a conversation's model fails before answering (a Claude session limit, an
+  # outage, a removed model), the turn goes to these in order. Each bot still tries its own model first.
+  fallback:
+    - { provider: claude-code, modelId: opus }
+    - { provider: zai, modelId: glm-5.3 }
+    - { provider: openrouter, modelId: deepseek/deepseek-v4.1-flash }
+  bots:
+    - id: test
+      localpart: hrld_test
+    - id: homelab-ops
+      localpart: hrld_homelab_ops
+      git:
+        repos: [Forgenn/gitops-cluster, Forgenn/nixos-config]
+      exec:
+        policy:
+          deny: []
+          approval: []
+    - id: research
+      localpart: hrld_research
+    - id: shopper
+      localpart: hrld_shopper
+      # loomie's tea library (what Pol tried, liked, wants) and shopping list: only these tools, so the
+      # write scope reaches nothing but the tea wishlist and the shopping list.
+      mcp:
+        - server: loomie
+          scopes: ["loomie:read", "loomie:write"]
+          tools: [get_tea_context, add_tea_to_buy, list_shopping_items, add_shopping_item]
+    - id: projects
+      localpart: hrld_projects
+    - id: developer
+      localpart: hrld_developer
+      # Every repo, by pull request; merging waits for Pol's approval (merge_pr).
+      git:
+        repos: [Forgenn/loomie, Forgenn/hrld, Forgenn/plder, Forgenn/gitops-cluster, Forgenn/nixos-config]
+      exec:
+        policy:
+          deny: []
+          approval: []
+    - id: assistant
+      localpart: hrld_assistant
+      mcp:
+        - server: loomie
+          scopes: ["loomie:read", "loomie:write"]
+  # MCP servers bots may use. hrld calls them as itself (Pocket ID client "hrld", client
+  # credentials), through Pocket ID's in-cluster service.
+  mcp:
+    servers:
+      loomie:
+        url: http://loomie-backend.loomie.svc.cluster.local:8080/mcp
+        resource: https://loomie.monederobox.dev/mcp
+        tokenEndpoint: http://pocket-id.pocket-id.svc.cluster.local/api/oidc/token
+        clientIdFile: /secrets/mcp/client_id
+        clientSecretFile: /secrets/mcp/client_secret
+  # Phone alerts: answers and approvals in loomie Chat conversations are reported to loomie (through
+  # the loomie MCP server above), which pushes what Pol has not seen to his phone.
+  alerts:
+    mcpServer: loomie
+    backend: hrld
+    scopes: ["loomie:read", "loomie:write"]
+
+# The client API, for loomie's Chat page: Pocket ID access tokens for the hrld resource, from Pol.
+api:
+  enabled: true
+  port: 8080
+  oidc:
+    issuer: https://pocket-id.monederobox.dev
+    # Keys from Pocket ID's in-cluster service (its public name is not reachable from pods).
+    jwksUri: http://pocket-id.pocket-id.svc.cluster.local/.well-known/jwks.json
+    audiences: ["https://hrld.monederobox.dev"]
+    allowSubjects: ["657b4b32-0264-422e-b505-159488890cc4"] # Pocket ID user cfv
+    requiredScopes: ["hrld:chat"]
+  # A static token for operator scripts (generated in-cluster; see externalsecret.yaml).
+  tokenSecret: { name: hrld-api-token, key: password }
+  # Read-only, GET /v1/ops only; given to the workbenches below with ops: true.
+  opsTokenSecret: { name: hrld-api-ops-token, key: password }
+  allowFrom:
+    - namespaceSelector:
+        matchLabels: { kubernetes.io/metadata.name: loomie }
+      podSelector:
+        matchLabels: { app: loomie-backend }
+
+secrets:
+  appservice:
+    name: hrld-appservice
+  modelApiKey:
+    name: hrld-glm
+    key: api_key
+  mcp:
+    name: hrld-mcp
+
+# The PVC (pvc.yaml) holds the conversations and the E2EE crypto stores: never let the chart own it.
+persistence:
+  existingClaim: hrld-data
+
+metrics:
+  serviceMonitor:
+    enabled: true
+    labels: { release: prometheus }
+  prometheusRule:
+    enabled: true
+    labels: { app: kube-prometheus-stack, release: prometheus }
+  dashboard:
+    enabled: true
+    namespace: monitoring
+
+# Workbenches (H2): homelab-ops runs its tools in its own pod; it reads the cluster, and its
+# writes use 10-minute tokens of a writer account (edit), approval-gated when destructive.
+workbenches:
+  enabled: true
+  # Every workbench runs under gVisor: they run code the bots write or download.
+  runtimeClassName: gvisor
+  # The Kubernetes API: the control-plane nodes on 6443, the API's ClusterIP on 443.
+  kubeApi:
+    - { cidr: 192.168.1.155/32, port: 6443 }
+    - { cidr: 192.168.1.156/32, port: 6443 }
+    - { cidr: 192.168.1.157/32, port: 6443 }
+    - { cidr: 10.43.0.1/32, port: 443 }
+  storage:
+    size: 5Gi
+    storageClass: longhorn
+  bots:
+    # Builds and tests in each repo's Nix dev shell (nix develop), downloading from the internet;
+    # safe to allow because the workbench runs under gVisor. No cluster or LAN access.
+    developer:
+      cluster: none
+      writes: false
+      internet: true
+      nix: { size: 10Gi }  # the Nix store: dev shells' tools, downloaded once
+      resources:
+        requests: { cpu: 100m, memory: 1Gi, ephemeral-storage: 256Mi }
+        limits: { cpu: "2", memory: 3Gi, ephemeral-storage: 1Gi }
+      ops: true            # hrld's read-only operations view (HRLD_OPS_URL / HRLD_OPS_TOKEN)
+    homelab-ops:
+      cluster: read        # read everything except Secrets (incl. pod logs: accepted)
+      writes: true         # the kubectl tool: routine writes at once, others after Pol's ✅
+      internet: true       # public internet (80/443; never the cluster or LAN): runs under gVisor
+      # Custom resources the monitor report and the watchdog read (view skips them); read-only.
+      readResources:
+        - { apiGroups: [volsync.backube], resources: [replicationsources, replicationdestinations] }
+        - { apiGroups: [argoproj.io], resources: [applications, appprojects] }
+      # The monitor report reads alerts from Prometheus and Alertmanager.
+      extraEgress:
+        - to:
+            - namespaceSelector:
+                matchLabels: { kubernetes.io/metadata.name: monitoring }
+              podSelector:
+                matchExpressions:
+                  - { key: app.kubernetes.io/name, operator: In, values: [prometheus, alertmanager] }
+          ports:
+            - { protocol: TCP, port: 9090 }
+            - { protocol: TCP, port: 9093 }
+      ops: true            # hrld's read-only operations view (HRLD_OPS_URL / HRLD_OPS_TOKEN)
+
+# The client API stays off until loomie calls it (then: api.enabled, api.oidc for Pocket ID,
+# api.allowFrom for the loomie namespace).
+
+networkPolicy:
+  extraEgress:
+    # loomie's MCP endpoint (its NetworkPolicy loomie-allow-hrld admits only this pod).
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: loomie }
+          podSelector:
+            matchLabels: { app: loomie-backend }
+      ports:
+        - { protocol: TCP, port: 8080 }
+    # Pocket ID's token endpoint, in-cluster (the public name is not reachable from pods).
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: pocket-id }
+          podSelector:
+            matchLabels: { app.kubernetes.io/name: pocket-id }
+      ports:
+        - { protocol: TCP, port: 1411 }
+
+# The Claude Code token for bots on claude-code, and the OpenRouter key for the fallback's last step
+# (hrld reads each from its env var).
+extraEnv:
+  - name: CLAUDE_CODE_OAUTH_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: hrld-claude
+        key: token
+  - name: OPENROUTER_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: hrld-openrouter
+        key: api_key
+
+# Each active Claude conversation holds a Claude Code process (~150-300 MB; at most 3 live).
+resources:
+  requests:
+    cpu: 50m
+    memory: 256Mi
+  limits:
+    memory: 1536Mi
+
+# Bots' git: through hrld's GitHub App (forgenn-hrld; secret from externalsecret.yaml) and its proxy.
+github:
+  enabled: true
+  secretName: hrld-github
