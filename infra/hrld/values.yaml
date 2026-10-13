@@ -108,12 +108,19 @@ config:
   delegate:
     provider: claude-code
     modelId: opus
-  # Model fallback: when a conversation's model fails before answering (a Claude session limit, an
-  # outage, a removed model), the turn goes to these in order. Each bot still tries its own model first.
+  # Model fallback, by quality tier: when a conversation's model fails before answering (a Claude
+  # session limit, an outage, a removed model), the turn goes to the other models of its own tier,
+  # then the lower tiers, then the higher ones. Each bot still tries its own model first. Within a
+  # tier: the Claude subscription, then Z.AI's Coding Plan, then OpenRouter (paid per token) last.
+  # Conversation titles and tags start at the low tier.
   fallback:
-    - { provider: claude-code, modelId: opus }
-    - { provider: zai, modelId: glm-5.3 }
-    - { provider: openrouter, modelId: deepseek/deepseek-v4.1-flash }
+    - { provider: claude-code, modelId: opus, tier: max }
+    - { provider: zai, modelId: glm-5.3, tier: max }
+    - { provider: claude-code, modelId: sonnet, tier: medium }
+    - { provider: zai, modelId: glm-5-turbo, tier: medium }
+    - { provider: claude-code, modelId: haiku, tier: low }
+    - { provider: zai, modelId: glm-5.3-flash, tier: low }
+    - { provider: openrouter, modelId: deepseek/deepseek-v4.1-flash, tier: low }
   bots:
     - id: test
       localpart: hrld_test
