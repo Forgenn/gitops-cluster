@@ -126,6 +126,11 @@ config:
       localpart: hrld_test
     - id: homelab-ops
       localpart: hrld_homelab_ops
+      # loomie's task boards: what it works on goes on the AI board; it sees Pol's tasks too.
+      mcp:
+        - server: loomie
+          scopes: ["loomie:read", "loomie:write"]
+          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, post_news, list_news]
       git:
         repos: [Forgenn/gitops-cluster, Forgenn/nixos-config]
       exec:
@@ -134,6 +139,11 @@ config:
           approval: []
     - id: research
       localpart: hrld_research
+      # What's new: it files what it finds (post_news) and reads back what is filed, to not repeat.
+      mcp:
+        - server: loomie
+          scopes: ["loomie:read", "loomie:write"]
+          tools: [post_news, list_news, list_board_tasks, create_task, update_task, complete_task]
     - id: shopper
       localpart: hrld_shopper
       # loomie's tea library (what Pol tried, liked, wants) and shopping list: only these tools, so the
@@ -144,8 +154,18 @@ config:
           tools: [get_tea_context, add_tea_to_buy, list_shopping_items, add_shopping_item]
     - id: projects
       localpart: hrld_projects
+      # loomie's task boards: what it works on goes on the AI board; it sees Pol's tasks too.
+      mcp:
+        - server: loomie
+          scopes: ["loomie:read", "loomie:write"]
+          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task]
     - id: developer
       localpart: hrld_developer
+      # loomie's task boards: what it works on goes on the AI board; it sees Pol's tasks too.
+      mcp:
+        - server: loomie
+          scopes: ["loomie:read", "loomie:write"]
+          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task]
       # Every repo, by pull request; merging waits for Pol's approval (merge_pr).
       git:
         repos: [Forgenn/loomie, Forgenn/hrld, Forgenn/plder, Forgenn/gitops-cluster, Forgenn/nixos-config]
