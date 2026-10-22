@@ -98,11 +98,47 @@ config:
         Report only items that are news: at or below target (green circle, first), price changed since your last
         digest (earlier in this conversation), stock status changed, or the page could not be read. One line per
         item: name, current price (target), stock status, and the link. If no item is news, answer exactly [SILENT].
+    # Task sweeps: each bot looks for work on loomie's board in its areas (task-areas in its prompt). New
+    # tasks wake their bots when tagged; a sweep catches what that missed, unblocked tasks and stale claims.
+    # Bots on Claude Code (developer, assistant) sweep less: each run is a Claude Code session.
+    - id: task-sweep
+      bot: developer
+      schedule: "0 9,18 * * *"
+      timezone: Europe/Dublin
+      prompt: &sweep |
+        Task sweep: look for work as your task-areas section says (your blocked tasks, then stale ones, then
+        claim one pending task of your areas if you hold none) and work it. If you claimed, finished, unblocked,
+        released and retagged nothing, answer exactly [SILENT].
+    - id: task-sweep
+      bot: homelab-ops
+      schedule: "0 8,14,20 * * *"
+      timezone: Europe/Dublin
+      prompt: *sweep
+    - id: task-sweep
+      bot: projects
+      schedule: "0 10 * * *"
+      timezone: Europe/Dublin
+      prompt: *sweep
+    - id: task-sweep
+      bot: research
+      schedule: "15 10 * * *"
+      timezone: Europe/Dublin
+      prompt: *sweep
+    - id: task-sweep
+      bot: shopper
+      schedule: "30 10 * * *"
+      timezone: Europe/Dublin
+      prompt: *sweep
+    - id: task-sweep
+      bot: assistant
+      schedule: "30 9 * * *"
+      timezone: Europe/Dublin
+      prompt: *sweep
   # plder, the Pi configuration repo, at a pinned commit (fetched through hrld's GitHub App): the bots'
   # instructions and settings (hrld/bots/<id>) and the plugins (pi/plugins). Here: what each bot may reach.
   plder:
     repo: Forgenn/plder
-    ref: db42b3383b21684652e7d0e08c24051b8796e6af
+    ref: 13186366bdb7b1155986914c1c67f7226563ed3a
   # The stronger model every bot can hand a hard task to (the delegate tool: an investigation, a
   # review): Claude Opus through Claude Code, on the subscription.
   delegate:
@@ -123,8 +159,6 @@ config:
     - { provider: claude-code, modelId: haiku, tier: low }
     - { provider: openrouter, modelId: deepseek/deepseek-v4.1-flash, tier: low }
   bots:
-    - id: test
-      localpart: hrld_test
     - id: homelab-ops
       localpart: hrld_homelab_ops
       # loomie's task boards: what it works on goes on the AI board; it sees Pol's tasks too.
@@ -147,12 +181,12 @@ config:
           tools: [post_news, list_news, list_board_tasks, create_task, update_task, complete_task, claim_task]
     - id: shopper
       localpart: hrld_shopper
-      # loomie's tea library (what Pol tried, liked, wants) and shopping list: only these tools, so the
-      # write scope reaches nothing but the tea wishlist and the shopping list.
+      # loomie's tea library (what Pol tried, liked, wants), shopping list and task boards: only these
+      # tools, so the write scope reaches nothing but the tea wishlist, the shopping list and tasks.
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
-          tools: [get_tea_context, add_tea_to_buy, list_shopping_items, add_shopping_item]
+          tools: [get_tea_context, add_tea_to_buy, list_shopping_items, add_shopping_item, list_board_tasks, create_task, update_task, complete_task, claim_task]
     - id: projects
       localpart: hrld_projects
       # loomie's task boards: what it works on goes on the AI board; it sees Pol's tasks too.
