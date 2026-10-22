@@ -10,6 +10,11 @@ config:
   # loomie posts into Matrix room conversations as Pol (needs his non-exclusive namespace in
   # the Tuwunel registration). Pol verifies the "loomie (via hrld)" session once from Element.
   postAs: "@ntb:matrix.monederobox.dev"
+  # Each bot's chat with Pol is its "Home" conversation in loomie (it takes over the Matrix DM's
+  # conversation, history and all). Scheduled jobs, hand-offs, and the approvals and questions of
+  # the bots' conversations with each other go there; a job's room below is then not used.
+  # Back to matrix: the chat moves back to its DM.
+  delivery: api
   # Z.AI GLM (Coding Plan). Back to OpenRouter: provider openrouter, modelId
   # deepseek/deepseek-v4.1-flash, and secrets.modelApiKey.name hrld-openrouter.
   model:
