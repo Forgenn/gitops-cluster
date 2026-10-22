@@ -3,18 +3,6 @@ imagePullSecrets:
   - name: registry-credentials
 
 config:
-  homeserver:
-    url: http://tuwunel.tuwunel.svc.cluster.local:8008
-    serverName: matrix.monederobox.dev
-  allowUsers: ["@ntb:matrix.monederobox.dev"]
-  # loomie posts into Matrix room conversations as Pol (needs his non-exclusive namespace in
-  # the Tuwunel registration). Pol verifies the "loomie (via hrld)" session once from Element.
-  postAs: "@ntb:matrix.monederobox.dev"
-  # Each bot's chat with Pol is its "Home" conversation in loomie (it takes over the Matrix DM's
-  # conversation, history and all). Scheduled jobs, hand-offs, and the approvals and questions of
-  # the bots' conversations with each other go there; a job's room below is then not used.
-  # Back to matrix: the chat moves back to its DM.
-  delivery: api
   # Z.AI GLM (Coding Plan). Back to OpenRouter: provider openrouter, modelId
   # deepseek/deepseek-v4.1-flash, and secrets.modelApiKey.name hrld-openrouter.
   model:
@@ -26,7 +14,6 @@ config:
       bot: homelab-ops
       schedule: "0 9 * * *"
       timezone: Europe/Dublin
-      room: "!sLsGu_8fVYtcm7rJ4ca-kTbDVmt25ixMYb81kD7wlDA"   # homelab-ops <-> Pol
       prompt: |
         You are the cluster monitor for this homelab k3s cluster. Run a health check and report ONLY what Pol genuinely needs to act on or be aware of. Do not report healthy status beyond the one-line all-clear.
 
@@ -50,7 +37,6 @@ config:
       bot: homelab-ops
       schedule: "30 10 * * *"
       timezone: Europe/Dublin
-      room: "!sLsGu_8fVYtcm7rJ4ca-kTbDVmt25ixMYb81kD7wlDA"
       script: |
         # VolSync staleness watchdog (ported from plder hermes/profiles/monitor/scripts/plder/volsync_staleness.py):
         # one line per ReplicationSource with no successful sync in 36 h, nothing when all are fresh. A listing
@@ -165,7 +151,6 @@ config:
     - { provider: openrouter, modelId: deepseek/deepseek-v4.1-flash, tier: low }
   bots:
     - id: homelab-ops
-      localpart: hrld_homelab_ops
       # loomie's task boards: what it works on goes on the AI board; it sees Pol's tasks too.
       mcp:
         - server: loomie
@@ -178,14 +163,12 @@ config:
           deny: []
           approval: []
     - id: research
-      localpart: hrld_research
       # What's new: it files what it finds (post_news) and reads back what is filed, to not repeat.
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
           tools: [post_news, list_news, list_board_tasks, create_task, update_task, complete_task, claim_task]
     - id: shopper
-      localpart: hrld_shopper
       # loomie's tea library (what Pol tried, liked, wants), shopping list and task boards: only these
       # tools, so the write scope reaches nothing but the tea wishlist, the shopping list and tasks.
       mcp:
@@ -193,14 +176,12 @@ config:
           scopes: ["loomie:read", "loomie:write"]
           tools: [get_tea_context, add_tea_to_buy, list_shopping_items, add_shopping_item, list_board_tasks, create_task, update_task, complete_task, claim_task]
     - id: projects
-      localpart: hrld_projects
       # loomie's task boards: what it works on goes on the AI board; it sees Pol's tasks too.
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
           tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task]
     - id: developer
-      localpart: hrld_developer
       # loomie's task boards: what it works on goes on the AI board; it sees Pol's tasks too.
       mcp:
         - server: loomie
@@ -214,7 +195,6 @@ config:
           deny: []
           approval: []
     - id: assistant
-      localpart: hrld_assistant
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
@@ -257,15 +237,13 @@ api:
         matchLabels: { app: loomie-backend }
 
 secrets:
-  appservice:
-    name: hrld-appservice
   modelApiKey:
     name: hrld-glm
     key: api_key
   mcp:
     name: hrld-mcp
 
-# The PVC (pvc.yaml) holds the conversations and the E2EE crypto stores: never let the chart own it.
+# The PVC (pvc.yaml) holds the conversations: never let the chart own it.
 persistence:
   existingClaim: hrld-data
 
