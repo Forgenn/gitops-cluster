@@ -102,7 +102,7 @@ config:
   # instructions and settings (hrld/bots/<id>) and the plugins (pi/plugins). Here: what each bot may reach.
   plder:
     repo: Forgenn/plder
-    ref: ab8395daeeac878331cdd0ab9343ee3567425c99
+    ref: db42b3383b21684652e7d0e08c24051b8796e6af
   # The stronger model every bot can hand a hard task to (the delegate tool: an investigation, a
   # review): Claude Opus through Claude Code, on the subscription.
   delegate:
@@ -111,15 +111,16 @@ config:
   # Model fallback, by quality tier: when a conversation's model fails before answering (a Claude
   # session limit, an outage, a removed model), the turn goes to the other models of its own tier,
   # then the lower tiers, then the higher ones. Each bot still tries its own model first. Within a
-  # tier: the Claude subscription, then Z.AI's Coding Plan, then OpenRouter (paid per token) last.
-  # Conversation titles and tags start at the low tier.
+  # tier: the Claude subscription, then Z.AI's Coding Plan, then OpenRouter (paid per token) last;
+  # except the low tier, which starts at Z.AI: a plain API call, no Claude Code process to start.
+  # Conversation titles and tags, and new loomie tasks' tags (POST /v1/tags), start at the low tier.
   fallback:
     - { provider: claude-code, modelId: opus, tier: max }
     - { provider: zai, modelId: glm-5.3, tier: max }
     - { provider: claude-code, modelId: sonnet, tier: medium }
     - { provider: zai, modelId: glm-5-turbo, tier: medium }
-    - { provider: claude-code, modelId: haiku, tier: low }
     - { provider: zai, modelId: glm-5.3-flash, tier: low }
+    - { provider: claude-code, modelId: haiku, tier: low }
     - { provider: openrouter, modelId: deepseek/deepseek-v4.1-flash, tier: low }
   bots:
     - id: test
@@ -130,7 +131,7 @@ config:
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
-          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, post_news, list_news]
+          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task, post_news, list_news]
       git:
         repos: [Forgenn/gitops-cluster, Forgenn/nixos-config]
       exec:
@@ -143,7 +144,7 @@ config:
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
-          tools: [post_news, list_news, list_board_tasks, create_task, update_task, complete_task]
+          tools: [post_news, list_news, list_board_tasks, create_task, update_task, complete_task, claim_task]
     - id: shopper
       localpart: hrld_shopper
       # loomie's tea library (what Pol tried, liked, wants) and shopping list: only these tools, so the
@@ -158,14 +159,14 @@ config:
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
-          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task]
+          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task]
     - id: developer
       localpart: hrld_developer
       # loomie's task boards: what it works on goes on the AI board; it sees Pol's tasks too.
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
-          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task]
+          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task]
       # Every repo, by pull request; merging waits for Pol's approval (merge_pr).
       git:
         repos: [Forgenn/loomie, Forgenn/hrld, Forgenn/plder, Forgenn/gitops-cluster, Forgenn/nixos-config]
