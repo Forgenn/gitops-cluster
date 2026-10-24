@@ -1,4 +1,0 @@
-image:
-  repository: 4ntb/porkbun-webhook
-  tag: v1.1
-  pullPolicy: IfNotPresent
