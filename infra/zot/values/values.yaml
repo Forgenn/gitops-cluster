@@ -10,7 +10,9 @@ image:
 persistence: true
 pvc:
   create: true
-  storage: 50Gi
+  # 50Gi filled up (6.9% free 2026-10-23, ~0.8%/day); k8s 1.35 in-place STS
+  # PVC resize expands the existing claim zot-pvc-zot-0 when Argo applies this.
+  storage: 100Gi
   storageClassName: longhorn
   accessMode: ReadWriteOnce
 
