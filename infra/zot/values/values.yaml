@@ -10,8 +10,12 @@ image:
 persistence: true
 pvc:
   create: true
-  # 50Gi filled up (6.9% free 2026-10-23, ~0.8%/day); k8s 1.35 in-place STS
-  # PVC resize expands the existing claim zot-pvc-zot-0 when Argo applies this.
+  # 50Gi filled up (6.9% free 2026-10-23, ~0.8%/day). NOTE: k3s v1.35.6 REJECTS
+  # volumeClaimTemplates updates (in-place STS resize not enabled), so changing
+  # this size alone never applies — Argo just flaps Unknown<->Synced. Converge with:
+  #   1. kubectl patch pvc zot-pvc-zot-0 -n zot (storage expansion, longhorn SC allows it)
+  #   2. kubectl delete sts zot -n zot --cascade=orphan  (pod+PVC stay up)
+  #   3. Argo auto-sync recreates the STS at this size (2026-10-24: done, 100Gi live)
   storage: 100Gi
   storageClassName: longhorn
   accessMode: ReadWriteOnce
