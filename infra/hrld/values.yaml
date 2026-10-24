@@ -52,6 +52,23 @@ config:
               | select($now - $t > 36 * 3600)
               | "🔴 volsync \($w): last successful sync \(.status.lastSyncTime) (\((($now - $t) / 3600) | floor)h ago)"
             end' | sort
+    # The weekly CVE scan of our images (infra/cve-scan, Sunday 03:00): read, and turned into tasks.
+    - id: cve-review
+      bot: homelab-ops
+      schedule: "0 9 * * 0"
+      timezone: Europe/Dublin
+      prompt: |
+        Weekly CVE review. Read the scan: kubectl get configmap cve-report -n cve-scan -o jsonpath='{.data.scanned-at}'
+        and -o jsonpath='{.data.report\.txt}'. It lists our own images running in the cluster with their HIGH and
+        CRITICAL CVEs that have a fix.
+        - The ConfigMap is missing, or scanned-at is more than 8 days old: say the scan did not run (🔴), with
+          kubectl get cronjob,jobs -n cve-scan and the last job's logs.
+        - For each CRITICAL, and each HIGH not in last week's report (this conversation has it): one line, image,
+          CVE, package, installed -> fixed version.
+        - For a fixable CVE in loomie or hrld images, make sure a task exists: list_board_tasks first; if none
+          covers it, create_task "Fix <CVE> in <image>" tagged loomie or hrld (the developer takes it on).
+        - Images it could not scan: list them.
+        If nothing is new since last week and nothing is missing, answer exactly [SILENT].
     # Dependency updates (Renovate), ported from Hermes's homelab-ops: reviewed weekly; merging waits for Pol.
     - id: dependency-review
       bot: homelab-ops
