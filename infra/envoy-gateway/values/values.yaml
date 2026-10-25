@@ -1,15 +1,18 @@
 # Controller itself was single-replica with no PDB (separate from the data-plane
-# proxy HA'd earlier -- see envoy-proxy.yaml). Uses leader election like every other
-# controller-runtime operator in this cluster, so 2 replicas is safe. These are true
-# top-level chart values (unlike config.envoyGateway.* below, which is the
-# EnvoyGateway static config file) -- verified against `helm show values` for this
-# exact chart/version before writing, given the earlier wrong-schema mistake on this
-# same chart. Found via the Opus 5 audit.
-podDisruptionBudget:
-  minAvailable: 1
-
+# proxy HA'd earlier -- see envoy-proxy.yaml).
+#
+# Keep this at ONE replica. Envoy Gateway's leader election gates the
+# watch/translate pipeline, NOT the xDS gRPC server: a standby replica still
+# accepts envoy data-plane streams and serves its own (stale or divergent)
+# snapshot. With 2 replicas we observed (2026-10-25, during the
+# resources.monoderobox.dev rollout) envoy pods pinned to different replicas
+# holding DIFFERENT listener configs: fresh TLS connections got
+# `filter_chain_not_found` for SNIs other pods served fine (loomie, vault,
+# resources), while existing long-lived connections (browsers) kept working —
+# so the gateway was silently broken for new connections depending on which
+# envoy pod answered. Single replica = single translator = one snapshot.
 deployment:
-  replicas: 2
+  replicas: 1
 
 provider:
   kubernetes:
