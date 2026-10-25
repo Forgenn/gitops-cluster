@@ -321,6 +321,15 @@ workbenches:
           ports:
             - { protocol: TCP, port: 9090 }
             - { protocol: TCP, port: 9093 }
+        # Chat files (resources.monederobox.dev): publish artifacts into the
+        # SeaweedFS filer's /chats tree, served internally for Pol to view.
+        - to:
+            - namespaceSelector:
+                matchLabels: { kubernetes.io/metadata.name: seaweedfs }
+              podSelector:
+                matchLabels: { app.kubernetes.io/component: filer }
+          ports:
+            - { protocol: TCP, port: 8888 }
       ops: true            # hrld's read-only operations view (HRLD_OPS_URL / HRLD_OPS_TOKEN)
 
 # The client API stays off until loomie calls it (then: api.enabled, api.oidc for Pocket ID,
