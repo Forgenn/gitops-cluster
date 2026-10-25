@@ -132,7 +132,7 @@ Persona answers in each new topic. Everything else is verified on the real path 
 - **Plan 3 status this plan assumes.** Part A is live (gitops `a1cd7bd`: `sync.py` installs plder `hermes/root/config.yaml`, `SYNC_VERSION = 2`, ConfigMap `hermes-config` holds only `ssh_config`; plder `306f2fe` pins `_config_version: 38`). Part B (`hermes/ci/validate.py`, `bump_ref.py`, `image_checks.sh`/`.py`, `.github/workflows/hermes-config.yml`) must be **merged to plder master before Task 2 Step 6**. Tasks 4 and 6 edit `validate.py`, `test_validate.py` and `image_checks.py`: read the merged versions first and, if review changed their shape, put the two roster call sites at the equivalent points (end of `validate()`, after the manifest loop in `image_checks.main`).
 - **Shell state does not survive between tool calls.** Values printed by one step (job ids, fire times, thread ids, `DEPLOY_AT`, SHAs) appear as `REPLACE_…` in later steps; set them from the recorded output.
 - Operator decisions in `.superpowers/planning/common-context.md` ("Operator decisions 2026-09-14") concern plan 5 (developer PAT scope) and plder documentation; nothing here conflicts with them.
-- Workstation paths: gitops-check `C:\Users\Pol\projects\gitops-check` (= gitops-cluster clone), plder `C:\Users\Pol\projects\plder`. Git Bash needs `export MSYS_NO_PATHCONV=1` (the ops scripts set it).
+- Workstation paths: gitops-check `C:\Users\the user\projects\gitops-check` (= gitops-cluster clone), plder `C:\Users\the user\projects\plder`. Git Bash needs `export MSYS_NO_PATHCONV=1` (the ops scripts set it).
 
 ## Recorded at execution (fill in)
 
@@ -171,7 +171,7 @@ Expected: roughly the numbers in "Capacity". Save them in the Task 12 record.
 - [ ] **Step 2: Edit the resources**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check && git checkout main && git pull --ff-only
+cd /c/Users/the user/projects/gitops-check && git checkout main && git pull --ff-only
 python - <<'PY'
 p = "infra/hermes-agent/deployment.yaml"
 s = open(p, encoding="utf-8").read()
@@ -219,7 +219,7 @@ git commit -m "hermes: raise the agent memory limit to 3Gi for the bot roster"
 Gates: not 08:45–09:15 UTC; volsync within 36 h.
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check && git pull --rebase origin main && git push origin main
+cd /c/Users/the user/projects/gitops-check && git pull --rebase origin main && git push origin main
 GITOPS_SHA=$(git rev-parse HEAD)
 export MSYS_NO_PATHCONV=1
 kubectl wait application/hermes-agent -n argocd --for=jsonpath='{.status.sync.revision}'="$GITOPS_SHA" --timeout=900s
@@ -332,8 +332,8 @@ def test_refuses_a_config_without_the_blocks():
 - [ ] **Step 2: Run it to verify it fails**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops 2>/dev/null || mkdir -p /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops && python -m pytest -q test_add_route.py 2>&1 | tail -3
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops 2>/dev/null || mkdir -p /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops && python -m pytest -q test_add_route.py 2>&1 | tail -3
 ```
 
 Expected: `ModuleNotFoundError: No module named 'add_route'`.
@@ -435,7 +435,7 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run the tests**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops && python -m pytest -q test_add_route.py 2>&1 | tail -2
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops && python -m pytest -q test_add_route.py 2>&1 | tail -2
 ```
 
 Expected: `8 passed`.
@@ -739,7 +739,7 @@ the cluster. `PROFILE` is `default` for the root home.
 - [ ] **Step 6: Exercise the kit against root and monitor (controller)**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops
 chmod +x *.sh
 ./profile-state.sh default monitor
 ./mem.sh 24h
@@ -771,7 +771,7 @@ Expected: matching md5s; `installed profile monitor`; `applied ref <REF> (result
 - [ ] **Step 7: Commit and push (controller)**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check
+cd /c/Users/the user/projects/gitops-check
 git add infra/hermes-agent/ops
 git commit -m "hermes: add workstation ops kit for probes, rehearsals and bot routes"
 git pull --rebase origin main && git push origin main
@@ -798,7 +798,7 @@ The push changes no manifest, so ArgoCD shows no diff and the pod does not roll.
 - [ ] **Step 1: Branch**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check && git checkout main && git pull --ff-only && git checkout -b hermes-skill-allowlist
+cd /c/Users/the user/projects/gitops-check && git checkout main && git pull --ff-only && git checkout -b hermes-skill-allowlist
 ```
 
 - [ ] **Step 2: Write the failing tests**
@@ -1027,7 +1027,7 @@ def test_sync_version_marks_skill_curation():
 - [ ] **Step 3: Run to verify they fail**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/sync
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/sync
 python -m pytest -q -k "curate or installed_skill_names or sync_version_marks" 2>&1 | tail -5
 ```
 
@@ -1209,9 +1209,9 @@ def curate_skills(home: Path, src: Path) -> None:
 - [ ] **Step 5: Run the full suite**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/sync
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/sync
 python -m pytest -q 2>&1 | tail -3
-ls -d /c/Users/Pol/AppData/Local/hermes/profiles/shopper 2>&1 | tail -1
+ls -d /c/Users/the user/AppData/Local/hermes/profiles/shopper 2>&1 | tail -1
 ```
 
 Expected: `0 failed`; `No such file or directory`.
@@ -1219,7 +1219,7 @@ Expected: `0 failed`; `No such file or directory`.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check
+cd /c/Users/the user/projects/gitops-check
 git add infra/hermes-agent/sync/sync.py infra/hermes-agent/sync/test_sync.py
 git commit -m "hermes: generate profile skills.disabled from a declared allowlist"
 ```
@@ -1229,7 +1229,7 @@ git commit -m "hermes: generate profile skills.disabled from a declared allowlis
 No plder profile has an allowlist yet, so curation must be a no-op and everything else identical to today.
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops
 REF=$(kubectl get deploy hermes-agent -n hermes -o jsonpath='{.spec.template.spec.initContainers[?(@.name=="profile-sync")].env[?(@.name=="AGENT_CONFIG_REF")].value}')
 ./rehearse-sync.sh "$REF" 2>&1 | grep -E "md5|installed profile|skills curated|applied ref|sync_version|skills_disabled_count|NotFound"
 ```
@@ -1241,7 +1241,7 @@ Expected: md5s match; `installed profile monitor`; **no** `skills curated` line;
 Gates: volsync within 36 h; not 08:45–09:15 UTC.
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check
+cd /c/Users/the user/projects/gitops-check
 git checkout main && git pull --ff-only
 git merge --no-ff hermes-skill-allowlist -m "hermes: curate profile skills from declared allowlists"
 git push origin main
@@ -1288,7 +1288,7 @@ Rules (`check_image`): allowlisted bundled/optional names exist in the image; ev
 - [ ] **Step 1: Branch**
 
 ```bash
-cd /c/Users/Pol/projects/plder && git checkout master && git pull --ff-only && git checkout -b hermes-roster-checks
+cd /c/Users/the user/projects/plder && git checkout master && git pull --ff-only && git checkout -b hermes-roster-checks
 ```
 
 - [ ] **Step 2: Write the failing tests**
@@ -1482,7 +1482,7 @@ def test_skill_inventory_reads_names_and_requirements(tree):
 - [ ] **Step 3: Run to verify failure**
 
 ```bash
-cd /c/Users/Pol/projects/plder && python -m pytest -q hermes/ci/test_roster.py 2>&1 | tail -3
+cd /c/Users/the user/projects/plder && python -m pytest -q hermes/ci/test_roster.py 2>&1 | tail -3
 ```
 
 Expected: `ModuleNotFoundError: No module named 'roster'`.
@@ -1691,7 +1691,7 @@ def check_image(hermes: Path, bundled_dir: Path = Path("/opt/hermes/skills"),
 - [ ] **Step 5: Run the tests**
 
 ```bash
-cd /c/Users/Pol/projects/plder && python -m pytest -q hermes/ci 2>&1 | tail -3
+cd /c/Users/the user/projects/plder && python -m pytest -q hermes/ci 2>&1 | tail -3
 ```
 
 Expected: `0 failed` (plan 3's tests plus 22 here).
@@ -1719,7 +1719,7 @@ git commit -m "ci: add roster checks for curated bot profiles"
 - [ ] **Step 1: Branch and write the failing tests**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check && git checkout main && git pull --ff-only && git checkout -b hermes-push-guard
+cd /c/Users/the user/projects/gitops-check && git checkout main && git pull --ff-only && git checkout -b hermes-push-guard
 mkdir -p infra/hermes-agent/githooks
 ```
 
@@ -1817,7 +1817,7 @@ def test_branch_deletion_is_ignored():
 ```
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/githooks && python -m pytest -q 2>&1 | tail -3
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/githooks && python -m pytest -q 2>&1 | tail -3
 ```
 
 Expected: `ModuleNotFoundError: No module named 'pre_push'`.
@@ -1914,7 +1914,7 @@ if __name__ == "__main__":
 - [ ] **Step 3: Run the tests**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/githooks && python -m pytest -q 2>&1 | tail -2
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/githooks && python -m pytest -q 2>&1 | tail -2
 ```
 
 Expected: `6 passed`.
@@ -1965,7 +1965,7 @@ and in `volumes`:
 ```
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check
+cd /c/Users/the user/projects/gitops-check
 kubectl kustomize infra/hermes-agent | python -c "
 import sys, yaml
 docs = [d for d in yaml.safe_load_all(sys.stdin) if d]
@@ -1984,7 +1984,7 @@ Expected: one `hermes-githooks-<hash>` ConfigMap with keys `['gitconfig', 'pre-p
 - [ ] **Step 5: Add the bypass denials to the root approvals (plder)**
 
 ```bash
-cd /c/Users/Pol/projects/plder && git checkout master && git pull --ff-only && git checkout -b hermes-approvals-guard
+cd /c/Users/the user/projects/plder && git checkout master && git pull --ff-only && git checkout -b hermes-approvals-guard
 python - <<'PY'
 p = "hermes/root/config.yaml"
 raw = open(p, "rb").read()
@@ -2017,7 +2017,7 @@ Expected: `deny deny [... 8 entries ...]`; `OK: hermes is valid`.
 Gates: volsync within 36 h; not 08:45–09:15 UTC. gitops first (the hook), then plder (the denials) — two rolls.
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check && git checkout main && git pull --ff-only
+cd /c/Users/the user/projects/gitops-check && git checkout main && git pull --ff-only
 git merge --no-ff hermes-push-guard -m "hermes: git pre-push guard for infra/hermes-agent" && git push origin main
 GITOPS_SHA=$(git rev-parse HEAD); export MSYS_NO_PATHCONV=1
 kubectl wait application/hermes-agent -n argocd --for=jsonpath='{.status.sync.revision}'="$GITOPS_SHA" --timeout=900s
@@ -2025,13 +2025,13 @@ kubectl rollout status deployment/hermes-agent -n hermes --timeout=900s
 ```
 
 ```bash
-cd /c/Users/Pol/projects/plder && git push -u origin hermes-approvals-guard
+cd /c/Users/the user/projects/plder && git push -u origin hermes-approvals-guard
 gh pr create --repo Forgenn/plder --base master --head hermes-approvals-guard \
   --title "hermes: deny bypasses of the agent's git pre-push guard" --body "Plan: gitops-cluster docs/plans/2026-09-14-hermes-bot-roster.md Task 5"
 gh pr checks hermes-approvals-guard --repo Forgenn/plder --watch
 gh pr merge hermes-approvals-guard --repo Forgenn/plder --merge --delete-branch
 git checkout master && git pull --ff-only && SHA=$(git rev-parse HEAD)
-/c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops/wait-deploy.sh "$SHA"
+/c/Users/the user/projects/gitops-check/infra/hermes-agent/ops/wait-deploy.sh "$SHA"
 ```
 
 Expected: checks pass; the profile-sync log shows `copied config.yaml …` and `applied ref <SHA:0:12> (result: ok)`.
@@ -2039,7 +2039,7 @@ Expected: checks pass; the profile-sync log shows `copied config.yaml …` and `
 - [ ] **Step 7 (controller): Verify the guard on the real container**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops
 . ./lib.sh
 pexec <<'SH'
 /command/s6-setuidgid hermes sh -c '
@@ -2181,7 +2181,7 @@ _config_version: 38
 - [ ] **Step 1: Capture the monitor's current surface (controller)**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops
 ./profile-state.sh monitor | tee /tmp/monitor-before.json
 ```
 
@@ -2190,7 +2190,7 @@ Record `skills_enabled`. Expected to include `hermes-agent` and `kubernetes-moni
 - [ ] **Step 2: Add `auxiliary` to the root config**
 
 ```bash
-cd /c/Users/Pol/projects/plder && git checkout hermes-roster-checks && git rebase master
+cd /c/Users/the user/projects/plder && git checkout hermes-roster-checks && git rebase master
 python - <<'PY'
 p = "hermes/root/config.yaml"
 raw = open(p, "rb").read()
@@ -2266,7 +2266,7 @@ optional: []
 ```
 
 ```bash
-cd /c/Users/Pol/projects/plder
+cd /c/Users/the user/projects/plder
 python - <<'PY'
 import yaml
 root = yaml.safe_load(open("hermes/root/config.yaml", encoding="utf-8"))
@@ -2302,7 +2302,7 @@ PY
 ```
 
 ```bash
-cd /c/Users/Pol/projects/plder
+cd /c/Users/the user/projects/plder
 python -m pytest -q hermes/ci 2>&1 | tail -2
 python hermes/ci/validate.py hermes; echo "exit=$?"
 git add hermes/root/config.yaml hermes/profiles/monitor hermes/ci
@@ -2314,13 +2314,13 @@ Expected: `0 failed`; `OK: hermes is valid`, `exit=0`.
 - [ ] **Step 5 (controller): PR, CI, rehearsal**
 
 ```bash
-cd /c/Users/Pol/projects/plder && git push -u origin hermes-roster-checks
+cd /c/Users/the user/projects/plder && git push -u origin hermes-roster-checks
 gh pr create --repo Forgenn/plder --base master --head hermes-roster-checks \
   --title "hermes: roster checks, pinned auxiliary models, curated monitor" \
   --body "Plan: gitops-cluster docs/plans/2026-09-14-hermes-bot-roster.md Tasks 4 and 6"
 gh pr checks hermes-roster-checks --repo Forgenn/plder --watch
 BR=$(git rev-parse HEAD)
-/c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops/rehearse-sync.sh "$BR" 2>&1 | tail -70
+/c/Users/the user/projects/gitops-check/infra/hermes-agent/ops/rehearse-sync.sh "$BR" 2>&1 | tail -70
 ```
 
 Expected: `validate` passes (the image step shows `image checks: 0 failure(s)`). In the rehearsal: `installed profile monitor`, `skills curated for monitor: 1 allowed, 81 bundled disabled`, `applied ref <BR> (result: ok)`; monitor JSON: `toolsets.telegram` contains exactly the declared eight plus any recovered non-configurable toolsets (no `browser`, `delegation`, `cronjob`, `code_execution`, `vision`, `image_gen`, `tts`, `bfl`), `skills_enabled` = `["hermes-agent"]` (the scratch home has no hand-made skill), `api_server_enabled: false`, `aux_vision` shows `provider: openrouter`, `model: google/gemini-3.8-flash` **and** a `timeout` (deep merge kept the defaults), `mcp_servers: []`; image checks `0 failure(s)`; `NotFound`.
@@ -2334,8 +2334,8 @@ Gates: volsync within 36 h; not 08:45–09:15 UTC.
 ```bash
 DEPLOY_AT=$(date -u +"%Y-%m-%d %H:%M")
 gh pr merge hermes-roster-checks --repo Forgenn/plder --merge --delete-branch
-cd /c/Users/Pol/projects/plder && git checkout master && git pull --ff-only && SHA=$(git rev-parse HEAD)
-/c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops/wait-deploy.sh "$SHA"
+cd /c/Users/the user/projects/plder && git checkout master && git pull --ff-only && SHA=$(git rev-parse HEAD)
+/c/Users/the user/projects/gitops-check/infra/hermes-agent/ops/wait-deploy.sh "$SHA"
 echo "deployed after $DEPLOY_AT"
 ```
 
@@ -2344,7 +2344,7 @@ Expected log: `copied config.yaml …`, `installed profile monitor`, `skills cur
 - [ ] **Step 7 (controller): Verify on the real path**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops
 DEPLOY_AT="REPLACE_WITH_STEP_6_VALUE"   # e.g. "2026-09-15 14:02"
 ./profile-state.sh default monitor
 . ./lib.sh; pexec "$DEPLOY_AT" <<'SH'
@@ -2399,7 +2399,7 @@ The next morning, confirm the 09:00 report still arrived in the monitor topic (`
 - [ ] **Step 1: Branch and write the failing tests**
 
 ```bash
-cd /c/Users/Pol/projects/plder && git checkout master && git pull --ff-only && git checkout -b hermes-volsync-watchdog
+cd /c/Users/the user/projects/plder && git checkout master && git pull --ff-only && git checkout -b hermes-volsync-watchdog
 ```
 
 ```python
@@ -2552,7 +2552,7 @@ Expected: `0 failed`.
 - [ ] **Step 3: Declare it**
 
 ```bash
-cd /c/Users/Pol/projects/plder
+cd /c/Users/the user/projects/plder
 python - <<'PY'
 import json
 p = "hermes/profiles/monitor/distribution.yaml"
@@ -2599,9 +2599,9 @@ git push -u origin hermes-volsync-watchdog
 gh pr create --repo Forgenn/plder --base master --head hermes-volsync-watchdog \
   --title "hermes: monitor volsync staleness watchdog" --body "Plan: gitops-cluster docs/plans/2026-09-14-hermes-bot-roster.md Task 7"
 gh pr checks hermes-volsync-watchdog --repo Forgenn/plder --watch
-/c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops/rehearse-sync.sh "$(git rev-parse HEAD)" 2>&1 | grep -E "installed profile|cron: .*monitor|applied ref|image checks|NotFound"
+/c/Users/the user/projects/gitops-check/infra/hermes-agent/ops/rehearse-sync.sh "$(git rev-parse HEAD)" 2>&1 | grep -E "installed profile|cron: .*monitor|applied ref|image checks|NotFound"
 gh pr merge hermes-volsync-watchdog --repo Forgenn/plder --merge --delete-branch
-git checkout master && git pull --ff-only && /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops/wait-deploy.sh "$(git rev-parse HEAD)"
+git checkout master && git pull --ff-only && /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops/wait-deploy.sh "$(git rev-parse HEAD)"
 ```
 
 Expected: checks pass; rehearsal `cron: 2 job(s) in /tmp/fh/profiles/monitor/cron/jobs.json`, `result: ok`; deploy log `cron: 2 job(s) in /opt/data/profiles/monitor/cron/jobs.json`.
@@ -2609,7 +2609,7 @@ Expected: checks pass; rehearsal `cron: 2 job(s) in /tmp/fh/profiles/monitor/cro
 - [ ] **Step 5 (controller): Verify**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops
 . ./lib.sh
 pexec <<'SH'
 ls -l /opt/data/profiles/monitor/scripts/plder/
@@ -2646,8 +2646,8 @@ Expected: `last_status=ok`, `marker_in_response: True` (every source is reported
 
 Each bot task fills in the bot-specific files, then runs these steps with its own `BOT`, `TOPIC` and thread variable. A bot is done only when every **R** step passes; the next bot starts only then.
 
-- **R1 (controller) — topic.** `cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops && ./create-topic.sh "$TOPIC"` → record the printed id in "Recorded at execution". Run once: a re-run creates a second topic (delete a stray one in Telegram).
-- **R2 — route.** On the bot's plder branch: `python /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops/add_route.py hermes/root/config.yaml "$BOT" 7850573137 "$THREAD"`, then `python hermes/ci/validate.py hermes` → `OK`.
+- **R1 (controller) — topic.** `cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops && ./create-topic.sh "$TOPIC"` → record the printed id in "Recorded at execution". Run once: a re-run creates a second topic (delete a stray one in Telegram).
+- **R2 — route.** On the bot's plder branch: `python /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops/add_route.py hermes/root/config.yaml "$BOT" 7850573137 "$THREAD"`, then `python hermes/ci/validate.py hermes` → `OK`.
 - **R3 — local tests.** `python -m pytest -q hermes/ci` → `0 failed`.
 - **R4 (controller) — PR and CI.** Push the branch, `gh pr create`, `gh pr checks <branch> --watch`. The image step must show `OK: installed <BOT>` and `image checks: 0 failure(s)`.
 - **R5 (controller) — rehearsal.** `ops/rehearse-sync.sh "$(git rev-parse HEAD)"`. Expected: `installed profile <BOT>`; `skills curated for <BOT>: <n> allowed, <d> bundled disabled` with **no** `not installed` warning; `applied ref … (result: ok)`; the bot's JSON shows the declared model, the declared toolsets per platform (plus recovered non-configurable ones only), `skills_enabled` = the allowlist plus its custom skills, `api_server_enabled: false`, `aux_vision` pinned, `mcp_servers: []`; image checks `0 failure(s)`; `NotFound`.
@@ -2665,7 +2665,7 @@ Each bot task fills in the bot-specific files, then runs these steps with its ow
 - **R10 (controller) — memory gate.** `ops/mem.sh 1h` → `(ok)`. On `GATE FAILED`, stop the rollout and revisit Task 1.
 - **R11 — operator check (deferred to Task 12).** Record the question for this bot.
 
-Every scripted step runs from `cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops`; shell variables do not survive between tool calls, so re-set `BOT`, `THREAD` and job ids from the previous step's output.
+Every scripted step runs from `cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops`; shell variables do not survive between tool calls, so re-set `BOT`, `THREAD` and job ids from the previous step's output.
 
 ---
 
@@ -2684,7 +2684,7 @@ Every scripted step runs from `cd /c/Users/Pol/projects/gitops-check/infra/herme
 - [ ] **Step 2: Branch and capture the custom skills byte-for-byte**
 
 ```bash
-cd /c/Users/Pol/projects/plder && git checkout master && git pull --ff-only && git checkout -b bot/homelab-ops
+cd /c/Users/the user/projects/plder && git checkout master && git pull --ff-only && git checkout -b bot/homelab-ops
 export MSYS_NO_PATHCONV=1
 POD=$(kubectl get pods -n hermes -l app=hermes-agent -o jsonpath='{.items[0].metadata.name}')
 SKILLS="software-development/argocd-diff-and-ownership devops/argocd-operator-drift homelab/homelab-gitops-drive homelab/homelab-nixos-flake homelab/homelab-pvc-storage-migration homelab/homelab-tailscale homelab/homelab-tailscale-remote-access devops/kubernetes-gitops-storage-ops devops/kubernetes-monitoring-troubleshooting"
@@ -2810,8 +2810,8 @@ When a finding is 🔴 and needs a fix rather than just awareness, ask homelab-o
 - [ ] **Step 5: R2, R3; commit**
 
 ```bash
-cd /c/Users/Pol/projects/plder
-python /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops/add_route.py hermes/root/config.yaml homelab-ops 7850573137 REPLACE_HOMELAB_THREAD
+cd /c/Users/the user/projects/plder
+python /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops/add_route.py hermes/root/config.yaml homelab-ops 7850573137 REPLACE_HOMELAB_THREAD
 python hermes/ci/validate.py hermes && python -m pytest -q hermes/ci 2>&1 | tail -1
 git add hermes/profiles/homelab-ops hermes/profiles/monitor/SOUL.md hermes/root/config.yaml
 git commit -m "hermes: add the homelab-ops bot"
@@ -2967,7 +2967,7 @@ optional: []
 - [ ] **Step 5 (controller): The digest and the `--monitor-url` pattern on the real path**
 
 ```bash
-D=$(./agent-probe.sh shopper "digest probe" "$(python -c "import json;print([j for j in json.load(open('C:/Users/Pol/projects/plder/hermes/profiles/shopper/cron/jobs.json',encoding='utf-8'))['jobs'] if j['id']=='96c4f98cdc65'][0]['prompt'])")")
+D=$(./agent-probe.sh shopper "digest probe" "$(python -c "import json;print([j for j in json.load(open('C:/Users/the user/projects/plder/hermes/profiles/shopper/cron/jobs.json',encoding='utf-8'))['jobs'] if j['id']=='96c4f98cdc65'][0]['prompt'])")")
 W=$(./agent-probe.sh shopper "monitor-url probe" "Watched item probe. Reply with exactly MONITOR_URL_PROBE_RAN." local -- --monitor-url https://example.com/)
 echo "$D $W"
 ```
@@ -3222,7 +3222,7 @@ Send the operator this message (one message, four checks):
 - [ ] **Step 2: Confirm each answer came from the right profile and model**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops && . ./lib.sh
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops && . ./lib.sh
 for b in homelab-ops shopper research projects; do
 ppy "/opt/data/profiles/$b/state.db" "$b" <<'PY'
 import sqlite3, sys

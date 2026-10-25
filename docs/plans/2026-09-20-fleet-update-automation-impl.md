@@ -347,7 +347,7 @@ The `<!-- nix-dry-run:HOST -->` marker is the contract Task 7 parses. Do not cha
 - [ ] **Step 3: Open a PR that proves all three checks report**
 
 ```bash
-cd /c/Users/Pol/projects/nixos-config
+cd /c/Users/the user/projects/nixos-config
 git checkout -b ci/flake-validation
 git add .github/workflows/validate.yml
 git commit -m "ci: evaluate the flake for every host on each PR
@@ -750,7 +750,7 @@ def test_unknown_labels_escalate(gitops):
 - [ ] **Step 3: Run the tests and watch them fail**
 
 ```bash
-cd /c/Users/Pol/projects/plder && python -m pytest hermes/ci/test_update_policy.py -q
+cd /c/Users/the user/projects/plder && python -m pytest hermes/ci/test_update_policy.py -q
 ```
 
 Expected: `ModuleNotFoundError: No module named 'policy'`.
@@ -1141,7 +1141,7 @@ Replace `hermes/profiles/homelab-ops/cron/jobs.json`:
 - [ ] **Step 4: Validate against plder CI**
 
 ```bash
-cd /c/Users/Pol/projects/plder && python -m pytest hermes/ci -q && python hermes/ci/validate.py
+cd /c/Users/the user/projects/plder && python -m pytest hermes/ci -q && python hermes/ci/validate.py
 ```
 
 Expected: all tests pass and the validator accepts the new cron ids and skill. If `validate.py` rejects an unknown `update-policy.yaml`, extend it — see Task 8 Step 1.
@@ -1192,8 +1192,8 @@ In `hermes/profiles/homelab-ops/config.yaml`, extend `secrets` with a second nam
 - [ ] **Step 5: Verify and commit both repos**
 
 ```bash
-cd /c/Users/Pol/projects/plder && python -m pytest hermes/ci -q
-cd /c/Users/Pol/projects/gitops-check && ./scripts/validate-manifests.sh infra/hermes-agent
+cd /c/Users/the user/projects/plder && python -m pytest hermes/ci -q
+cd /c/Users/the user/projects/gitops-check && ./scripts/validate-manifests.sh infra/hermes-agent
 ```
 
 Expected: both green. Commit each repo separately with the standard trailers.

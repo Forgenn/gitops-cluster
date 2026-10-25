@@ -6,14 +6,14 @@ metadata:
 data:
   tuwunel.toml: |
     [global]
-    # Permanent: user IDs are @name:matrix.monederobox.dev (confirmed by Pol 2026-10-02).
+    # Permanent: user IDs are @name:matrix.monederobox.dev (confirmed by the user 2026-10-02).
     server_name = "matrix.monederobox.dev"
     database_path = "/var/lib/tuwunel"
     address = ["0.0.0.0"]
     port = 8008
     allow_federation = false
     trusted_servers = []
-    # Closed after Pol registered @ntb (2026-10-02). Appservice users (hrld bots) are
+    # Closed after the user registered @ntb (2026-10-02). Appservice users (hrld bots) are
     # registered by the appservice and are not affected. To add an account: set true for the
     # registration, then back to false.
     allow_registration = false

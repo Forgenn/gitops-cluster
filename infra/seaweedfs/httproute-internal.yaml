@@ -1,6 +1,6 @@
 # resources.monederobox.dev — the chat-files endpoint (loomie task 77289b3a).
 #
-# Files exchanged with chats (bot-generated reports Pol should view, and files Pol
+# Files exchanged with chats (bot-generated reports the user should view, and files the user
 # uploads through the loomie chat UI) are stored in SeaweedFS under the filer's
 # /chats tree and served here. The filer's HTTP API both serves files with their
 # stored Content-Type (HTML renders in the browser) and lists directories, so

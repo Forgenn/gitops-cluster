@@ -200,7 +200,7 @@ for label, h in (('root', '/opt/data'), ('monitor', '/opt/data/profiles/monitor'
 - [ ] **Step 1: Create the branch**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check
+cd /c/Users/the user/projects/gitops-check
 git checkout main && git pull --ff-only && git checkout -b hermes-config-single-source
 ```
 
@@ -398,7 +398,7 @@ def test_offline_boot_installs_the_last_good_root_config(monkeypatch):
 - [ ] **Step 3: Run the tests to verify they fail**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/sync
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/sync
 python -m pytest -q 2>&1 | tail -15
 ```
 
@@ -547,9 +547,9 @@ with:
 - [ ] **Step 5: Run the full suite**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/sync
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/sync
 python -m pytest -q 2>&1 | tail -3
-ls -d /c/Users/Pol/AppData/Local/hermes/.agent-config 2>&1 | tail -1
+ls -d /c/Users/the user/AppData/Local/hermes/.agent-config 2>&1 | tail -1
 ```
 
 Expected: `0 failed` (about 70 passed), and `No such file or directory` for the live Desktop home.
@@ -557,7 +557,7 @@ Expected: `0 failed` (about 70 passed), and `No such file or directory` for the 
 - [ ] **Step 6: Commit (do not push)**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check
+cd /c/Users/the user/projects/gitops-check
 git add infra/hermes-agent/sync/sync.py infra/hermes-agent/sync/test_sync.py
 git commit -m "hermes: install the root config.yaml from plder in profile-sync"
 ```
@@ -579,8 +579,8 @@ The ladder must be proven a no-op before the file can claim version 38. Pinning 
 Paste the throwaway-pod manifest with `P=p3-migrate-rehearsal`, then in the same invocation:
 
 ```bash
-git -C /c/Users/Pol/projects/plder fetch -q && git -C /c/Users/Pol/projects/plder show origin/master:hermes/root/config.yaml | md5sum
-git -C /c/Users/Pol/projects/plder show origin/master:hermes/root/config.yaml \
+git -C /c/Users/the user/projects/plder fetch -q && git -C /c/Users/the user/projects/plder show origin/master:hermes/root/config.yaml | md5sum
+git -C /c/Users/the user/projects/plder show origin/master:hermes/root/config.yaml \
   | kubectl exec -i -n "$NS" "$P" -- sh -c 'mkdir -p /tmp/mh /tmp/home && cat > /tmp/mh/config.yaml && md5sum /tmp/mh/config.yaml'
 kubectl exec -i -n "$NS" "$P" -- env HERMES_HOME=/tmp/mh /opt/hermes/.venv/bin/python - <<'PY'
 import json, yaml
@@ -629,7 +629,7 @@ Expected:
 - [ ] **Step 2: Pull plder master**
 
 ```bash
-cd /c/Users/Pol/projects/plder && git checkout master && git pull --ff-only && git status --short
+cd /c/Users/the user/projects/plder && git checkout master && git pull --ff-only && git status --short
 ```
 
 Expected: a clean tree.
@@ -637,7 +637,7 @@ Expected: a clean tree.
 - [ ] **Step 3: Append the pinned version, preserving the file's line endings**
 
 ```bash
-cd /c/Users/Pol/projects/plder
+cd /c/Users/the user/projects/plder
 python - <<'PY'
 p = "hermes/root/config.yaml"
 raw = open(p, "rb").read()
@@ -665,7 +665,7 @@ Expected: `OK ['_config_version', 'approvals', 'desktop', 'gateway', 'model', 's
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /c/Users/Pol/projects/plder
+cd /c/Users/the user/projects/plder
 git add hermes/root/config.yaml
 git commit -m "hermes: pin the root config schema version to the image's 38"
 git show HEAD:hermes/root/config.yaml | grep -c $'\r'   # expect 0: the blob is LF
@@ -677,7 +677,7 @@ git show --stat HEAD | tail -2                           # expect: 1 file, 8 ins
 Pushing is inert: nothing pins the new SHA yet, and CI does not exist yet.
 
 ```bash
-cd /c/Users/Pol/projects/plder && git push origin master && git rev-parse --short HEAD
+cd /c/Users/the user/projects/plder && git push origin master && git rev-parse --short HEAD
 ```
 
 Record the short SHA as `ROOTREF`.
@@ -742,7 +742,7 @@ In `infra/hermes-agent/deployment.yaml`:
 (d) Pin the ref:
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check
+cd /c/Users/the user/projects/gitops-check
 ROOTREF=REPLACE_WITH_TASK_2_SHA
 python - "$ROOTREF" <<'PY'
 import re, sys
@@ -758,7 +758,7 @@ grep -A1 "name: AGENT_CONFIG_REF" infra/hermes-agent/deployment.yaml
 - [ ] **Step 3: Verify the build**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check
+cd /c/Users/the user/projects/gitops-check
 read -r -d '' CHECK <<'PY'
 import sys, yaml
 docs = [d for d in yaml.safe_load_all(sys.stdin.read()) if d]
@@ -793,7 +793,7 @@ This rehearses the first production boot with the real image, a real clone at `R
 
 ```bash
 ROOTREF=REPLACE_WITH_TASK_2_SHA
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/sync
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/sync
 tar cf - sync.py cron_upsert.py | kubectl exec -i -n "$NS" "$P" -- \
   sh -c 'mkdir -p /tmp/sync /tmp/home /tmp/stg /tmp/fh && tar xf - -C /tmp/sync && md5sum /tmp/sync/*.py'
 md5sum sync.py cron_upsert.py
@@ -801,7 +801,7 @@ kubectl get configmap hermes-config -n "$NS" -o jsonpath='{.data.ssh_config}' \
   | kubectl exec -i -n "$NS" "$P" -- sh -c 'cat > /tmp/ssh_config'
 kubectl get secret hermes-secrets -n "$NS" -o jsonpath='{.data.PLDER_DEPLOY_KEY_READ}' | base64 -d \
   | kubectl exec -i -n "$NS" "$P" -- sh -c 'umask 077; cat > /tmp/k'
-echo "declared md5:"; git -C /c/Users/Pol/projects/plder show "$ROOTREF:hermes/root/config.yaml" | md5sum
+echo "declared md5:"; git -C /c/Users/the user/projects/plder show "$ROOTREF:hermes/root/config.yaml" | md5sum
 kubectl exec -i -n "$NS" "$P" -- env ROOTREF="$ROOTREF" sh -s <<'SH'
 run_sync() {
   env HERMES_HOME=/tmp/fh AGENT_CONFIG_REF="$1" AGENT_IMAGE=nousresearch/hermes-agent:v2026.8.19 PYTHONPATH=/tmp/sync \
@@ -878,7 +878,7 @@ Save the output.
 - [ ] **Step 2: Merge and push**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check
+cd /c/Users/the user/projects/gitops-check
 git checkout main && git pull --ff-only
 git merge --no-ff hermes-config-single-source -m "hermes: make plder the single source of the root config.yaml"
 git push origin main
@@ -916,7 +916,7 @@ ROOTREF=REPLACE_WITH_TASK_2_SHA
 POD=$(kubectl get pods -n hermes --no-headers | grep hermes-agent | awk '{print $1}' | head -1)
 kubectl exec -n hermes $POD -c hermes-agent -- sh -c \
   'md5sum /opt/data/config.yaml; ls -l /opt/data/config.yaml; echo "mounts: $(grep -c " /opt/data/config.yaml " /proc/self/mountinfo)"; ls /opt/data | grep -c "config.yaml.bak" ; echo "--- replaced stub (head):"; head -5 /opt/data/.agent-config/config.yaml.previous'
-git -C /c/Users/Pol/projects/plder show "$ROOTREF:hermes/root/config.yaml" | md5sum
+git -C /c/Users/the user/projects/plder show "$ROOTREF:hermes/root/config.yaml" | md5sum
 echo "config-migrate lines: $(kubectl logs -n hermes $POD -c hermes-agent | grep -c 'config-migrate')"
 kubectl get configmap hermes-config -n hermes -o jsonpath='{.data}' | python -c "import json,sys; print(sorted(json.load(sys.stdin)))"
 ```
@@ -969,7 +969,7 @@ Expected: only `ref <ROOTREF> + image already applied; skipping`, and the md5 un
 - [ ] **Step 1: Branch**
 
 ```bash
-cd /c/Users/Pol/projects/plder && git checkout master && git pull --ff-only && git checkout -b hermes-ci
+cd /c/Users/the user/projects/plder && git checkout master && git pull --ff-only && git checkout -b hermes-ci
 printf '__pycache__/\n.pytest_cache/\n' >> .gitignore
 ```
 
@@ -1224,7 +1224,7 @@ def test_main_emits_github_annotations_in_actions(tree, capsys, monkeypatch):
 - [ ] **Step 3: Run to verify failure**
 
 ```bash
-cd /c/Users/Pol/projects/plder && python -m pytest -q hermes/ci 2>&1 | tail -3
+cd /c/Users/the user/projects/plder && python -m pytest -q hermes/ci 2>&1 | tail -3
 ```
 
 Expected: collection ERROR, `ModuleNotFoundError: No module named 'validate'`.
@@ -1551,7 +1551,7 @@ if __name__ == "__main__":
 - [ ] **Step 5: Run the tests, then validate the real tree**
 
 ```bash
-cd /c/Users/Pol/projects/plder
+cd /c/Users/the user/projects/plder
 python -m pytest -q hermes/ci 2>&1 | tail -3
 python hermes/ci/validate.py hermes; echo "exit=$?"
 ```
@@ -1668,7 +1668,7 @@ def test_cli_get_and_set(tmp_path, capsys):
 - [ ] **Step 2: Run to verify failure**
 
 ```bash
-cd /c/Users/Pol/projects/plder && python -m pytest -q hermes/ci/test_bump_ref.py 2>&1 | tail -3
+cd /c/Users/the user/projects/plder && python -m pytest -q hermes/ci/test_bump_ref.py 2>&1 | tail -3
 ```
 
 Expected: `ModuleNotFoundError: No module named 'bump_ref'`.
@@ -1756,9 +1756,9 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run the tests, then against the real deployment (read-only)**
 
 ```bash
-cd /c/Users/Pol/projects/plder
+cd /c/Users/the user/projects/plder
 python -m pytest -q hermes/ci 2>&1 | tail -3
-python hermes/ci/bump_ref.py get /c/Users/Pol/projects/gitops-check/infra/hermes-agent/deployment.yaml
+python hermes/ci/bump_ref.py get /c/Users/the user/projects/gitops-check/infra/hermes-agent/deployment.yaml
 ```
 
 Expected: `0 failed`, then the currently pinned ref (`<ROOTREF>` after Task 4). The real file contains a comment that mentions `AGENT_CONFIG_REF`, so this proves the pattern ignores it.
@@ -2033,7 +2033,7 @@ YAML strips the block's common indentation, so the heredoc terminator `EOF` land
 - [ ] **Step 4: Lint locally and commit**
 
 ```bash
-cd /c/Users/Pol/projects/plder
+cd /c/Users/the user/projects/plder
 python -c "import yaml; w=yaml.safe_load(open('.github/workflows/hermes-config.yml', encoding='utf-8')); print(sorted(w['jobs']), w[True]['push']['paths'])"
 python -m pytest -q hermes/ci 2>&1 | tail -2
 git add hermes/ci/image_checks.sh hermes/ci/image_checks.py .github/workflows/hermes-config.yml
@@ -2047,7 +2047,7 @@ Expected: `['update-gitops', 'validate'] ['hermes/**', '!hermes/ci/**']` (PyYAML
 Paste the throwaway-pod manifest with `P=p3-ci-rehearsal`, then:
 
 ```bash
-git -C /c/Users/Pol/projects/plder archive --format=tar hermes-ci hermes \
+git -C /c/Users/the user/projects/plder archive --format=tar hermes-ci hermes \
   | kubectl exec -i -n "$NS" "$P" -- sh -c 'mkdir -p /tmp/src && tar xf - -C /tmp/src && ls /tmp/src/hermes'
 kubectl exec -i -n "$NS" "$P" -- sh -s <<'SH'
 echo "== positive"
@@ -2087,7 +2087,7 @@ Expected: `cryptography 44.0.2`. On ImportError, use Step 3's fallback in place 
 - [ ] **Step 2: Write the generator script and run it**
 
 ```bash
-KEYGEN_PY=/c/Users/Pol/projects/gitops-check/.superpowers/planning/plder_ci_keygen.py
+KEYGEN_PY=/c/Users/the user/projects/gitops-check/.superpowers/planning/plder_ci_keygen.py
 cat > "$KEYGEN_PY" <<'PY'
 """Create GITOPS_DEPLOY_KEY (plder secret) + its RW deploy key on gitops-cluster.
 
@@ -2132,7 +2132,7 @@ fp = base64.b64encode(hashlib.sha256(base64.b64decode(public.split()[1])).digest
 print(f"secret GITOPS_DEPLOY_KEY set on Forgenn/plder; deploy key id={added['id']} "
       f"read_only={added['read_only']} SHA256:{fp}")
 PY
-python C:/Users/Pol/projects/gitops-check/.superpowers/planning/plder_ci_keygen.py
+python C:/Users/the user/projects/gitops-check/.superpowers/planning/plder_ci_keygen.py
 ```
 
 Expected: `secret GITOPS_DEPLOY_KEY set on Forgenn/plder; deploy key id=<n> read_only=False SHA256:<fp>`. Nothing else is printed. If a `CalledProcessError` shows, its argv holds only the public key. Fix the cause and re-run the whole step.
@@ -2148,7 +2148,7 @@ kubectl exec -n "$NS" "$P" -- sh -c '
   ssh-keygen -q -t ed25519 -N "" -C plder-ci-update-gitops -f "$d/id" </dev/null \
     && base64 -w0 "$d/id" && printf "\n" && cat "$d/id.pub"
   rc=$?; rm -rf "$d"; exit $rc' \
-  | KEYGEN=pod python C:/Users/Pol/projects/gitops-check/.superpowers/planning/plder_ci_keygen.py
+  | KEYGEN=pod python C:/Users/the user/projects/gitops-check/.superpowers/planning/plder_ci_keygen.py
 ```
 
 Base64 carries the private key through `kubectl exec`'s LF→CRLF translation intact. Expected output is the same as Step 2.
@@ -2158,7 +2158,7 @@ Base64 carries the private key through `kubectl exec`'s LF→CRLF translation in
 ```bash
 gh secret list --repo Forgenn/plder
 gh api repos/Forgenn/gitops-cluster/keys --jq '.[] | "\(.id) \(.title) read_only=\(.read_only)"'
-rm -f /c/Users/Pol/projects/gitops-check/.superpowers/planning/plder_ci_keygen.py
+rm -f /c/Users/the user/projects/gitops-check/.superpowers/planning/plder_ci_keygen.py
 ```
 
 Expected: `GITOPS_DEPLOY_KEY` listed, and exactly one `plder-ci-update-gitops read_only=false` next to the two existing keys.
@@ -2174,7 +2174,7 @@ Risk to accept knowingly: anyone who can push workflow files to plder can use th
 - [ ] **Step 1: Push the branch, open the PR, watch validation**
 
 ```bash
-cd /c/Users/Pol/projects/plder
+cd /c/Users/the user/projects/plder
 git fetch -q && git rebase origin/master && python -m pytest -q hermes/ci 2>&1 | tail -1
 git push -u origin hermes-ci
 gh pr create --repo Forgenn/plder --base master --head hermes-ci \
@@ -2190,7 +2190,7 @@ Expected: `validate` pass and `update-gitops` skipping. The "Dry-run profile ins
 ```bash
 GITOPS_BEFORE=$(gh api repos/Forgenn/gitops-cluster/commits/main --jq .sha)
 gh pr merge hermes-ci --repo Forgenn/plder --merge --delete-branch
-cd /c/Users/Pol/projects/plder && git checkout master && git pull --ff-only
+cd /c/Users/the user/projects/plder && git checkout master && git pull --ff-only
 MERGE_SHA=$(git rev-parse HEAD); echo "$MERGE_SHA"
 ```
 
@@ -2205,7 +2205,7 @@ Expected: empty output. The merge touches only `.github/` and `hermes/ci/**`.
 - [ ] **Step 3: A deliberately invalid config must fail validation**
 
 ```bash
-cd /c/Users/Pol/projects/plder
+cd /c/Users/the user/projects/plder
 git checkout -b ci-invalid-probe
 python - <<'PY'
 p = "hermes/profiles/monitor/config.yaml"
@@ -2237,14 +2237,14 @@ Expected:
 
 ```bash
 gh pr close ci-invalid-probe --repo Forgenn/plder --delete-branch
-cd /c/Users/Pol/projects/plder && git checkout master && git branch -D ci-invalid-probe
+cd /c/Users/the user/projects/plder && git checkout master && git branch -D ci-invalid-probe
 test "$(gh api repos/Forgenn/gitops-cluster/commits/main --jq .sha)" = "$GITOPS_BEFORE" && echo "OK: gitops main untouched"
 ```
 
 - [ ] **Step 5: A Pi-only commit must not trigger the workflow**
 
 ```bash
-cd /c/Users/Pol/projects/plder
+cd /c/Users/the user/projects/plder
 printf 'CI path-filter probe; removed by the next commit.\n' > pi/.ci-path-probe
 git add pi/.ci-path-probe && git commit -m "pi: path-filter probe for the hermes-config workflow" && git push origin master
 PI1=$(git rev-parse HEAD)
@@ -2272,7 +2272,7 @@ Expected: empty output, then `OK: no bump for pi/**`.
 
 **Gates:** volsync within 36h. Not 08:45–09:15 UTC.
 
-**Rollback:** `python /c/Users/Pol/projects/plder/hermes/ci/bump_ref.py set infra/hermes-agent/deployment.yaml <previous ref>` in the gitops clone, then commit and push. Or `git revert` the plder commit, which lets CI pin the revert.
+**Rollback:** `python /c/Users/the user/projects/plder/hermes/ci/bump_ref.py set infra/hermes-agent/deployment.yaml <previous ref>` in the gitops clone, then commit and push. Or `git revert` the plder commit, which lets CI pin the revert.
 
 - [ ] **Step 1: Snapshot**
 
@@ -2281,7 +2281,7 @@ Run Task 4 Step 1's commands, and record `GITOPS_BEFORE=$(gh api repos/Forgenn/g
 - [ ] **Step 2: Make and push the change**
 
 ```bash
-cd /c/Users/Pol/projects/plder && git checkout master && git pull --ff-only
+cd /c/Users/the user/projects/plder && git checkout master && git pull --ff-only
 python - <<'PY'
 p = "hermes/root/config.yaml"
 raw = open(p, "rb").read()
@@ -2340,7 +2340,7 @@ Expected:
 export MSYS_NO_PATHCONV=1
 POD=$(kubectl get pods -n hermes --no-headers | grep hermes-agent | awk '{print $1}' | head -1)
 kubectl exec -n hermes $POD -c hermes-agent -- md5sum /opt/data/config.yaml
-git -C /c/Users/Pol/projects/plder show "$PLDER_SHA:hermes/root/config.yaml" | md5sum
+git -C /c/Users/the user/projects/plder show "$PLDER_SHA:hermes/root/config.yaml" | md5sum
 kubectl exec -n hermes $POD -c hermes-agent -- head -1 /opt/data/config.yaml
 ```
 
@@ -2358,7 +2358,7 @@ gh run rerun "$RUN" --repo Forgenn/plder --job "$JOB"
 until [ "$(gh run view "$RUN" --repo Forgenn/plder --json status --jq .status)" = "completed" ]; do sleep 10; done
 gh run view "$RUN" --repo Forgenn/plder --log | grep "already pins" | tail -1
 test "$(gh api repos/Forgenn/gitops-cluster/commits/main --jq .sha)" = "$GITOPS_SHA" && echo "OK: no second commit"
-cd /c/Users/Pol/projects/gitops-check && git checkout main && git pull --ff-only
+cd /c/Users/the user/projects/gitops-check && git checkout main && git pull --ff-only
 ```
 
 Expected: `gitops already pins <SHORT>, which contains <SHORT>; nothing to do`, then `OK: no second commit`. The local gitops clone is fast-forwarded onto the bot's commit.
@@ -2393,7 +2393,7 @@ Then run the **job-table printer**. Expected: monitor shows `6270d3f018f2 … ma
 - [ ] **Step 2: Push A (declare the throwaway job). The hand-made job survives an applied sync.**
 
 ```bash
-cd /c/Users/Pol/projects/plder && git checkout master && git pull --ff-only
+cd /c/Users/the user/projects/plder && git checkout master && git pull --ff-only
 python - <<'PY'
 import json
 p = "hermes/profiles/monitor/cron/jobs.json"
@@ -2451,7 +2451,7 @@ SH
 Job-table printer. Expected: `plan3-decl-probe … state=paused enabled=False paused_at=<P>`. Save `<P>`.
 
 ```bash
-cd /c/Users/Pol/projects/plder && git pull --ff-only
+cd /c/Users/the user/projects/plder && git pull --ff-only
 python - <<'PY'
 import json
 p = "hermes/profiles/monitor/cron/jobs.json"
@@ -2474,7 +2474,7 @@ After the deploy, the log shows `cron: 3 job(s)` and `result: ok`. Job table:
 - [ ] **Step 5: Push C (remove the declared job). It disappears; the hand-made job survives.**
 
 ```bash
-cd /c/Users/Pol/projects/plder && git pull --ff-only
+cd /c/Users/the user/projects/plder && git pull --ff-only
 python - <<'PY'
 import json
 p = "hermes/profiles/monitor/cron/jobs.json"
@@ -2498,8 +2498,8 @@ Record the printed short SHA as `CREF`. After the deploy, the log shows `cron: 2
 Pinning a commit that does not exist makes the clone step fail exactly as an unreachable GitHub does: `clone()` returns `None` and the same fallback runs. Breaking the key or the network would also break the agent's own git.
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check && git checkout main && git pull --ff-only
-python /c/Users/Pol/projects/plder/hermes/ci/bump_ref.py set infra/hermes-agent/deployment.yaml 0000000
+cd /c/Users/the user/projects/gitops-check && git checkout main && git pull --ff-only
+python /c/Users/the user/projects/plder/hermes/ci/bump_ref.py set infra/hermes-agent/deployment.yaml 0000000
 git commit -am "hermes: pin plder 0000000 to exercise the offline fallback"
 git push origin main || { git pull --rebase origin main && git push origin main; }
 GITOPS_SHA=$(git rev-parse HEAD)
@@ -2510,7 +2510,7 @@ POD=$(kubectl get pods -n hermes --no-headers | grep hermes-agent | awk '{print 
 kubectl get pod -n hermes $POD -o jsonpath='{.status.phase} ready={.status.containerStatuses[0].ready} restarts={.status.containerStatuses[0].restartCount}{"\n"}'
 kubectl logs -n hermes $POD -c profile-sync
 kubectl exec -n hermes $POD -c hermes-agent -- sh -c 'cat /opt/data/.agent-config/applied; echo; md5sum /opt/data/config.yaml'
-git -C /c/Users/Pol/projects/plder show "$CREF:hermes/root/config.yaml" | md5sum
+git -C /c/Users/the user/projects/plder show "$CREF:hermes/root/config.yaml" | md5sum
 ```
 
 Expected:
@@ -2522,8 +2522,8 @@ Expected:
 - [ ] **Step 7: Restore the real pin**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check && git pull --ff-only
-python /c/Users/Pol/projects/plder/hermes/ci/bump_ref.py set infra/hermes-agent/deployment.yaml "$CREF"
+cd /c/Users/the user/projects/gitops-check && git pull --ff-only
+python /c/Users/the user/projects/plder/hermes/ci/bump_ref.py set infra/hermes-agent/deployment.yaml "$CREF"
 git commit -am "hermes: restore plder $CREF after the offline fallback test"
 git push origin main || { git pull --rebase origin main && git push origin main; }
 GITOPS_SHA=$(git rev-parse HEAD)
