@@ -350,8 +350,14 @@ workbenches:
               podSelector:
                 matchLabels: { app.kubernetes.io/name: envoy }
           ports:
+            # 443/80 = service ports as written (API-server style); 10443/10080 = the envoy
+            # pods' container ports the ClusterIP DNATs to — NetworkPolicy evaluates the
+            # post-DNAT destination, so without these the egress REJECTs (found live
+            # 2026-10-25: 'connection refused' to the envoy ClusterIP).
             - { protocol: TCP, port: 443 }
             - { protocol: TCP, port: 80 }
+            - { protocol: TCP, port: 10443 }
+            - { protocol: TCP, port: 10080 }
       ops: true            # hrld's read-only operations view (HRLD_OPS_URL / HRLD_OPS_TOKEN)
 
 # The client API stays off until loomie calls it (then: api.enabled, api.oidc for Pocket ID,
