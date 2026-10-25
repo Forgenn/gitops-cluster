@@ -326,15 +326,10 @@ workbenches:
           ports:
             - { protocol: TCP, port: 9090 }
             - { protocol: TCP, port: 9093 }
-        # Chat files (resources.monederobox.dev): publish artifacts into the
-        # SeaweedFS filer's /chats tree, served internally for the user to view.
-        - to:
-            - namespaceSelector:
-                matchLabels: { kubernetes.io/metadata.name: seaweedfs }
-              podSelector:
-                matchLabels: { app.kubernetes.io/component: filer }
-          ports:
-            - { protocol: TCP, port: 8888 }
+        # Chat files (resources.monoderobox.dev): MCP-only access model (user decision
+        # 2026-10-25) — NO direct filer egress for workbenches or the gateway; bots publish
+        # via the loomie MCP server's publish_file tool (loomie-backend is the sole writer).
+        # The envoy data-plane egress below stays: route diagnostics, not file access.
         # The envoy data plane (in-cluster, via its pods — NOT the LB IP: no masquerade,
         # so internal routes' SecurityPolicies still deny pod IPs; a 403 vs 404 from a
         # --resolve curl tells attached-route from no-route, which is the diagnostic
