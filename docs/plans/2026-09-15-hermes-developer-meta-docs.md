@@ -72,7 +72,7 @@ Everything in plan 3's and plan 4's "Global Constraints" applies verbatim, notab
 - **Controller-only steps** (subagents must not run them): every `git push`, PR create/merge/close, generating or handling any key material (Task 2, and Task 6 Step 1 only if the fallback path is needed), anything reading a Secret's data (not just its status) into a pod, and every step touching the live pod or rolling it. Marked **(controller)**.
 - **The Kubernetes API on dubois drops long `kubectl exec` streams** (plan 4's finding, unchanged). Keep in-pod output short; re-run a read-only step that dies with `connection forcibly closed`; never re-run a write step without first checking whether it already applied.
 - **Multiplex rule (plan 2, binding):** any change to a served profile's config, its allowlist, or its credentials is verified only when a scheduled agent-mode probe passes in **every** served profile's store — by the time this plan runs, that is `default, monitor, homelab-ops, shopper, research, projects`, plus `developer`/`meta` once each lands.
-- Workstation paths: gitops-check `C:\Users\Pol\projects\gitops-check`, plder `C:\Users\Pol\projects\plder`. The `ops/` kit from plan 4 lives at `infra/hermes-agent/ops/` in gitops-check and is used throughout this plan (`agent-probe.sh`, `probe-result.sh`, `probe-cleanup.sh`, `profile-state.sh`, `rehearse-sync.sh`, `wait-deploy.sh`, `mem.sh`, `create-topic.sh`, `add_route.py`). `PROFILE` is `default` for the root home.
+- Workstation paths: gitops-check `C:\Users\the user\projects\gitops-check`, plder `C:\Users\the user\projects\plder`. The `ops/` kit from plan 4 lives at `infra/hermes-agent/ops/` in gitops-check and is used throughout this plan (`agent-probe.sh`, `probe-result.sh`, `probe-cleanup.sh`, `profile-state.sh`, `rehearse-sync.sh`, `wait-deploy.sh`, `mem.sh`, `create-topic.sh`, `add_route.py`). `PROFILE` is `default` for the root home.
 - **Shell state does not survive between tool calls.** Values printed by one step (job ids, fire times, thread ids, SHAs, deploy-key ids/fingerprints) appear as `REPLACE_…` below; set them from the recorded output of the step that printed them.
 
 ## Recorded at execution (fill in)
@@ -102,7 +102,7 @@ Replace the blanket `envFrom: hermes-secrets` on the main container with an expl
 - [ ] **Step 1: Branch and record the baseline**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check && git checkout main && git pull --ff-only && git checkout -b hermes-narrow-envfrom
+cd /c/Users/the user/projects/gitops-check && git checkout main && git pull --ff-only && git checkout -b hermes-narrow-envfrom
 export MSYS_NO_PATHCONV=1
 POD=$(kubectl get pods -n hermes -l app=hermes-agent --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
 # Key-NAME-only proof of today's exposure (count, never a value) — this is what Step 4 must flip to 0.
@@ -191,7 +191,7 @@ git commit -m "hermes: stop exposing the four SSH deploy keys via envFrom (file-
 Gates: not 08:45–09:15 UTC; volsync within 36h.
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check && git pull --rebase origin main && git push origin main
+cd /c/Users/the user/projects/gitops-check && git pull --rebase origin main && git push origin main
 GITOPS_SHA=$(git rev-parse HEAD); export MSYS_NO_PATHCONV=1
 kubectl wait application/hermes-agent -n argocd --for=jsonpath='{.status.sync.revision}'="$GITOPS_SHA" --timeout=900s
 kubectl get application hermes-agent -n argocd -o jsonpath='{.status.sync.status} {.status.health.status} conditions={.status.conditions}{"\n"}'
@@ -209,7 +209,7 @@ Expected: `Synced Healthy conditions=`; the four SSH keys now `0`; the other fou
 - [ ] **Step 5: Full-roster probe and functional git/dashboard proof**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops
 for p in default monitor homelab-ops shopper research projects; do
   eval "P_$p=\$(./agent-probe.sh $p 'envfrom-narrow probe' 'Reply with exactly ENVFROM_NARROW_OK and nothing else.')"
 done
@@ -262,8 +262,8 @@ Expected final listing: the new key, and no key with the old id.
 - [ ] **Step 3 (controller): `FLEET_SSH_KEY` — update the fleet's authorized key in nixos-config**
 
 ```bash
-cd /c/Users/Pol/projects/nixos-config 2>/dev/null || gh repo clone Forgenn/nixos-config /c/Users/Pol/projects/nixos-config
-cd /c/Users/Pol/projects/nixos-config && git checkout main && git pull --ff-only
+cd /c/Users/the user/projects/nixos-config 2>/dev/null || gh repo clone Forgenn/nixos-config /c/Users/the user/projects/nixos-config
+cd /c/Users/the user/projects/nixos-config && git checkout main && git pull --ff-only
 grep -rl "hermes-agent" --include=*.nix . | xargs grep -l "openssh.authorizedKeys\|AAAAC3NzaC1lZDI1NTE5" 2>/dev/null
 ```
 
@@ -296,7 +296,7 @@ Expected: the ExternalSecret condition shows `Ready`/`SecretSynced`, not an erro
 - [ ] **Step 5: Delete the stray key copy**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops && . ./lib.sh
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops && . ./lib.sh
 pexec <<'SH'
 /command/s6-setuidgid hermes sh -c '
 if [ -e /opt/data/home/keys/nixos_deploy_key ]; then
@@ -313,7 +313,7 @@ SH
 - [ ] **Step 6 (controller): Verify each rotated key works, without ever printing a value**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops
 # gitops-cluster + plder (read side): fingerprint match, safe to print (public data).
 . ./lib.sh
 pexec <<'SH'
@@ -357,7 +357,7 @@ Builds the plumbing Task 4 wires into a bot: a new, independently-failing `Exter
 - [ ] **Step 1: Branch and write the failing tests for the credential helper**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check && git checkout main && git pull --ff-only && git checkout -b hermes-developer-pat-channel
+cd /c/Users/the user/projects/gitops-check && git checkout main && git pull --ff-only && git checkout -b hermes-developer-pat-channel
 ```
 
 ```python
@@ -420,7 +420,7 @@ def test_never_echoes_the_token_on_stderr_either():
 - [ ] **Step 2: Run to verify failure**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/githooks && python -m pytest -q test_git_credential_developer_pat.py 2>&1 | tail -3
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/githooks && python -m pytest -q test_git_credential_developer_pat.py 2>&1 | tail -3
 ```
 
 Expected: `FileNotFoundError` / `No such file or directory: '…git_credential_developer_pat.py'`.
@@ -484,7 +484,7 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run the tests**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/githooks && python -m pytest -q 2>&1 | tail -3
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/githooks && python -m pytest -q 2>&1 | tail -3
 ```
 
 Expected: `13 passed` (6 pre-push + 7 here).
@@ -573,7 +573,7 @@ Add it to `infra/hermes-agent/secrets/kustomization.yaml`'s resource list next t
 - [ ] **Step 7: Add the root `terminal.env_passthrough` declaration (plder)**
 
 ```bash
-cd /c/Users/Pol/projects/plder && git checkout master && git pull --ff-only && git checkout -b hermes-developer-pat-channel
+cd /c/Users/the user/projects/plder && git checkout master && git pull --ff-only && git checkout -b hermes-developer-pat-channel
 python - <<'PY'
 p = "hermes/root/config.yaml"
 raw = open(p, "rb").read()
@@ -608,7 +608,7 @@ git commit -m "hermes: declare the developer PAT passthrough name in root config
 - [ ] **Step 8 (controller): Apply, deploy, and prove the isolation on the real pod**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check
+cd /c/Users/the user/projects/gitops-check
 git add infra/hermes-agent
 git commit -m "hermes: independent PAT channel for the developer bot (secret, volume, git-credential helper)"
 git pull --rebase origin main && git push origin main
@@ -621,7 +621,7 @@ kubectl get externalsecret hermes-secrets-developer -n hermes -o jsonpath='{.sta
 Expected (PAT not created yet): a `SecretSyncedError`-shaped condition on `hermes-secrets-developer` **only**; `hermes-secrets` unaffected (`kubectl get externalsecret hermes-secrets -n hermes -o jsonpath='{.status.conditions}'` still shows Ready). The pod is healthy either way (`optional: true` on the volume).
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops
 # Fire a probe in a DIFFERENT profile FIRST, specifically to catch the "first
 # caller wins the passthrough cache" ordering risk noted in Verified facts.
 M=$(./agent-probe.sh monitor "passthrough order probe" "Reply with exactly ORDER_PROBE_OK and nothing else.")
@@ -749,8 +749,8 @@ optional: []
 - [ ] **Step 4: Route, validate, commit**
 
 ```bash
-cd /c/Users/Pol/projects/plder
-python /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops/add_route.py hermes/root/config.yaml developer 7850573137 REPLACE_DEVELOPER_THREAD
+cd /c/Users/the user/projects/plder
+python /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops/add_route.py hermes/root/config.yaml developer 7850573137 REPLACE_DEVELOPER_THREAD
 python hermes/ci/validate.py hermes && python -m pytest -q hermes/ci 2>&1 | tail -1
 git add hermes/profiles/developer hermes/root/config.yaml
 git commit -m "hermes: add the developer bot"
@@ -759,12 +759,12 @@ git commit -m "hermes: add the developer bot"
 - [ ] **Step 5 (controller): PR, CI, rehearsal, merge, deploy**
 
 ```bash
-cd /c/Users/Pol/projects/plder && git push -u origin bot/developer
+cd /c/Users/the user/projects/plder && git push -u origin bot/developer
 gh pr create --repo Forgenn/plder --base master --head bot/developer \
   --title "hermes: add the developer bot" --body "Plan: gitops-cluster docs/plans/2026-09-15-hermes-developer-meta-docs.md Task 4"
 gh pr checks bot/developer --repo Forgenn/plder --watch
 BR=$(git rev-parse HEAD)
-/c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops/rehearse-sync.sh "$BR" 2>&1 | tail -60
+/c/Users/the user/projects/gitops-check/infra/hermes-agent/ops/rehearse-sync.sh "$BR" 2>&1 | tail -60
 ```
 
 Expected in the rehearsal: `installed profile developer`; `skills curated for developer: <n> allowed, <m> bundled disabled`; developer's `toolsets.telegram`/`.cli`/`.cron` match the declared lists; `api_server_enabled: false`; `image checks: 0 failure(s)`.
@@ -772,14 +772,14 @@ Expected in the rehearsal: `installed profile developer`; `skills curated for de
 ```bash
 DEPLOY_AT=$(date -u +"%Y-%m-%d %H:%M")
 gh pr merge bot/developer --repo Forgenn/plder --merge --delete-branch
-cd /c/Users/Pol/projects/plder && git checkout master && git pull --ff-only && SHA=$(git rev-parse HEAD)
-/c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops/wait-deploy.sh "$SHA"
+cd /c/Users/the user/projects/plder && git checkout master && git pull --ff-only && SHA=$(git rev-parse HEAD)
+/c/Users/the user/projects/gitops-check/infra/hermes-agent/ops/wait-deploy.sh "$SHA"
 ```
 
 - [ ] **Step 6 (controller): Verify — PAT absent, then presence detection**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops
 ID=$(./agent-probe.sh developer "pat absence probe" "Run exactly this terminal command and nothing else: git clone https://github.com/Forgenn/loomie /tmp/dev-probe . If it asked for credentials or failed auth, reply PAT_ABSENT. If it succeeded, reply PAT_PRESENT and the first line of git log. Then: rm -rf /tmp/dev-probe")
 ```
 
@@ -814,7 +814,7 @@ ID3=$(./agent-probe.sh homelab-ops "no pat leak probe" "Run exactly: git clone h
 - [ ] **Step 1 (controller): Verify whether `PLDER_DEPLOY_KEY` is really at `/hermes/PLDER_DEPLOY_KEY` — status only, never the value**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/secrets
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/secrets
 cp externalsecret.yaml externalsecret-meta.yaml.tmp   # scratch, not committed yet
 ```
 
@@ -845,7 +845,7 @@ rm infra/hermes-agent/secrets/externalsecret-meta.yaml.tmp
 **If Ready/SecretSynced:** the believed key exists; proceed to Step 2 with `Existing` recorded. **If a sync error:** the private half is not actually at that path — fall back to plan 3 Task 8's pattern (operator generates via `cryptography`/pod `ssh-keygen`, this session never sees the private bytes) but targeting **plder** with **write** access instead of gitops-cluster:
 
 ```bash
-KEYGEN_PY=/c/Users/Pol/projects/gitops-check/.superpowers/planning/plder_meta_keygen.py
+KEYGEN_PY=/c/Users/the user/projects/gitops-check/.superpowers/planning/plder_meta_keygen.py
 # Same script body as plan 3 Task 8's plder_ci_keygen.py, with:
 #   TITLE = "hermes-meta-plder-write"
 #   gh("secret", ...) replaced by: gh("api", "repos/Forgenn/plder/keys", "-f", f"title={TITLE}",
@@ -940,7 +940,7 @@ and a new main-container mount (next to the existing `plder_deploy_key_read` one
 - [ ] **Step 3 (controller): Commit, deploy, verify status (never the value)**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check
+cd /c/Users/the user/projects/gitops-check
 git checkout main && git pull --ff-only && git checkout -b hermes-meta-plder-key
 git add infra/hermes-agent
 git commit -m "hermes: add meta's plder write-key channel (its own ExternalSecret + ssh alias)"
@@ -1091,8 +1091,8 @@ optional: []
 - [ ] **Step 4: Route, validate, commit**
 
 ```bash
-cd /c/Users/Pol/projects/plder
-python /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops/add_route.py hermes/root/config.yaml meta 7850573137 REPLACE_META_THREAD
+cd /c/Users/the user/projects/plder
+python /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops/add_route.py hermes/root/config.yaml meta 7850573137 REPLACE_META_THREAD
 python hermes/ci/validate.py hermes && python -m pytest -q hermes/ci 2>&1 | tail -1
 git add hermes/profiles/meta hermes/root/config.yaml .github/workflows/hermes-config.yml
 git commit -m "hermes: add the meta bot and guard CI against a .github/-touching deploy"
@@ -1105,7 +1105,7 @@ Same shape as Task 4 Step 5 (`bot/meta` branch, `rehearse-sync.sh`, `wait-deploy
 - [ ] **Step 6 (controller): Verify meta's write channel and the CI guard**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops
 ID=$(./agent-probe.sh meta "plder access probe" "Run exactly this terminal command and nothing else: git ls-remote git@github.com-plder-write:Forgenn/plder HEAD . If it printed a 40-character commit hash, reply META_WRITE_KEY_OK. Otherwise reply META_WRITE_KEY_FAIL with the error.")
 ```
 
@@ -1114,7 +1114,7 @@ ID=$(./agent-probe.sh meta "plder access probe" "Run exactly this terminal comma
 CI guard proof (controller, deliberately on a throwaway branch, never `master`):
 
 ```bash
-cd /c/Users/Pol/projects/plder && git checkout -b ci-guard-probe
+cd /c/Users/the user/projects/plder && git checkout -b ci-guard-probe
 echo "# probe, reverted" >> .github/workflows/hermes-config.yml
 git commit -am "probe: touch .github (never merged)"
 git push -u origin ci-guard-probe
@@ -1207,8 +1207,8 @@ Never edit `.github/**` — see your own SOUL.md.
 - [ ] **Step 2: Validate and confirm curation does not touch it**
 
 ```bash
-cd /c/Users/Pol/projects/plder && python hermes/ci/validate.py hermes
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/sync && python -m pytest -q -k custom_or_chat_created 2>&1 | tail -3
+cd /c/Users/the user/projects/plder && python hermes/ci/validate.py hermes
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/sync && python -m pytest -q -k custom_or_chat_created 2>&1 | tail -3
 ```
 
 Expected: `OK: hermes is valid`; the existing plan-4 test passes, proving `curate_skills` never disables anything under `skills/custom/`. If that specific test does not exist when this plan runs (plan 4 landed with a different test layout), add it verbatim from plan 4 Task 3's `test_curate_skills_never_disables_custom_or_chat_created_skills` before proceeding — do not skip this proof.
@@ -1218,7 +1218,7 @@ Expected: `OK: hermes is valid`; the existing plan-4 test passes, proving `curat
 After Task 6's deploy (meta is live with this skill in its `skills/custom/`):
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops
 ./profile-state.sh meta | python -c "import sys,json; d=json.loads(sys.stdin.read().split('==')[1].split('(exit')[0] if False else sys.stdin.read()); print('n/a, see raw output above')" 2>/dev/null || true
 ```
 
@@ -1369,7 +1369,7 @@ and links `pi/`'s config + `hermes/root`'s profile into place.
 - [ ] **Step 3: Validate what's verifiable here, mark the rest**
 
 ```bash
-cd /c/Users/Pol/projects/plder
+cd /c/Users/the user/projects/plder
 nix flake check 2>&1 | tail -30   # only if Nix is available on this workstation -- it is not, per the draft's finding ("Docker daemon is not running", no evidence Nix is installed on Windows)
 ```
 
@@ -1400,7 +1400,7 @@ Already written as part of `docs/install.md` above (Task 8 Step 2) — this task
 
 ```bash
 pi --version 2>&1
-node -e "console.log(require('C:/Users/Pol/projects/plder/package.json').peerDependencies)"
+node -e "console.log(require('C:/Users/the user/projects/plder/package.json').peerDependencies)"
 ```
 
 Expected: workstation pi below `0.62.0` (draft found `0.57.0`); the doc's instruction to `npm install -g @mariozechner/pi-coding-agent@^0.62.0` stands. **Do not run the upgrade** — it would change a tool this session doesn't own the lifecycle of; leave that to whoever follows the doc.
@@ -1416,7 +1416,7 @@ If `pi install git:<host>/<repo>` is not an actual subcommand on the installed p
 - [ ] **Step 4: Commit any corrections found in Steps 1–3**
 
 ```bash
-cd /c/Users/Pol/projects/plder
+cd /c/Users/the user/projects/plder
 git add docs/install.md
 git commit -m "docs: correct install.md against what this workstation could actually verify"
 ```
@@ -1461,7 +1461,7 @@ Update the spec's third open item to point at Task 7's live proof (`skills_list`
 - [ ] **Step 4: Capacity check with all seven bots live**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops
 ./mem.sh 24h; ./mem.sh 1h
 kubectl top pod -n hermes --containers; kubectl top nodes
 ```
@@ -1480,7 +1480,7 @@ Mirrors the spec's "Verification" section across all seven bots, plus this plan'
 export MSYS_NO_PATHCONV=1
 kubectl rollout restart deployment/hermes-agent -n hermes
 kubectl rollout status deployment/hermes-agent -n hermes --timeout=900s
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/ops
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/ops
 ./profile-state.sh default monitor homelab-ops shopper research projects developer meta
 ```
 
@@ -1523,7 +1523,7 @@ If pod network can be interrupted read-only (e.g., a temporary NetworkPolicy tha
 - [ ] **Step 7: Update the spec's Status line**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check && git checkout main && git pull --ff-only && git checkout -b hermes-spec-closeout
+cd /c/Users/the user/projects/gitops-check && git checkout main && git pull --ff-only && git checkout -b hermes-spec-closeout
 python - <<'PY'
 p = "docs/plans/2026-09-12-hermes-config-as-code.md"
 s = open(p, encoding="utf-8").read()

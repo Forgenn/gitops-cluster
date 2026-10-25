@@ -57,7 +57,7 @@ spec:
 # Chat files: who may WRITE into the filer's /chats tree via the in-cluster
 # seaweedfs-filer service. The hrld namespace = the bot gateway and its
 # workbenches (bots publish artifacts with curl); loomie-backend uploads the
-# files Pol attaches in the loomie chat UI. The filer API is unauthenticated,
+# files the user attaches in the loomie chat UI. The filer API is unauthenticated,
 # so this NetworkPolicy is the only gate — keep it tight.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

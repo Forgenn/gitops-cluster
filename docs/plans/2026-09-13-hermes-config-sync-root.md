@@ -36,7 +36,7 @@
 - [ ] **Step 1: Clone plder and record the current Pi manifest**
 
 ```bash
-cd /c/Users/Pol/projects
+cd /c/Users/the user/projects
 git clone git@github.com:Forgenn/plder.git
 cd plder
 git rev-parse --abbrev-ref HEAD   # expect: master
@@ -118,7 +118,7 @@ Capture **before** declaring. If the repo's copy is not the live one, the first 
 
 ```bash
 POD=$(kubectl get pods -n hermes -o name | head -1 | sed 's|pod/||')
-cd /c/Users/Pol/projects/plder
+cd /c/Users/the user/projects/plder
 kubectl exec -n hermes $POD -- cat /opt/data/SOUL.md    > hermes/root/SOUL.md
 kubectl exec -n hermes $POD -- cat /opt/data/config.yaml > hermes/root/config.yaml
 ```
@@ -324,7 +324,7 @@ def test_missing_jobs_key_is_tolerated():
 - [ ] **Step 2: Run the tests to verify they fail**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/sync
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/sync
 python -m pytest test_cron_upsert.py -v
 ```
 
@@ -369,7 +369,7 @@ Expected: PASS. More tests exist now than this plan was drafted with — take
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check
+cd /c/Users/the user/projects/gitops-check
 git add infra/hermes-agent/sync/cron_upsert.py infra/hermes-agent/sync/test_cron_upsert.py
 git commit -m "hermes: add cron upsert module for config sync"
 ```
@@ -432,7 +432,7 @@ def test_corrupt_record_does_not_skip(tmp_path):
 - [ ] **Step 2: Run to verify it fails**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/sync
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/sync
 python -m pytest test_sync.py -v
 ```
 
@@ -483,7 +483,7 @@ with — take "0 failed" as the gate, not a number.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check
+cd /c/Users/the user/projects/gitops-check
 git add infra/hermes-agent/sync/sync.py infra/hermes-agent/sync/test_sync.py
 git commit -m "hermes: add config sync entrypoint script"
 ```
@@ -592,7 +592,7 @@ have.
 - [ ] **Step 7: Verify the manifests still build**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check
+cd /c/Users/the user/projects/gitops-check
 kubectl kustomize infra/hermes-agent > /tmp/hermes-built.yaml && echo "BUILD OK"
 grep -q "secretKey: PLDER_DEPLOY_KEY" /tmp/hermes-built.yaml && echo "OK: externalsecret entry"
 grep -q "plder-deploy-key" /tmp/hermes-built.yaml && echo "OK: volume"
@@ -688,7 +688,7 @@ the clone cannot authenticate.
 - [ ] **Step 3: Pin the ref to the current plder HEAD**
 
 ```bash
-cd /c/Users/Pol/projects/plder && git rev-parse --short HEAD
+cd /c/Users/the user/projects/plder && git rev-parse --short HEAD
 ```
 
 Replace `REPLACE_WITH_PLDER_SHA` in `deployment.yaml` with that value.
@@ -696,7 +696,7 @@ Replace `REPLACE_WITH_PLDER_SHA` in `deployment.yaml` with that value.
 - [ ] **Step 4: Verify the manifests build and the ordering is right**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check
+cd /c/Users/the user/projects/gitops-check
 kubectl kustomize infra/hermes-agent > /tmp/hermes-built.yaml
 python -c "
 import re
@@ -800,7 +800,7 @@ still stale, stop — fix volsync first.
 - [ ] **Step 3: Merge the branch and let ArgoCD sync**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check
+cd /c/Users/the user/projects/gitops-check
 git checkout main && git merge hermes-config-as-code && git push origin main
 kubectl get application hermes-agent -n argocd -o jsonpath='{.status.sync.status}{"\n"}'
 ```

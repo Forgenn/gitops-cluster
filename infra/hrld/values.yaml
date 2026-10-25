@@ -15,7 +15,7 @@ config:
       schedule: "0 9 * * *"
       timezone: Europe/Dublin
       prompt: |
-        You are the cluster monitor for this homelab k3s cluster. Run a health check and report ONLY what Pol genuinely needs to act on or be aware of. Do not report healthy status beyond the one-line all-clear.
+        You are the cluster monitor for this homelab k3s cluster. Run a health check and report ONLY what the user genuinely needs to act on or be aware of. Do not report healthy status beyond the one-line all-clear.
 
         ACCESS: you work in your workbench with read-only cluster access: run kubectl through bash (get, list, logs; no Secrets). You cannot change anything here, and you should not: this is a report. Prometheus is http://prometheus-kube-prometheus-prometheus.monitoring.svc:9090 and Alertmanager is http://prometheus-kube-prometheus-alertmanager.monitoring.svc:9093; query their JSON APIs with curl (and jq).
 
@@ -28,9 +28,9 @@ config:
         6. BACKUP FRESHNESS: kubectl get replicationsources.volsync.backube -A -o json. Flag a source if spec.paused is true, status.lastSyncTime is missing (never backed up), or lastSyncTime is older than 36 hours. Do NOT trust status.latestMoverStatus.result: it is the last run's result and can say Successful for a backup dead for weeks. Judge by lastSyncTime age only. Give namespace/name, hours since the last sync (or never) and whether it is paused. 🔴 if paused, never synced or older than 72h; 🟡 if 36-72h. Do not list healthy sources.
 
         REPORTING RULES:
-        - Exceptions only. If everything is healthy, answer exactly [SILENT]: Pol gets no message on a good day.
+        - Exceptions only. If everything is healthy, answer exactly [SILENT]: the user gets no message on a good day.
         - Report a finding only once while it stays the same: if your previous report (earlier in this conversation) already said it, leave it out unless it got worse. If that leaves nothing, answer exactly [SILENT].
-        - Most severe first, with a 🔴/🟡/✅ prefix per finding: what, where (namespace/app), and the one-line action Pol likely needs.
+        - Most severe first, with a 🔴/🟡/✅ prefix per finding: what, where (namespace/app), and the one-line action the user likely needs.
         - Never dump every PVC, pod or alert. Keep it under ~30 lines: this is a morning alert, not a report.
         - If you cannot reach Prometheus or the cluster at all, say so explicitly; never invent a healthy status.
     - id: volsync-watchdog
@@ -69,7 +69,7 @@ config:
           covers it, create_task "Fix <CVE> in <image>" tagged loomie or hrld (the developer takes it on).
         - Images it could not scan: list them.
         If nothing is new since last week and nothing is missing, answer exactly [SILENT].
-    # Dependency updates (Renovate), ported from Hermes's homelab-ops: reviewed weekly; merging waits for Pol.
+    # Dependency updates (Renovate), ported from Hermes's homelab-ops: reviewed weekly; merging waits for the user.
     - id: dependency-review
       bot: homelab-ops
       schedule: "0 8 * * 1"
@@ -80,12 +80,12 @@ config:
         judge it: the release notes in its description, breaking changes, what the diff touches, and its checks.
         Report, under 25 lines:
         - anything labelled security first;
-        - one line per pull request: repo#number, title, checks, your verdict (merge / Pol should look / hold)
+        - one line per pull request: repo#number, title, checks, your verdict (merge / the user should look / hold)
           and the reason in one sentence;
         - every pull request open more than 14 days, oldest first, naming how long the oldest has waited.
-        Then call merge_pr for each one you judged "merge" whose checks are green: Pol approves each merge.
+        Then call merge_pr for each one you judged "merge" whose checks are green: the user approves each merge.
         Never merge around a red check.
-    # Wave 1 of the cutover (H5): the digests of research and shopper, to each bot's chat with Pol.
+    # Wave 1 of the cutover (H5): the digests of research and shopper, to each bot's chat with the user.
     - id: research-digest
       bot: research
       schedule: "0 8 * * 1"
@@ -146,7 +146,7 @@ config:
   # instructions and settings (hrld/bots/<id>) and the plugins (pi/plugins). Here: what each bot may reach.
   plder:
     repo: Forgenn/plder
-    ref: ea3e5d32c19f53a21dc2b4913f109192bf9dffd5
+    ref: 10e8b44dcaa2f7326173ff6d434bcd2f1b6a80c5
   # The stronger model every bot can hand a hard task to (the delegate tool: an investigation, a
   # review): Claude Opus through Claude Code, on the subscription.
   delegate:
@@ -168,7 +168,7 @@ config:
     - { provider: openrouter, modelId: deepseek/deepseek-v4.1-flash, tier: low }
   bots:
     - id: homelab-ops
-      # loomie's task boards: what it works on goes on the AI board; it sees Pol's tasks too.
+      # loomie's task boards: what it works on goes on the AI board; it sees the user's tasks too.
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
@@ -186,25 +186,25 @@ config:
           scopes: ["loomie:read", "loomie:write"]
           tools: [post_news, list_news, list_board_tasks, create_task, update_task, complete_task, claim_task]
     - id: shopper
-      # loomie's tea library (what Pol tried, liked, wants), shopping list and task boards: only these
+      # loomie's tea library (what the user tried, liked, wants), shopping list and task boards: only these
       # tools, so the write scope reaches nothing but the tea wishlist, the shopping list and tasks.
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
           tools: [get_tea_context, add_tea_to_buy, list_shopping_items, add_shopping_item, list_board_tasks, create_task, update_task, complete_task, claim_task]
     - id: projects
-      # loomie's task boards: what it works on goes on the AI board; it sees Pol's tasks too.
+      # loomie's task boards: what it works on goes on the AI board; it sees the user's tasks too.
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
           tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task]
     - id: developer
-      # loomie's task boards: what it works on goes on the AI board; it sees Pol's tasks too.
+      # loomie's task boards: what it works on goes on the AI board; it sees the user's tasks too.
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
           tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task]
-      # Every repo, by pull request; merging waits for Pol's approval (merge_pr).
+      # Every repo, by pull request; merging waits for the user's approval (merge_pr).
       git:
         repos: [Forgenn/loomie, Forgenn/hrld, Forgenn/plder, Forgenn/gitops-cluster, Forgenn/nixos-config]
       exec:
@@ -226,13 +226,13 @@ config:
         clientIdFile: /secrets/mcp/client_id
         clientSecretFile: /secrets/mcp/client_secret
   # Phone alerts: answers and approvals in loomie Chat conversations are reported to loomie (through
-  # the loomie MCP server above), which pushes what Pol has not seen to his phone.
+  # the loomie MCP server above), which pushes what the user has not seen to their phone.
   alerts:
     mcpServer: loomie
     backend: hrld
     scopes: ["loomie:read", "loomie:write"]
 
-# The client API, for loomie's Chat page: Pocket ID access tokens for the hrld resource, from Pol.
+# The client API, for loomie's Chat page: Pocket ID access tokens for the hrld resource, from the user.
 api:
   enabled: true
   port: 8080
@@ -304,7 +304,7 @@ workbenches:
       ops: true            # hrld's read-only operations view (HRLD_OPS_URL / HRLD_OPS_TOKEN)
     homelab-ops:
       cluster: read        # read everything except Secrets (incl. pod logs: accepted)
-      writes: true         # the kubectl tool: routine writes at once, others after Pol's ✅
+      writes: true         # the kubectl tool: routine writes at once, others after the user's ✅
       internet: true       # public internet (80/443; never the cluster or LAN): runs under gVisor
       # Custom resources the monitor report and the watchdog read (view skips them); read-only.
       readResources:
@@ -322,7 +322,7 @@ workbenches:
             - { protocol: TCP, port: 9090 }
             - { protocol: TCP, port: 9093 }
         # Chat files (resources.monederobox.dev): publish artifacts into the
-        # SeaweedFS filer's /chats tree, served internally for Pol to view.
+        # SeaweedFS filer's /chats tree, served internally for the user to view.
         - to:
             - namespaceSelector:
                 matchLabels: { kubernetes.io/metadata.name: seaweedfs }

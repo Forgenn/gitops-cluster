@@ -64,7 +64,7 @@ Base64 transfer avoids line-ending translation, so the files land byte-identical
 ```bash
 export MSYS_NO_PATHCONV=1
 POD=$(kubectl get pods -n hermes --no-headers | grep hermes-agent | awk '{print $1}' | head -1)
-cd /c/Users/Pol/projects/plder && git pull --ff-only
+cd /c/Users/the user/projects/plder && git pull --ff-only
 mkdir -p hermes/profiles/monitor/assets
 for f in SOUL.md config.yaml assets/avatar.png; do
   kubectl exec -n hermes $POD -c hermes-agent -- base64 -w0 /opt/data/profiles/monitor/$f \
@@ -80,7 +80,7 @@ export MSYS_NO_PATHCONV=1
 POD=$(kubectl get pods -n hermes --no-headers | grep hermes-agent | awk '{print $1}' | head -1)
 kubectl exec -n hermes $POD -c hermes-agent -- sh -c \
   'cd /opt/data/profiles/monitor && md5sum SOUL.md config.yaml assets/avatar.png'
-( cd /c/Users/Pol/projects/plder/hermes/profiles/monitor && md5sum SOUL.md config.yaml assets/avatar.png )
+( cd /c/Users/the user/projects/plder/hermes/profiles/monitor && md5sum SOUL.md config.yaml assets/avatar.png )
 ```
 
 Expected: the three hashes match pairwise.
@@ -103,7 +103,7 @@ distribution_owned:
 - [ ] **Step 4: Commit (do not push yet)**
 
 ```bash
-cd /c/Users/Pol/projects/plder
+cd /c/Users/the user/projects/plder
 git add hermes/profiles/monitor
 git commit -m "hermes: declare the monitor profile as a distribution"
 ```
@@ -127,7 +127,7 @@ The id stays `6270d3f018f2`. On the next sync, the root upsert retires it (it is
 Never retype the 4,084-character prompt.
 
 ```bash
-cd /c/Users/Pol/projects/plder
+cd /c/Users/the user/projects/plder
 python - <<'PY'
 import json
 root_p = "hermes/root/cron/jobs.json"
@@ -151,7 +151,7 @@ Expected: `root jobs: 0 | monitor jobs: 1`
 - [ ] **Step 2: Validate the moved job is unchanged**
 
 ```bash
-cd /c/Users/Pol/projects/plder
+cd /c/Users/the user/projects/plder
 python - <<'PY'
 import json, subprocess
 before = json.loads(subprocess.check_output(["git", "show", "HEAD:hermes/root/cron/jobs.json"]))["jobs"][0]
@@ -329,7 +329,7 @@ def test_main_moves_a_job_from_root_to_a_profile_and_records_it(monkeypatch):
 - [ ] **Step 2: Run the tests to verify they fail**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/sync
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/sync
 python -m pytest test_sync.py -v -k "install_profiles or moves_a_job"
 ```
 
@@ -428,7 +428,7 @@ and in the `APPLIED.write_text(...)` payload replace `"profiles": [],` with `"pr
 - [ ] **Step 5: Run the full suite to verify everything passes**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/sync
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/sync
 python -m pytest -v
 ```
 
@@ -437,7 +437,7 @@ Expected: PASS — all pre-existing tests plus the 9 new ones.
 - [ ] **Step 6: Confirm no test touched a real Hermes home**
 
 ```bash
-ls -d /c/Users/Pol/AppData/Local/hermes/.agent-config /c/Users/Pol/AppData/Local/hermes/profiles/monitor 2>&1
+ls -d /c/Users/the user/AppData/Local/hermes/.agent-config /c/Users/the user/AppData/Local/hermes/profiles/monitor 2>&1
 ```
 
 Expected: both `No such file or directory`.
@@ -445,7 +445,7 @@ Expected: both `No such file or directory`.
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check
+cd /c/Users/the user/projects/gitops-check
 git add infra/hermes-agent/sync/sync.py infra/hermes-agent/sync/test_sync.py
 git commit -m "hermes: install declared profiles in config sync"
 ```
@@ -480,7 +480,7 @@ In `infra/hermes-agent/configmap.yaml`, inside the `config.yaml: |` block, appen
 
 - [ ] **Step 2: Mirror it in plder's root config**
 
-Append to `/c/Users/Pol/projects/plder/hermes/root/config.yaml` (no indentation — it is a plain file):
+Append to `/c/Users/the user/projects/plder/hermes/root/config.yaml` (no indentation — it is a plain file):
 
 ```yaml
 gateway:
@@ -492,12 +492,12 @@ gateway:
 - [ ] **Step 3: Verify both parse and agree**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check
+cd /c/Users/the user/projects/gitops-check
 python - <<'PY'
 import yaml
 cm = yaml.safe_load(open("infra/hermes-agent/configmap.yaml", encoding="utf-8"))
 live = yaml.safe_load(cm["data"]["config.yaml"])["gateway"]
-declared = yaml.safe_load(open("C:/Users/Pol/projects/plder/hermes/root/config.yaml", encoding="utf-8"))["gateway"]
+declared = yaml.safe_load(open("C:/Users/the user/projects/plder/hermes/root/config.yaml", encoding="utf-8"))["gateway"]
 assert live == declared == {"multiplex_profiles": True, "multiplex_profile_allowlist": ["monitor"]}, (live, declared)
 print("OK: ConfigMap and plder root config agree:", live)
 PY
@@ -509,7 +509,7 @@ kubectl kustomize infra/hermes-agent > /dev/null && echo "BUILD OK"
 ```bash
 git add infra/hermes-agent/configmap.yaml
 git commit -m "hermes: serve the monitor profile through gateway multiplex"
-cd /c/Users/Pol/projects/plder
+cd /c/Users/the user/projects/plder
 git add hermes/root/config.yaml
 git commit -m "hermes: mirror gateway multiplex in the declared root config"
 ```
@@ -527,7 +527,7 @@ git commit -m "hermes: mirror gateway multiplex in the declared root config"
 Inert until gitops pins the new SHA.
 
 ```bash
-cd /c/Users/Pol/projects/plder && git push origin master && git rev-parse --short HEAD
+cd /c/Users/the user/projects/plder && git push origin master && git rev-parse --short HEAD
 ```
 
 Record that SHA as `NEWREF`.
@@ -571,7 +571,7 @@ kubectl wait --for=condition=Ready "pod/$P" -n "$NS" --timeout=300s
 
 # Stage the inputs. The deploy key goes straight from the Secret into the pod
 # and never touches the local disk.
-cd /c/Users/Pol/projects/gitops-check/infra/hermes-agent/sync
+cd /c/Users/the user/projects/gitops-check/infra/hermes-agent/sync
 tar cf - sync.py cron_upsert.py | kubectl exec -i -n "$NS" "$P" -- \
   sh -c 'mkdir -p /tmp/sync /tmp/home /tmp/stg /tmp/fh && tar xf - -C /tmp/sync && md5sum /tmp/sync/*.py'
 md5sum sync.py cron_upsert.py   # must match the in-pod hashes above
@@ -647,7 +647,7 @@ Save the output. Step 4 compares against it.
 The ConfigMap is subPath-mounted and does not live-update, so multiplex takes effect only on the pod restart this ref bump causes. Enabling multiplex and moving the job must land in the same restart, or the report has no ticking store in between. Separate commits are fine: ArgoCD reconciles the pushed HEAD, so one push means one sync and one restart. The credential delivery from Task 4's note must be in that same push too.
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check
+cd /c/Users/the user/projects/gitops-check
 NEWREF=REPLACE_WITH_SHA_FROM_TASK_5
 python - "$NEWREF" <<'PY'
 import re, sys
@@ -875,11 +875,11 @@ Mirror the same block under `gateway:` in `plder/hermes/root/config.yaml`. Quote
 - [ ] **Step 3: Verify, commit, deploy**
 
 ```bash
-cd /c/Users/Pol/projects/gitops-check
+cd /c/Users/the user/projects/gitops-check
 python -c "import yaml; r=yaml.safe_load(yaml.safe_load(open('infra/hermes-agent/configmap.yaml', encoding='utf-8'))['data']['config.yaml'])['gateway']['profile_routes'][0]; assert r['platform']=='telegram' and r['profile']=='monitor' and isinstance(r['thread_id'], str); print('OK', r)"
 kubectl kustomize infra/hermes-agent > /dev/null && echo "BUILD OK"
 git add infra/hermes-agent/configmap.yaml && git commit -m "hermes: route the monitor telegram topic to the monitor profile"
-cd /c/Users/Pol/projects/plder && git add hermes/root/config.yaml && git commit -m "hermes: mirror the monitor topic route" && git push origin master
+cd /c/Users/the user/projects/plder && git add hermes/root/config.yaml && git commit -m "hermes: mirror the monitor topic route" && git push origin master
 ```
 
 The ConfigMap does not roll the pod. **Do NOT `rollout restart` before pushing gitops**: a restart before ArgoCD has synced comes up on the OLD ConfigMap and applies nothing. Push gitops first. If the push also bumps `AGENT_CONFIG_REF` (for example because the plder commit changed a declared job), that change to the pod template rolls the pod by itself once ArgoCD syncs; do nothing more. Only if no ref changes: push, wait until ArgoCD reports the app Synced at the new revision, then `kubectl rollout restart deployment/hermes-agent -n hermes`. Afterwards, repeat Task 6 Step 6a: any config change under multiplex needs the agent-mode probe again.
