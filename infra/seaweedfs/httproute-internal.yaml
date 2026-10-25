@@ -33,7 +33,7 @@ spec:
           requestRedirect:
             path:
               type: ReplaceFullPath
-              value: /chats
+              replaceFullPath: /chats
             statusCode: 302
     - matches:
         - path:
