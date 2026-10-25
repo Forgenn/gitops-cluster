@@ -310,6 +310,11 @@ workbenches:
       readResources:
         - { apiGroups: [volsync.backube], resources: [replicationsources, replicationdestinations] }
         - { apiGroups: [argoproj.io], resources: [applications, appprojects] }
+        # Gateway API objects (HTTPRoute debugging: conditions show Accepted/ResolvedRefs;
+        # the 2026-10-25 resources.monoderobox.dev 404 was a schema-invalid route field that
+        # only Argo's SyncError + route status would have shown immediately).
+        - { apiGroups: [gateway.networking.k8s.io], resources: [httproutes, gateways, grpcroutes] }
+        - { apiGroups: [gateway.envoyproxy.io], resources: [securitypolicies, backendtrafficpolicies, clienttrafficpolicies] }
       # The monitor report reads alerts from Prometheus and Alertmanager.
       extraEgress:
         - to:
@@ -330,6 +335,23 @@ workbenches:
                 matchLabels: { app.kubernetes.io/component: filer }
           ports:
             - { protocol: TCP, port: 8888 }
+        # The envoy data plane (in-cluster, via its pods — NOT the LB IP: no masquerade,
+        # so internal routes' SecurityPolicies still deny pod IPs; a 403 vs 404 from a
+        # --resolve curl tells attached-route from no-route, which is the diagnostic
+        # that matters). E.g.:
+        #   curl -sk --resolve resources.monederobox.dev:443:10.43.185.129 \
+        #     -o /dev/null -w '%{http_code}\n' https://resources.monederobox.dev/chats
+        # Reaching the LB IP directly is deliberately NOT granted: pod traffic would
+        # masquerade as a node IP where clientIPDetection trusts XFF — an egress-to-LB
+        # pod could spoof X-Forwarded-For past the CIDR policies.
+        - to:
+            - namespaceSelector:
+                matchLabels: { kubernetes.io/metadata.name: envoy-gateway }
+              podSelector:
+                matchLabels: { app.kubernetes.io/name: envoy }
+          ports:
+            - { protocol: TCP, port: 443 }
+            - { protocol: TCP, port: 80 }
       ops: true            # hrld's read-only operations view (HRLD_OPS_URL / HRLD_OPS_TOKEN)
 
 # The client API stays off until loomie calls it (then: api.enabled, api.oidc for Pocket ID,
