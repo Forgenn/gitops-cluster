@@ -301,6 +301,16 @@ workbenches:
       resources:
         requests: { cpu: 100m, memory: 1Gi, ephemeral-storage: 256Mi }
         limits: { cpu: "2", memory: 3Gi, ephemeral-storage: 1Gi }
+      # Chat files (resources.monederobox.dev), same as homelab-ops: publish artifacts
+      # into the SeaweedFS filer's /chats tree.
+      extraEgress:
+        - to:
+            - namespaceSelector:
+                matchLabels: { kubernetes.io/metadata.name: seaweedfs }
+              podSelector:
+                matchLabels: { app.kubernetes.io/component: filer }
+          ports:
+            - { protocol: TCP, port: 8888 }
       ops: true            # hrld's read-only operations view (HRLD_OPS_URL / HRLD_OPS_TOKEN)
     homelab-ops:
       cluster: read        # read everything except Secrets (incl. pod logs: accepted)
@@ -365,6 +375,16 @@ workbenches:
 
 networkPolicy:
   extraEgress:
+    # Chat files (resources.monederobox.dev): the hrld gateway pod publishes files to the
+    # SeaweedFS filer's /chats tree for every bot (publish_file tool / attachments), not just
+    # the workbenches that shell out with curl.
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: seaweedfs }
+          podSelector:
+            matchLabels: { app.kubernetes.io/component: filer }
+      ports:
+        - { protocol: TCP, port: 8888 }
     # loomie's MCP endpoint (its NetworkPolicy loomie-allow-hrld admits only this pod).
     - to:
         - namespaceSelector:
