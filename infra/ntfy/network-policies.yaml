@@ -41,3 +41,24 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: ntfy
+---
+# Alertmanager (monitoring ns) publishes cluster alerts to topic
+# loomie-cluster-alerts via webhook_configs — see
+# infra/monitoring/values/values.yaml receivers ntfy-critical/ntfy-warning.
+# Without this, ntfy-default-deny-ingress drops that publish and the only trace
+# is an Alertmanager notify error log line.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ntfy-allow-from-monitoring
+  namespace: ntfy
+spec:
+  podSelector:
+    matchLabels:
+      app: ntfy
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring

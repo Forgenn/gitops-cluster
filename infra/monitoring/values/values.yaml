@@ -150,6 +150,12 @@ alertmanager:
     # references the BOT_TOKEN file from there so the token never lands in git.
     secrets:
       - telegram-bot-credentials
+      # NTFY publish password: the SAME Infisical value /ntfy/NTFY_TOKEN the ntfy ns
+      # initContainer uses as the password of user 'loomie' (the only account with
+      # write ACL on topics 'loomie-*'). Key TOKEN -> mounted at
+      # /etc/alertmanager/secrets/ntfy-credentials/TOKEN, referenced by the
+      # ntfy-critical / ntfy-warning webhook receivers below.
+      - ntfy-credentials
 
   # Was routing every alert to a null receiver -- nothing was ever delivered anywhere.
   # chat_id is the numeric Telegram chat ID; low sensitivity (useless without the bot
@@ -238,7 +244,17 @@ alertmanager:
           matchers: ['severity =~ "info|none"']
 
         # 3. Critical: out fast, reminded often.
+        #    Telegram stays first with continue: true: it is the only receiver that
+        #    survives the cluster dying entirely, so it is kept even though the
+        #    phone-side path moved to ntfy. ntfy-critical repeats the same group as
+        #    a phone push (topic loomie-cluster-alerts).
         - receiver: 'telegram'
+          matchers: ['severity = "critical"']
+          group_wait: 10s
+          group_interval: 5m
+          repeat_interval: 1h
+          continue: true
+        - receiver: 'ntfy-critical'
           matchers: ['severity = "critical"']
           group_wait: 10s
           group_interval: 5m
@@ -246,6 +262,12 @@ alertmanager:
 
         # 4. Warning: batched, reminded quietly.
         - receiver: 'telegram'
+          matchers: ['severity = "warning"']
+          group_wait: 2m
+          group_interval: 10m
+          repeat_interval: 24h
+          continue: true
+        - receiver: 'ntfy-warning'
           matchers: ['severity = "warning"']
           group_wait: 2m
           group_interval: 10m
@@ -265,6 +287,39 @@ alertmanager:
             message: '{{ template "telegram.short" . }}'
             # Off by default for Telegram, which means a critical never tells you it
             # cleared and the only way to know is to go and look.
+            send_resolved: true
+
+      # Phone push via the in-cluster ntfy (ns ntfy). Topic loomie-cluster-alerts
+      # deliberately matches the ntfy initContainer ACL ('loomie-*' rw for user
+      # 'loomie'), so no ntfy-side manifest change is needed for publishing, and
+      # auth-default-access: read-only lets the phone subscribe unauthenticated.
+      #
+      # ntfy >= 2.14 formats Alertmanager webhooks NATIVELY (?template=alertmanager
+      # -> built-in alertmanager.yml template: emoji status title + per-alert
+      # labels/annotations), so there is no adapter container to run or maintain.
+      #
+      # Two receivers exist only to map severity -> ntfy priority via the query
+      # param (urgent = vibrating, high = no vibration); the built-in template
+      # supplies title and message. basic_auth password_file rather than a Bearer
+      # token because /ntfy/NTFY_TOKEN is the loomie user's PASSWORD, not a tk_ token.
+      #
+      # Caveat, same one OQ-2 records: ntfy is in-cluster, so a totally dead cluster
+      # pushes nothing -- that is what the kept telegram receiver is for.
+      - name: ntfy-critical
+        webhook_configs:
+          - url: http://ntfy.ntfy.svc.cluster.local/loomie-cluster-alerts?template=alertmanager&priority=urgent
+            http_config:
+              basic_auth:
+                username: loomie
+                password_file: /etc/alertmanager/secrets/ntfy-credentials/TOKEN
+            send_resolved: true
+      - name: ntfy-warning
+        webhook_configs:
+          - url: http://ntfy.ntfy.svc.cluster.local/loomie-cluster-alerts?template=alertmanager&priority=high
+            http_config:
+              basic_auth:
+                username: loomie
+                password_file: /etc/alertmanager/secrets/ntfy-credentials/TOKEN
             send_resolved: true
 
   # Rendered into the alertmanager config Secret by the chart
