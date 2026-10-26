@@ -17,7 +17,7 @@ spec:
     spec:
       initContainers:
         - name: setup-auth
-          image: binwiederhier/ntfy:v2.11.0
+          image: binwiederhier/ntfy:v2.34.0
           command:
             - /bin/sh
             - -c
@@ -74,7 +74,7 @@ spec:
               mountPath: /var/cache/ntfy
       containers:
         - name: ntfy
-          image: binwiederhier/ntfy:v2.11.0
+          image: binwiederhier/ntfy:v2.34.0
           args:
             - serve
             - --config=/etc/ntfy-runtime/server.yml
