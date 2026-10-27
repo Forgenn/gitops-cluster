@@ -67,3 +67,5 @@ runs:
         fi
         echo "pushed $n bump commit(s):"
         git log --oneline origin/main~$n..origin/main
+
+# Pin to @main (or a tag) as you prefer; @v1 can be added once stable.
