@@ -92,3 +92,27 @@ spec:
       ports:
         - protocol: TCP
           port: 8080
+---
+# Alertmanager (monitoring ns) posts alert groups to loomie-backend's integration
+# endpoint (POST /api/v1/integrations/alertmanager) -- see the loomie receiver in
+# infra/monitoring/values/values.yaml. Bearer-token auth is checked by loomie;
+# without this policy the default-deny above drops the POST and the only trace is
+# an Alertmanager notify-error log line.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: loomie-allow-from-monitoring
+  namespace: loomie
+spec:
+  podSelector:
+    matchLabels:
+      app: loomie-backend
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8080

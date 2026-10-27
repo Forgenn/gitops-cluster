@@ -150,6 +150,12 @@ alertmanager:
     # references the BOT_TOKEN file from there so the token never lands in git.
     secrets:
       - telegram-bot-credentials
+      # Bearer token for loomie-backend's Alertmanager integration endpoint
+      # (POST /api/v1/integrations/alertmanager). Key TOKEN -> mounted at
+      # /etc/alertmanager/secrets/loomie-webhook-credentials/TOKEN, referenced by
+      # the loomie receiver below. Same Infisical value loomie-backend gets as env
+      # ALERTMANAGER_WEBHOOK_TOKEN via infra/loomie/secrets/externalsecret.yaml.
+      - loomie-webhook-credentials
 
   # Was routing every alert to a null receiver -- nothing was ever delivered anywhere.
   # chat_id is the numeric Telegram chat ID; low sensitivity (useless without the bot
@@ -238,7 +244,17 @@ alertmanager:
           matchers: ['severity =~ "info|none"']
 
         # 3. Critical: out fast, reminded often.
+        #    Telegram stays first with continue: true: it is the only receiver that
+        #    survives the cluster dying entirely. loomie repeats the same group into
+        #    the homelab-ops conversation: FCM push to the phone + a bot turn so
+        #    homelab-ops triages in-thread.
         - receiver: 'telegram'
+          matchers: ['severity = "critical"']
+          group_wait: 10s
+          group_interval: 5m
+          repeat_interval: 1h
+          continue: true
+        - receiver: 'loomie'
           matchers: ['severity = "critical"']
           group_wait: 10s
           group_interval: 5m
@@ -246,6 +262,12 @@ alertmanager:
 
         # 4. Warning: batched, reminded quietly.
         - receiver: 'telegram'
+          matchers: ['severity = "warning"']
+          group_wait: 2m
+          group_interval: 10m
+          repeat_interval: 24h
+          continue: true
+        - receiver: 'loomie'
           matchers: ['severity = "warning"']
           group_wait: 2m
           group_interval: 10m
@@ -265,6 +287,29 @@ alertmanager:
             message: '{{ template "telegram.short" . }}'
             # Off by default for Telegram, which means a critical never tells you it
             # cleared and the only way to know is to go and look.
+            send_resolved: true
+
+      # The phone path: loomie-backend's Alertmanager integration. One POST per
+      # notification group -> a message in the homelab-ops conversation, which
+      # (a) pushes to the phone via the loomie app's existing FCM machinery and
+      # (b) triggers a homelab-ops bot turn so the alert gets triaged in-thread
+      # instead of only paging a human. Resolved notifications go through too, so
+      # the thread shows the full lifecycle.
+      #
+      # Contract (owned by the loomie-backend implementation): bearer auth from
+      # /loomie/ALERTMANAGER_WEBHOOK_TOKEN, 204 on success, 4xx/5xx on failure
+      # (Alertmanager retries with backoff = fail loud), retry-dedupe by
+      # groupKey+status+fingerprint digest. Alertmanager's own JSON body is fixed,
+      # so ALL formatting happens loomie-side.
+      #
+      # Same in-cluster caveat as everything but Telegram: a totally dead cluster
+      # pushes nothing -- the kept telegram receiver covers that.
+      - name: loomie
+        webhook_configs:
+          - url: http://loomie-backend.loomie.svc.cluster.local:8080/api/v1/integrations/alertmanager
+            http_config:
+              authorization:
+                credentials_file: /etc/alertmanager/secrets/loomie-webhook-credentials/TOKEN
             send_resolved: true
 
   # Rendered into the alertmanager config Secret by the chart

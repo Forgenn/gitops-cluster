@@ -116,6 +116,13 @@ spec:
                 secretKeyRef:
                   name: loomie-secrets
                   key: FCM_SA_KEY
+            # Alertmanager integration: bearer token for
+            # POST /api/v1/integrations/alertmanager (cluster alert pipeline).
+            - name: ALERTMANAGER_WEBHOOK_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: loomie-secrets
+                  key: ALERTMANAGER_WEBHOOK_TOKEN
             - name: APP_URL
               value: "https://loomie.monederobox.dev"
             # Strava integration
