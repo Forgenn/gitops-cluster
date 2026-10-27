@@ -1,31 +1,29 @@
 #!/usr/bin/env bash
-# autobump.sh — move internal images/charts to what our CI last published.
+# autobump.sh — bump an app's manifests to a version its CI just published.
 #
 # Apps in this repo build in their own repos' CI and publish to zot
 # (registry.monederobox.dev): loomie pushes images tagged with the git sha it
 # built; hrld pushes an OCI chart (0.1.0-build.N) that pins the hrld and
-# workbench images inside itself. This script asks the registry what is newest
-# and rewrites the manifests to it, one commit per app, using the message
-# format the repo already has (`chore(loomie): bump images to <sha>`).
+# workbench images inside itself. When a build publishes, that repo's Actions
+# fires repository_dispatch 'bump' {app, version} at this repo
+# (.github/workflows/autobump.yml), which runs this script with exactly that
+# version — the loomie pattern (its CI bumps its own manifests at build time)
+# generalized: no polling, no discovery, the event carries the version.
+#
+# The version is verified to exist in the registry before any manifest moves:
+# a bogus or stale payload fails loudly and never reaches main.
 #
 # Why not Renovate: this repo is public, so it cannot hold registry
 # credentials in its config — internal-registry refs are Renovate's explicit
 # blind spot (.github/renovate.json5 disables them). The workflow's repo
 # secrets can, which is why the loop lives here.
 #
-# The script never pushes. .github/workflows/autobump.yml runs it, then gates
-# the result on scripts/validate-manifests.sh, and only then pushes main.
+# The script never pushes. The workflow gates the result on
+# scripts/validate-manifests.sh and only then pushes main.
 #
-# Two modes:
-#   ./scripts/autobump.sh                 poll: discover the newest version of
-#                                          every track in the registry
-#   ./scripts/autobump.sh --set APP VER   event: an app's CI just published VER
-#                                          (repository_dispatch 'bump'); the
-#                                          version comes from the event, but it
-#                                          must exist in the registry — a bogus
-#                                          payload fails loudly, it never
-#                                          reaches the manifests
-#
+# Usage: ./scripts/autobump.sh <app> <version>   (or: --set <app> <version>)
+#   app      matches the first column of scripts/autobump-tracks.sh
+#   version  exactly what the build published (sha tag, or x.y.z-build.N)
 # Requires: curl, jq, git. Credentials: REGISTRY_USERNAME / REGISTRY_PASSWORD
 # (zot pull credentials — same values as Infisical /zot/*).
 # REGISTRY_SCHEME (default https) and MANIFEST_REGISTRY (the registry host as
@@ -34,16 +32,21 @@
 set -euo pipefail
 export LC_ALL=C
 
-SET_APP='' SET_VER=''
-if [[ "${1:-}" == "--set" ]]; then
-  SET_APP="${2:?--set needs <app> <version>}"
-  SET_VER="${3:?--set needs <app> <version>}"
-fi
-
 REGISTRY_HOST="${REGISTRY_HOST:-registry.monederobox.dev}"
 MANIFEST_REGISTRY="${MANIFEST_REGISTRY:-registry.monederobox.dev}"
 REGISTRY_SCHEME="${REGISTRY_SCHEME:-https}"
 TRACKS_FILE="scripts/autobump-tracks.sh"
+
+APP='' VER=''
+if [[ "${1:-}" == "--set" ]]; then
+  APP="${2:?--set needs <app> <version>}"
+  VER="${3:?--set needs <app> <version>}"
+elif [[ $# -eq 2 ]]; then
+  APP=$1 VER=$2
+else
+  echo "usage: $0 <app> <version>   (app as in $TRACKS_FILE)" >&2
+  exit 1
+fi
 
 if [[ -z "${REGISTRY_USERNAME:-}" || -z "${REGISTRY_PASSWORD:-}" ]]; then
   echo "::error::REGISTRY_USERNAME / REGISTRY_PASSWORD are not set."
@@ -61,58 +64,16 @@ api() {
     -u "$REGISTRY_USERNAME:$REGISTRY_PASSWORD" "$@"
 }
 
-# Bad or missing credentials must fail once, up front — not as a per-tag
-# stream of 401s that looks like broken tags.
+# Bad or missing credentials must fail once, up front — not as a per-request
+# stream of 401s that looks like missing versions.
 api "$REGISTRY_SCHEME://$REGISTRY_HOST/v2/" >/dev/null \
   || die "registry auth failed: GET /v2/ on $REGISTRY_HOST rejected the credentials"
 
 MANIFEST_ACCEPT='application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json'
 
-all_tags() { # <repo>: every tag, following ?n pagination defensively
-  local repo=$1 last='' page count t
-  while :; do
-    page=$(api "$REGISTRY_SCHEME://$REGISTRY_HOST/v2/$repo/tags/list?n=1000${last:+&last=$last}") \
-      || die "could not list tags for $repo"
-    count=$(jq -r '.tags // [] | length' <<<"$page")
-    jq -r '.tags // [] | .[]' <<<"$page"
-    (( count < 1000 )) && return 0
-    t=$(jq -r '.tags // [] | last // empty' <<<"$page")
-    [[ -n "$t" && "$t" != "$last" ]] || die "tags/list pagination for $repo did not advance past '$last'"
-    last=$t
-  done
-}
-
-tag_created() { # <repo> <tag>: the image config's `created` (empty on failure)
-  # A tag that cannot be read (e.g. a dangling ref) is skipped with no noise:
-  # the newest-tag decision only needs the tags that do resolve.
-  local repo=$1 tag=$2 m cdig mdig
-  m=$(api -H "Accept: $MANIFEST_ACCEPT" "$REGISTRY_SCHEME://$REGISTRY_HOST/v2/$repo/manifests/$tag" 2>/dev/null) || return 0
-  cdig=$(jq -r '.config.digest // empty' <<<"$m")
-  if [[ -z "$cdig" ]]; then
-    # An index (multi-arch): descend to the amd64 — or first — manifest.
-    mdig=$(jq -r '([.manifests[]? | select(.platform.architecture == "amd64")][0].digest // .manifests[0].digest // empty)' <<<"$m")
-    [[ -n "$mdig" ]] || return 0
-    m=$(api -H "Accept: $MANIFEST_ACCEPT" "$REGISTRY_SCHEME://$REGISTRY_HOST/v2/$repo/manifests/$mdig" 2>/dev/null) || return 0
-    cdig=$(jq -r '.config.digest // empty' <<<"$m")
-  fi
-  [[ -n "$cdig" ]] || return 0
-  api "$REGISTRY_SCHEME://$REGISTRY_HOST/v2/$repo/blobs/$cdig" 2>/dev/null | jq -r '.created // empty' || true
-}
-
-newest_image_tag() { # <repo>: tag whose config has the latest `created`
-  local repo=$1
-  {
-    while read -r t; do
-      [[ -n "$t" ]] || continue
-      c=$(tag_created "$repo" "$t")
-      [[ -n "$c" ]] || { warn "$repo:$t has no readable created timestamp, skipping"; continue; }
-      printf '%s\t%s\n' "$c" "$t"
-    done < <(all_tags "$repo")
-  } | sort | tail -1 | cut -f2
-}
-
-newest_chart_version() { # <repo>: highest x.y.z-build.N
-  all_tags "$1" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+-build\.[0-9]+$' | sort -V | tail -1
+ref_exists() { # <repo> <ref>: 0 iff the registry serves a manifest for it
+  api -H "Accept: $MANIFEST_ACCEPT" \
+    "$REGISTRY_SCHEME://$REGISTRY_HOST/v2/$1/manifests/$2" >/dev/null 2>&1
 }
 
 # --- load tracks -------------------------------------------------------------
@@ -131,7 +92,7 @@ while read -r app kind repo file; do
 done < "$TRACKS_FILE"
 (( n > 0 )) || die "no tracks in $TRACKS_FILE"
 
-# --- compute and apply bumps ---------------------------------------------------
+# --- verify the version exists, then bump --------------------------------------
 
 git config user.name  "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -142,26 +103,12 @@ matched=0
 
 for i in "${!T_APP[@]}"; do
   app=${T_APP[i]} kind=${T_KIND[i]} repo=${T_REPO[i]} file=${T_FILE[i]}
+  [[ "$app" == "$APP" ]] || continue
+  matched=1
 
-  # the target version: from the event (--set) or discovered in the registry
-  if [[ -n "$SET_APP" ]]; then
-    [[ "$app" == "$SET_APP" ]] || continue
-    matched=1
-    if [[ "$kind" == image-tag ]]; then
-      [[ -n "$(tag_created "$repo" "$SET_VER")" ]] \
-        || die "$repo:$SET_VER does not exist in the registry (refusing to bump)"
-    else
-      all_tags "$repo" | grep -qx "$SET_VER" \
-        || die "$repo:$SET_VER does not exist in the registry (refusing to bump)"
-    fi
-    new=$SET_VER
-  elif [[ "$kind" == image-tag ]]; then
-    new=$(newest_image_tag "$repo")
-    [[ -n "$new" ]] || die "$repo: could not determine the newest tag"
-  else
-    new=$(newest_chart_version "$repo")
-    [[ -n "$new" ]] || die "$repo: no x.y.z-build.N tags found"
-  fi
+  ref_exists "$repo" "$VER" \
+    || die "$repo:$VER does not exist in the registry (refusing to bump)"
+  new=$VER
 
   # the current value, straight from the file, with single-match asserts
   if [[ "$kind" == image-tag ]]; then
@@ -176,7 +123,8 @@ for i in "${!T_APP[@]}"; do
   fi
 
   if [[ "$cur" == "$new" ]]; then
-    echo "$app $repo: up to date ($cur)"
+    echo "$app $repo: already at $cur"
+    APP_SEEN_CURRENT=1
     continue
   fi
 
@@ -206,13 +154,13 @@ for i in "${!T_APP[@]}"; do
   fi
 done
 
-if [[ -n "$SET_APP" && "$matched" -eq 0 ]]; then
-  die "--set: no track for app '$SET_APP' in $TRACKS_FILE"
+if [[ "$matched" -eq 0 ]]; then
+  die "no track for app '$APP' in $TRACKS_FILE"
 fi
 
 changed=$(git status --porcelain | wc -l)
 if (( changed == 0 )); then
-  echo "all tracks up to date; nothing to commit"
+  echo "$APP is already at $VER; nothing to commit"
   exit 0
 fi
 
@@ -236,4 +184,4 @@ for app in "${!APP_FILES[@]}"; do
   echo "::notice::$(git log --oneline -1 | cut -c1-7) $msg"
 done
 
-echo "all tracks checked; $(git rev-list --count origin/main..HEAD 2>/dev/null || echo 0) commit(s) made; validation and push happen in the workflow"
+echo "$APP bumped; validation and push happen in the workflow"
