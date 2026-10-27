@@ -1,0 +1,44 @@
+# Internal-only route (LAN + Tailscale), mirroring infra/seaweedfs/httproute-internal.yaml.
+# Browser sign-in for the dashboard happens on this origin (BETTER_AUTH_URL).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: executor-route
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: envoy-gateway
+      namespace: envoy-gateway
+      sectionName: https
+  hostnames:
+    - "executor.monederobox.dev"
+  rules:
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: executor
+          port: 80
+          weight: 1
+      matches:
+        - path:
+            type: PathPrefix
+            value: /
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: internal-executor-route
+spec:
+  targetRefs:
+    - group: "gateway.networking.k8s.io"
+      name: executor-route
+      kind: HTTPRoute
+  authorization:
+    defaultAction: Deny
+    rules:
+      - action: Allow
+        principal:
+          clientCIDRs:
+            - 100.64.0.0/10
+            - 192.168.1.0/24
