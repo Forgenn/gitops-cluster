@@ -108,7 +108,6 @@
       description: 'Group media app image updates',
       matchPackageNames: [
         'deluan/navidrome',
-        'ghcr.io/suwayomi/suwayomi-server',
         'ghcr.io/kareadita/kavita',
       ],
       groupName: 'media-apps',
