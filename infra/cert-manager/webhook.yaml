@@ -130,7 +130,10 @@ metadata:
     release: cert-manager-webhook-porkbun
     heritage: Helm
 spec:
-  replicas:
+  # 2 replicas + anti-affinity: the APIService v1alpha1.porkbun.ntb.dev is served
+  # solely by this deployment; with 1 replica any node flap pages KubeAggregatedAPIDown
+  # (seen 2026-10-27 when a fleet-wide IO stall flapped all kubelets).
+  replicas: 2
   selector:
     matchLabels:
       app: porkbun-webhook
@@ -142,6 +145,16 @@ spec:
         release: cert-manager-webhook-porkbun
     spec:
       serviceAccountName: cert-manager-webhook-porkbun-porkbun-webhook
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app: porkbun-webhook
+                    release: cert-manager-webhook-porkbun
       containers:
         - name: porkbun-webhook
           image: "4ntb/porkbun-webhook:v1.2"
