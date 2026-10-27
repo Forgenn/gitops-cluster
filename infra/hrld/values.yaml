@@ -403,3 +403,6 @@ resources:
 github:
   enabled: true
   secretName: hrld-github
+  # The user's choice (2026-10-27): merge_pr merges a pull request once every check on its head passed,
+  # without waiting for their approval; the bot reports a what/why/how/where summary instead.
+  autoMerge: true
