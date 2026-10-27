@@ -1,0 +1,69 @@
+name: 'bump-gitops'
+description: >-
+  Bump this app's manifests in the gitops repository to a version just
+  published to zot, and push the commit straight to main — the loomie
+  pattern (its CI pushes its bump commits at build time), generalized.
+  Call it from the app repo's Actions right after the publish job.
+  The version is verified to exist in the registry before anything moves;
+  a commit is only pushed if the manifests actually changed.
+
+inputs:
+  app:
+    description: 'app name as in scripts/autobump-tracks.sh (loomie, hrld, ...)'
+    required: true
+  version:
+    description: 'the version the build just published (image sha tag, or chart x.y.z-build.N)'
+    required: true
+  token:
+    description: 'fine-grained PAT with Contents: Read and write on the gitops repository'
+    required: true
+  registry-username:
+    description: 'zot pull username (verifies the published version exists)'
+    required: true
+  registry-password:
+    description: 'zot pull password'
+    required: true
+  gitops-repo:
+    description: 'gitops repository (owner/repo)'
+    required: false
+    default: 'Forgenn/gitops-cluster'
+
+runs:
+  using: 'composite'
+  steps:
+    # NOTE: no validation gate here by design (same as loomie's own bumps):
+    # the version was built and tested by the calling CI, the script refuses
+    # versions that do not exist in the registry, and ArgoCD fails loudly at
+    # sync if a bumped chart version were broken.
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      with:
+        repository: ${{ inputs.gitops-repo }}
+        token: ${{ inputs.token }}
+        persist-credentials: true
+        fetch-depth: 0
+
+    - name: Bump to the published version
+      shell: bash
+      env:
+        APP: ${{ inputs.app }}
+        VERSION: ${{ inputs.version }}
+        REGISTRY_USERNAME: ${{ inputs.registry-username }}
+        REGISTRY_PASSWORD: ${{ inputs.registry-password }}
+      run: ./scripts/autobump.sh "$APP" "$VERSION"
+
+    - name: Push to main
+      shell: bash
+      run: |
+        n=$(git rev-list --count origin/main..HEAD)
+        if [ "$n" -eq 0 ]; then
+          echo "manifests already current; nothing to push"
+          exit 0
+        fi
+        if ! git push origin HEAD:main; then
+          # Somebody pushed while we worked: replay on top once.
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
+        fi
+        echo "pushed $n bump commit(s):"
+        git log --oneline origin/main~$n..origin/main
