@@ -16,6 +16,16 @@
 # The script never pushes. .github/workflows/autobump.yml runs it, then gates
 # the result on scripts/validate-manifests.sh, and only then pushes main.
 #
+# Two modes:
+#   ./scripts/autobump.sh                 poll: discover the newest version of
+#                                          every track in the registry
+#   ./scripts/autobump.sh --set APP VER   event: an app's CI just published VER
+#                                          (repository_dispatch 'bump'); the
+#                                          version comes from the event, but it
+#                                          must exist in the registry — a bogus
+#                                          payload fails loudly, it never
+#                                          reaches the manifests
+#
 # Requires: curl, jq, git. Credentials: REGISTRY_USERNAME / REGISTRY_PASSWORD
 # (zot pull credentials — same values as Infisical /zot/*).
 # REGISTRY_SCHEME (default https) and MANIFEST_REGISTRY (the registry host as
@@ -23,6 +33,12 @@
 # script can be exercised against a local mock registry in tests.
 set -euo pipefail
 export LC_ALL=C
+
+SET_APP='' SET_VER=''
+if [[ "${1:-}" == "--set" ]]; then
+  SET_APP="${2:?--set needs <app> <version>}"
+  SET_VER="${3:?--set needs <app> <version>}"
+fi
 
 REGISTRY_HOST="${REGISTRY_HOST:-registry.monederobox.dev}"
 MANIFEST_REGISTRY="${MANIFEST_REGISTRY:-registry.monederobox.dev}"
@@ -122,20 +138,38 @@ git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
 declare -A APP_FILES APP_MSG      # app -> "file\nfile..." / commit message
 declare -A APP_TAGS               # app -> tag summary for the notice
+matched=0
 
 for i in "${!T_APP[@]}"; do
   app=${T_APP[i]} kind=${T_KIND[i]} repo=${T_REPO[i]} file=${T_FILE[i]}
 
-  if [[ "$kind" == image-tag ]]; then
+  # the target version: from the event (--set) or discovered in the registry
+  if [[ -n "$SET_APP" ]]; then
+    [[ "$app" == "$SET_APP" ]] || continue
+    matched=1
+    if [[ "$kind" == image-tag ]]; then
+      [[ -n "$(tag_created "$repo" "$SET_VER")" ]] \
+        || die "$repo:$SET_VER does not exist in the registry (refusing to bump)"
+    else
+      all_tags "$repo" | grep -qx "$SET_VER" \
+        || die "$repo:$SET_VER does not exist in the registry (refusing to bump)"
+    fi
+    new=$SET_VER
+  elif [[ "$kind" == image-tag ]]; then
     new=$(newest_image_tag "$repo")
     [[ -n "$new" ]] || die "$repo: could not determine the newest tag"
+  else
+    new=$(newest_chart_version "$repo")
+    [[ -n "$new" ]] || die "$repo: no x.y.z-build.N tags found"
+  fi
+
+  # the current value, straight from the file, with single-match asserts
+  if [[ "$kind" == image-tag ]]; then
     m=$(grep -oE "image: $MANIFEST_REGISTRY/$repo:[a-zA-Z0-9._-]+" "$file")
     cur=${m##*:}
     [[ "$(grep -cE "image: $MANIFEST_REGISTRY/$repo:" "$file")" -eq 1 ]] \
       || die "$file: expected exactly one 'image: .../$repo:' line, found $(grep -cE "image: $MANIFEST_REGISTRY/$repo:" "$file")"
   else
-    new=$(newest_chart_version "$repo")
-    [[ -n "$new" ]] || die "$repo: no x.y.z-build.N tags found"
     cur=$(sed -n -E 's/^[[:space:]]+version: (.+)$/\1/p' "$file")
     [[ "$(sed -n -E '/^[[:space:]]+version: /p' "$file" | wc -l)" -eq 1 ]] \
       || die "$file: expected exactly one indented 'version:' line to rewrite"
@@ -171,6 +205,10 @@ for i in "${!T_APP[@]}"; do
     die "$file: edit for $repo:$new produced no diff (pattern mismatch)"
   fi
 done
+
+if [[ -n "$SET_APP" && "$matched" -eq 0 ]]; then
+  die "--set: no track for app '$SET_APP' in $TRACKS_FILE"
+fi
 
 changed=$(git status --porcelain | wc -l)
 if (( changed == 0 )); then
