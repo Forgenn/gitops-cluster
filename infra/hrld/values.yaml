@@ -288,7 +288,11 @@ workbenches:
     - { cidr: 192.168.1.157/32, port: 6443 }
     - { cidr: 10.43.0.1/32, port: 443 }
   storage:
-    size: 5Gi
+    # 10Gi (2026-10-27): the developer workbench /work hit 92% in 16 days (~62 MiB/day of
+    # per-conversation git checkouts; KubePersistentVolumeFillingUp). STS templates are
+    # immutable in k3s v1.35: after merging, patch the work-* PVCs and orphan-delete the
+    # hrld-wb-* STSs so Argo recreates them at this size.
+    size: 10Gi
     storageClass: longhorn
   bots:
     # Builds and tests in each repo's Nix dev shell (nix develop), downloading from the internet;
