@@ -1,16 +1,18 @@
-# Tracks for scripts/autobump.sh (run by .github/workflows/autobump.yml).
+# Tracks for scripts/autobump.sh — one line per tracked ref.
 #
-# One track per line:  <app> <kind> <zot repository> <manifest file>
-# An app's CI publishes a version and fires repository_dispatch 'bump'
-# {app, version}; the workflow bumps every track of that app to it.
+# An app repo CI publishes a version and calls this repo's composite action
+# (.github/actions/bump) with {app, version}; it verifies the version in zot
+# and bumps every track of that app to it, committing straight to main.
 # Adding an app that publishes to zot is one line here — nothing else.
 #
-#   image-tag      the file pins `image: registry.monederobox.dev/<repo>:<tag>`
-#                  (tags are the git shas loomie builds).
+#   image-tag      the file pins `image: registry.monederobox.dev/<repo>:<tag>`.
+#                  loomie tags are git shas, so "newest" is decided by the
+#                  `created` timestamp in each tag's config blob, not by the
+#                  tag string.
 #   chart-version  the file pins `version:` under helmCharts; the chart pins
 #                  its own images (tag + digest) inside itself, so one bump
 #                  moves everything the app ships (hrld + its workbenches).
-#                  Versions are x.y.z-build.N.
+#                  Versions are x.y.z-build.N: newest is the highest N.
 #
 # app          kind           zot repository      manifest file
 loomie        image-tag      loomie/backend      infra/loomie/backend/deployment.yaml
