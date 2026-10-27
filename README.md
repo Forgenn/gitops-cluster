@@ -8,7 +8,7 @@ Each directory in the `infra` directory represents a separate application or com
 
 ## Observations
 
-- Media management currently includes Navidrome for music streaming and Suwayomi for manga reading
+- Media management currently includes Navidrome for music streaming and Kavita for manga/books
 - Infrastructure ready for *arr suite implementation with existing CNPG, storage, and networking stack
 
 ## Next Steps
