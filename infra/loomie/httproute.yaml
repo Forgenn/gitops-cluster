@@ -13,7 +13,26 @@ spec:
   hostnames:
     - "loomie.monederobox.dev"
   rules:
-    # API and WebSocket routes to backend
+    # Agent streams (SSE /events and the /v1/pi WebSocket) proxied to hrld live for
+    # minutes. Envoy's default 15 s route timeout cut them constantly (access logs
+    # 2026-10-29: 1306 x UT flag at exactly 15000 ms on .../conversations/{id}/events),
+    # forcing a reconnect every 15 s — each reconnect landing in an hrld pod
+    # replacement window surfaced to the user as "hrld answered 502" (loomie's own
+    # proxy returns the body-less 502 when its upstream dial fails). GEP-1742:
+    # request timeout 0s disables the per-request timeout for exactly this rule.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/agents
+      timeouts:
+        request: 0s
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: loomie-backend
+          port: 8080
+          weight: 1
+    # Other API routes keep the finite default timeout.
     - matches:
         - path:
             type: PathPrefix
