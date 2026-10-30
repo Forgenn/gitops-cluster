@@ -110,6 +110,10 @@ spec:
               value: "572bb0e1-4dd4-4082-9a91-3af9fa880deb" # Pocket ID client "hrld"
             - name: MCP_USER_OIDC_SUBJECT
               value: "657b4b32-0264-422e-b505-159488890cc4" # Pocket ID user cfv
+            # Each new workout (Google Health, Hevy, Garmin) is posted once to hrld's coach bot,
+            # integration "fitness", as the MCP user above (docs/specs/health-fitness.md).
+            - name: COACH_BOT
+              value: "coach"
             # Push notifications (FCM)
             - name: FCM_SA_KEY
               valueFrom:

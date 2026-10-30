@@ -142,11 +142,28 @@ config:
       schedule: "30 9 * * *"
       timezone: Europe/Dublin
       prompt: *sweep
+    - id: task-sweep
+      bot: coach
+      schedule: "45 9 * * *"
+      timezone: Europe/Dublin
+      prompt: *sweep
+    # The coach's week: what was done against the plan, and next week's sessions.
+    - id: weekly-review
+      bot: coach
+      schedule: "0 19 * * 0"
+      timezone: Europe/Dublin
+      prompt: |
+        Weekly review. Read the plan (get_training_plan), this week's workouts (list_activities) and the
+        week's sleep, resting HR and HRV (get_health_days). If there is no plan and no workout this week,
+        answer exactly [SILENT]. Otherwise: mark what is still planned for this week as done (with its workout)
+        or skipped, then set next week's sessions (upsert_training_sessions), adjusted for how this week went
+        and how recovered the user is. Report in a few lines: the week against the plan (sessions done, total
+        distance and time), one thing to keep and one to change, and next week day by day.
   # plder, the Pi configuration repo, at a pinned commit (fetched through hrld's GitHub App): the bots'
   # instructions and settings (hrld/bots/<id>) and the plugins (pi/plugins). Here: what each bot may reach.
   plder:
     repo: Forgenn/plder
-    ref: 10e8b44dcaa2f7326173ff6d434bcd2f1b6a80c5
+    ref: 38334dbbf28d778b817a71411490dd9fd27268ac
   # The stronger model every bot can hand a hard task to (the delegate tool: an investigation, a
   # review): Claude Opus through Claude Code, on the subscription.
   delegate:
@@ -215,6 +232,13 @@ config:
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
+    - id: coach
+      # The training plan, the workouts and health days loomie's sources bring in, and its verdict on each
+      # workout; the task boards for its areas (fitness, health) and to plan around the user's week.
+      mcp:
+        - server: loomie
+          scopes: ["loomie:read", "loomie:write"]
+          tools: [get_fitness_context, log_workout, list_activities, get_activity, get_health_days, get_training_plan, update_training_plan, upsert_training_sessions, set_activity_verdict, list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task]
   # MCP servers bots may use. hrld calls them as itself (Pocket ID client "hrld", client
   # credentials), through Pocket ID's in-cluster service.
   mcp:
