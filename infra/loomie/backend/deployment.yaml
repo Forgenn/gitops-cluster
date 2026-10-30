@@ -114,6 +114,10 @@ spec:
             # integration "fitness", as the MCP user above (docs/specs/health-fitness.md).
             - name: COACH_BOT
               value: "coach"
+            # Google Health's sync loop (read only once GOOGLE_HEALTH_CLIENT_ID is set): every 5 min, so a
+            # run reaches the coach a few minutes after the Fitbit app syncs (all sources poll; no webhooks).
+            - name: GOOGLE_HEALTH_SYNC_EVERY
+              value: "5m"
             # Push notifications (FCM)
             - name: FCM_SA_KEY
               valueFrom:
