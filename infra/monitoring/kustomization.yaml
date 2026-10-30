@@ -7,6 +7,7 @@ resources:
   - argocd-alerts.yaml
   - zfs-alerts.yaml
   - nas-alerts.yaml
+  - hrld-memory-alerts.yaml
   - retuned-alerts.yaml
   - node-exporter-full-dashboard.yaml
   - argocd-dashboard.yaml

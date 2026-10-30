@@ -1,0 +1,52 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: hrld-memory-alerts
+  labels:
+    app: kube-prometheus-stack
+    release: prometheus
+spec:
+  groups:
+  - name: hrld.memory
+    # WHY THIS FILE EXISTS
+    #
+    # The hrld container is periodically OOMKilled: container restarts on 2026-10-20 20:00,
+    # 2026-10-27 21:00 and 2026-10-30 10:13 (the last confirmed OOMKilled, exit 137). The
+    # 2026-10-30 signature, from container_memory_working_set_bytes: steady state ~250Mi for
+    # days, then a burst with the 09:00 scheduled-job wave (244Mi at 09:00, 768Mi at 09:05,
+    # 940Mi at 09:40), pinned at the 1536Mi limit from 09:45 with the metrics target dead
+    # (TargetDown 09:45-10:13, every scheduled job failing) until the kill at 10:13:02. The
+    # limit was raised to 2Gi the same day (PR #199); this rule is the early warning that the
+    # burst pattern came back anyway.
+    #
+    # Upstream kube-prometheus-stack ships no container near-limit alert, and the hrld
+    # chart's own rules (HrldDown, HrldApiErrors, HrldTurnsUnanswered) only see the aftermath
+    # ~30 min after the kill. This fires while there is still time to act: the 2026-10-30
+    # burst spent ~45 min ratcheting to the limit, so >85% held for 5m means roughly 20 min
+    # of lead time to capture a heap dump for the app-side investigation (developer task
+    # 350e1521, Forgenn/hrld) or restart hrld before it dies.
+    #
+    # Threshold: 85% of the 2Gi limit = 1741Mi, deliberately ABOVE the documented normal
+    # worst case (three live Claude Code sessions ~300Mi each + the Node main process
+    # ~500Mi ~= 1.4Gi): a lower threshold would page on a legitimate heavy morning.
+    #
+    # The limit is joined from kube_pod_container_resource_limits, NOT hardcoded, so a future
+    # chart bump keeps this rule correct.
+    rules:
+    - alert: HrldContainerNearMemoryLimit
+      expr: |
+        max by (namespace, pod) (container_memory_working_set_bytes{namespace="hrld", container="hrld"})
+          / on (pod) group_left
+        max by (pod) (kube_pod_container_resource_limits{resource="memory", namespace="hrld", container="hrld"})
+        > 0.85
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: 'hrld above 85% of its memory limit for 5m ({{ $labels.pod }})'
+        description: >-
+          hrld working set is {{ $value | humanizePercentage }} of its container memory
+          limit and ratcheting: the same signature as the 2026-10-30 OOMKill (244Mi to
+          the limit in ~45 min, every bot's scheduled work lost, metrics target down
+          28 min). Capture a heap dump or restart the hrld deployment now; the app-side
+          fix is tracked as developer task 350e1521 in Forgenn/hrld.
