@@ -44,6 +44,7 @@ Project: `revachol-cluster-a82f`, Environment: `prod`
 | `/pocket-id/loomie/client-secret` | Pocket ID OAuth client secret |
 | `/loomie/FCM_SA_KEY` | FCM push notifications |
 | `/loomie/STRAVA_*` | Strava integration |
+| `/loomie/GOOGLE_HEALTH_CLIENT_ID`, `/loomie/GOOGLE_HEALTH_CLIENT_SECRET` | Google Health OAuth client (Fitbit Air, scale) |
 
 ## Troubleshooting
 
