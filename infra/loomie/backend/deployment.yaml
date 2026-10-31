@@ -118,6 +118,18 @@ spec:
             # run reaches the coach a few minutes after the Fitbit app syncs (all sources poll; no webhooks).
             - name: GOOGLE_HEALTH_SYNC_EVERY
               value: "5m"
+            # Google Health OAuth client (Pol's Google Cloud project; redirect defaults to
+            # <APP_URL>/api/v1/integrations/google-health/callback, as registered with Google).
+            - name: GOOGLE_HEALTH_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: loomie-secrets
+                  key: GOOGLE_HEALTH_CLIENT_ID
+            - name: GOOGLE_HEALTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: loomie-secrets
+                  key: GOOGLE_HEALTH_CLIENT_SECRET
             # Push notifications (FCM)
             - name: FCM_SA_KEY
               valueFrom:
