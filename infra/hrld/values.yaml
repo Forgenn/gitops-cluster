@@ -216,11 +216,12 @@ config:
           scopes: ["loomie:read", "loomie:write"]
           tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task]
     - id: developer
-      # loomie's task boards: what it works on goes on the AI board; it sees the user's tasks too.
+      # loomie's task boards: what it works on goes on the AI board; it sees the user's tasks too. And
+      # the health sources' data, to check what loomie's sync brings in against what Google Health holds.
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
-          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task]
+          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task, list_activities, get_activity, get_health_days, google_health_raw]
       # Every repo, by pull request; merging waits for the user's approval (merge_pr).
       git:
         repos: [Forgenn/loomie, Forgenn/hrld, Forgenn/plder, Forgenn/gitops-cluster, Forgenn/nixos-config]
