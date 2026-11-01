@@ -158,7 +158,9 @@ config:
         answer exactly [SILENT]. Otherwise: mark what is still planned for this week as done (with its workout)
         or skipped, then set next week's sessions (upsert_training_sessions), adjusted for how this week went
         and how recovered the user is. Report in a few lines: the week against the plan (sessions done, total
-        distance and time), one thing to keep and one to change, and next week day by day.
+        distance and time), one thing to keep and one to change, and next week day by day. Post next week to
+        the fitness page too (post_coach_note, kind week_ahead, for_day next Monday): the phase and week
+        header, the day grid, one line of why per session, and what changed from this week.
   # plder, the Pi configuration repo, at a pinned commit (fetched through hrld's GitHub App): the bots'
   # instructions and settings (hrld/bots/<id>) and the plugins (pi/plugins). Here: what each bot may reach.
   plder:
@@ -239,7 +241,7 @@ config:
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
-          tools: [get_fitness_context, log_workout, list_activities, get_activity, get_health_days, get_training_plan, update_training_plan, upsert_training_sessions, set_activity_verdict, list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task]
+          tools: [get_fitness_context, log_workout, list_activities, get_activity, get_health_days, get_training_plan, update_training_plan, upsert_training_sessions, set_activity_verdict, post_coach_note, list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task]
   # MCP servers bots may use. hrld calls them as itself (Pocket ID client "hrld", client
   # credentials), through Pocket ID's in-cluster service.
   mcp:
