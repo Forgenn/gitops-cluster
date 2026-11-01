@@ -145,22 +145,6 @@ spec:
                   key: ALERTMANAGER_WEBHOOK_TOKEN
             - name: APP_URL
               value: "https://loomie.monederobox.dev"
-            # Strava integration
-            - name: STRAVA_CLIENT_ID
-              valueFrom:
-                secretKeyRef:
-                  name: loomie-secrets
-                  key: STRAVA_CLIENT_ID
-            - name: STRAVA_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: loomie-secrets
-                  key: STRAVA_CLIENT_SECRET
-            - name: STRAVA_REDIRECT_URL
-              valueFrom:
-                secretKeyRef:
-                  name: loomie-secrets
-                  key: STRAVA_REDIRECT_URL
           resources:
             requests:
               cpu: 100m
