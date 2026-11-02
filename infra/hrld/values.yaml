@@ -315,11 +315,12 @@ workbenches:
     - { cidr: 192.168.1.157/32, port: 6443 }
     - { cidr: 10.43.0.1/32, port: 443 }
   storage:
-    # 10Gi (2026-10-27): the developer workbench /work hit 92% in 16 days (~62 MiB/day of
-    # per-conversation git checkouts; KubePersistentVolumeFillingUp). STS templates are
-    # immutable in k3s v1.35: after merging, patch the work-* PVCs and orphan-delete the
-    # hrld-wb-* STSs so Argo recreates them at this size.
-    size: 10Gi
+    # 20Gi (2026-11-02): the developer /work refills with Go/npm caches + per-worktree
+    # node_modules; bursts hit +2.4G in one hour (each loomie check ~1.5-2.5G cache).
+    # Standing watch pings the developer bot to clean at 65%; this buffer absorbs the
+    # bursts between cleanups. STS templates immutable in k3s v1.35: after merge, patch
+    # the work-* PVCs to 20Gi and orphan-delete the hrld-wb-* STSs (Argo recreates them).
+    size: 20Gi
     storageClass: longhorn
   bots:
     # Builds and tests in each repo's Nix dev shell (nix develop), downloading from the internet;
