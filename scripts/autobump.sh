@@ -211,4 +211,4 @@ for app in "${!APP_FILES[@]}"; do
   echo "::notice::$(git log --oneline -1 | cut -c1-7) $msg"
 done
 
-echo "$APP bumped; validation and push happen in the workflow"
+echo "$APP bumped; the action pushes main"
