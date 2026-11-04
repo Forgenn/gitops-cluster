@@ -1,0 +1,56 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: wan-blackbox-alerts
+  labels:
+    app: kube-prometheus-stack
+    release: prometheus
+spec:
+  groups:
+  - name: wan.rules
+    # WHY THIS FILE EXISTS
+    #
+    # The home WAN/ISP line flaps without the cluster noticing: every cluster and LAN
+    # service keeps working, only cloud-bound traffic dies. Discovered 2026-11-02 while
+    # diagnosing phone Tailscale blackouts ("red alert, no connectivity anywhere",
+    # recovered only by toggling the VPN): ddns-updater hung silently 11:57-12:37 UTC,
+    # failed WAN-IP lookups at 11:32/12:37/13:42 -- while all 4 tailscale hosts, the
+    # cluster, and Tailscale's cloud were healthy throughout. Tailscale on the phone is
+    # just the most visible victim: controlplane unreachable through a dead WAN = red
+    # alert + (with LAN/DNS routed via the tunnel) total connectivity loss.
+    #
+    # The canary: blackbox_exporter on dolores (nixos-config, port 9115) probes two
+    # external HTTPS endpoints -- a generic one (cloudflare) and login.tailscale.com,
+    # i.e. exactly what the phone's Tailscale needs to stay green. Scraped via
+    # additionalScrapeConfigs job "dolores-blackbox" in values.yaml, same pattern as
+    # dolores-node-exporter (see nas-alerts.yaml).
+    #
+    # An ISP flap that lasts minutes now fires an alert instead of waiting for the next
+    # "my phone has no internet" report. Short blips (<2m) stay silent on purpose --
+    # the goal is correlating user-visible outages, not paging on internet weather.
+    rules:
+    - alert: HomeWanUnreachable
+      expr: probe_success{job="dolores-blackbox"} == 0
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Home WAN unreachable for {{ $value }} probe target: {{ $labels.instance }}"
+        description: >-
+          blackbox_exporter on dolores cannot reach {{ $labels.instance }} for over 2
+          minutes. The ISP line (or the router) is down/flapping: cloud-bound traffic
+          dies cluster-wide while LAN services keep working. Correlates with phone
+          Tailscale red alerts. Check the router's line/PPPoE logs; if only
+          login.tailscale.com fails, suspect DNS or SNI-level interference instead.
+    - alert: HomeWanBlackboxAbsent
+      expr: absent(probe_success{job="dolores-blackbox"})
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: "WAN canary metrics absent (HomeWanUnreachable cannot fire)"
+        description: >-
+          No probe_success{job="dolores-blackbox"} samples for 10m. Either dolores is
+          down, its blackbox_exporter (nixos-config, port 9115) is not running, the
+          firewall rule for the 3 cluster nodes is missing, or the scrape job was
+          removed from values.yaml. WAN-outage alerting is blind until this is fixed.
