@@ -5,7 +5,8 @@ description: >-
   pattern (its CI pushes its bump commits at build time), generalized.
   Call it from the app repo's Actions right after the publish job.
   The version is verified to exist in the registry before anything moves;
-  a commit is only pushed if the manifests actually changed.
+  a chart version lower than the deployed one is refused (allow-older for a
+  deliberate rollback); a commit is only pushed if the manifests changed.
 
 inputs:
   app:
@@ -15,8 +16,12 @@ inputs:
     description: 'the version the build just published (image sha tag, or chart x.y.z-build.N)'
     required: true
   token:
-    description: 'fine-grained PAT with Contents: Read and write on the gitops repository'
+    description: 'a token with contents: write on the gitops repository (e.g. the deployer GitHub App''s)'
     required: true
+  allow-older:
+    description: "'true' to bump a chart version even below the deployed one (a deliberate rollback)"
+    required: false
+    default: 'false'
   registry-username:
     description: 'zot pull username (verifies the published version exists)'
     required: true
@@ -49,7 +54,11 @@ runs:
         VERSION: ${{ inputs.version }}
         REGISTRY_USERNAME: ${{ inputs.registry-username }}
         REGISTRY_PASSWORD: ${{ inputs.registry-password }}
-      run: ./scripts/autobump.sh "$APP" "$VERSION"
+        ALLOW_OLDER: ${{ inputs.allow-older }}
+      run: |
+        flags=()
+        if [ "$ALLOW_OLDER" = true ]; then flags+=(--allow-older); fi
+        ./scripts/autobump.sh "${flags[@]}" "$APP" "$VERSION"
 
     - name: Push to main
       shell: bash
@@ -60,7 +69,9 @@ runs:
           exit 0
         fi
         if ! git push origin HEAD:main; then
-          # Somebody pushed while we worked: replay on top once.
+          # Somebody pushed while we worked: replay on top once. A newer bump
+          # of the same line landing meanwhile makes the rebase conflict, so
+          # the job fails rather than putting an older version back.
           git fetch origin main
           git rebase origin/main
           git push origin HEAD:main
