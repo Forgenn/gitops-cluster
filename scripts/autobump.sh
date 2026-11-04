@@ -4,26 +4,34 @@
 # Apps in this repo build in their own repos' CI and publish to zot
 # (registry.monederobox.dev): loomie pushes images tagged with the git sha it
 # built; hrld pushes an OCI chart (0.1.0-build.N) that pins the hrld and
-# workbench images inside itself. When a build publishes, that repo's Actions
-# fires repository_dispatch 'bump' {app, version} at this repo
-# (.github/workflows/autobump.yml), which runs this script with exactly that
-# version — the loomie pattern (its CI bumps its own manifests at build time)
-# generalized: no polling, no discovery, the event carries the version.
+# workbench images inside itself. Right after a build publishes, that repo's
+# Actions calls this repo's composite action (.github/actions/bump) with
+# {app, version}, which runs this script with exactly that version — the
+# loomie pattern (its CI bumps its own manifests at build time) generalized:
+# no polling, no discovery, the caller names the version.
 #
 # The version is verified to exist in the registry before any manifest moves:
-# a bogus or stale payload fails loudly and never reaches main.
+# a bogus payload fails loudly and never reaches main.
+#
+# Deploy order: a chart-version track only moves forward. A version lower
+# than the one deployed now (a re-run of an old build, or a run that finished
+# after a newer one) is refused, unless --allow-older says the rollback is
+# deliberate. image-tag tracks are git shas, which the registry cannot order:
+# the calling CI checks that order itself (loomie's deploy job only bumps to
+# a commit whose ancestor is the tag deployed now).
 #
 # Why not Renovate: this repo is public, so it cannot hold registry
 # credentials in its config — internal-registry refs are Renovate's explicit
 # blind spot (.github/renovate.json5 disables them). The workflow's repo
 # secrets can, which is why the loop lives here.
 #
-# The script never pushes. The workflow gates the result on
-# scripts/validate-manifests.sh and only then pushes main.
+# The script never pushes: it commits, and the action pushes main.
 #
-# Usage: ./scripts/autobump.sh <app> <version>   (or: --set <app> <version>)
+# Usage: ./scripts/autobump.sh [--allow-older] <app> <version>
+#        (or: --set <app> <version>)
 #   app      matches the first column of scripts/autobump-tracks.sh
 #   version  exactly what the build published (sha tag, or x.y.z-build.N)
+#   --allow-older  bump a chart-version track even to a lower version
 # Requires: curl, jq, git. Credentials: REGISTRY_USERNAME / REGISTRY_PASSWORD
 # (zot pull credentials — same values as Infisical /zot/*).
 # REGISTRY_SCHEME (default https) and MANIFEST_REGISTRY (the registry host as
@@ -37,16 +45,27 @@ MANIFEST_REGISTRY="${MANIFEST_REGISTRY:-registry.monederobox.dev}"
 REGISTRY_SCHEME="${REGISTRY_SCHEME:-https}"
 TRACKS_FILE="scripts/autobump-tracks.sh"
 
-APP='' VER=''
-if [[ "${1:-}" == "--set" ]]; then
-  APP="${2:?--set needs <app> <version>}"
-  VER="${3:?--set needs <app> <version>}"
-elif [[ $# -eq 2 ]]; then
-  APP=$1 VER=$2
+APP='' VER='' ALLOW_OLDER=0
+args=()
+for a in "$@"; do
+  case "$a" in
+    --allow-older) ALLOW_OLDER=1 ;;
+    --set) ;;
+    *) args+=("$a") ;;
+  esac
+done
+if [[ ${#args[@]} -eq 2 ]]; then
+  APP=${args[0]} VER=${args[1]}
 else
-  echo "usage: $0 <app> <version>   (app as in $TRACKS_FILE)" >&2
+  echo "usage: $0 [--allow-older] <app> <version>   (app as in $TRACKS_FILE)" >&2
   exit 1
 fi
+
+# chart versions are x.y.z-build.N; returns 0 iff $1 sorts strictly below $2
+CHART_VER_RE='^[0-9]+\.[0-9]+\.[0-9]+-build\.[0-9]+$'
+version_lt() {
+  [[ "$1" != "$2" && "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1)" == "$1" ]]
+}
 
 if [[ -z "${REGISTRY_USERNAME:-}" || -z "${REGISTRY_PASSWORD:-}" ]]; then
   echo "::error::REGISTRY_USERNAME / REGISTRY_PASSWORD are not set."
@@ -124,8 +143,16 @@ for i in "${!T_APP[@]}"; do
 
   if [[ "$cur" == "$new" ]]; then
     echo "$app $repo: already at $cur"
-    APP_SEEN_CURRENT=1
     continue
+  fi
+
+  # deploy order: chart versions only move forward unless told otherwise
+  if [[ "$kind" == chart-version ]] && (( ! ALLOW_OLDER )); then
+    [[ "$cur" =~ $CHART_VER_RE && "$new" =~ $CHART_VER_RE ]] \
+      || die "$app $repo: cannot order $cur and $new (expected x.y.z-build.N); pass --allow-older to bump anyway"
+    if version_lt "$new" "$cur"; then
+      die "$app $repo: $new is older than the deployed $cur; not bumping (pass --allow-older for a deliberate rollback)"
+    fi
   fi
 
   lineno=$(grep -nE "image: $MANIFEST_REGISTRY/$repo:|^[[:space:]]+version: " "$file" | head -1 | cut -d: -f1)
@@ -184,4 +211,4 @@ for app in "${!APP_FILES[@]}"; do
   echo "::notice::$(git log --oneline -1 | cut -c1-7) $msg"
 done
 
-echo "$APP bumped; validation and push happen in the workflow"
+echo "$APP bumped; the action pushes main"
