@@ -165,7 +165,7 @@ config:
   # instructions and settings (hrld/bots/<id>) and the plugins (pi/plugins). Here: what each bot may reach.
   plder:
     repo: Forgenn/plder
-    ref: 3b94daa26cbaabf7edd7c53033a2c907d2a94f01
+    ref: deaa51f4a8623432eeb9480e8c35c17ef8c19399
   # The stronger model every bot can hand a hard task to (the delegate tool: an investigation, a
   # review): Claude Opus through Claude Code, on the subscription.
   delegate:
@@ -191,7 +191,7 @@ config:
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
-          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task, post_news, list_news]
+          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task, post_news, list_news, publish_file]
       git:
         repos: [Forgenn/gitops-cluster, Forgenn/nixos-config]
       exec:
@@ -203,27 +203,27 @@ config:
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
-          tools: [post_news, list_news, list_board_tasks, create_task, update_task, complete_task, claim_task]
+          tools: [post_news, list_news, list_board_tasks, create_task, update_task, complete_task, claim_task, publish_file]
     - id: shopper
       # loomie's tea library (what the user tried, liked, wants), shopping list and task boards: only these
       # tools, so the write scope reaches nothing but the tea wishlist, the shopping list and tasks.
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
-          tools: [get_tea_context, add_tea_to_buy, list_shopping_items, add_shopping_item, list_board_tasks, create_task, update_task, complete_task, claim_task]
+          tools: [get_tea_context, add_tea_to_buy, list_shopping_items, add_shopping_item, list_board_tasks, create_task, update_task, complete_task, claim_task, publish_file]
     - id: projects
       # loomie's task boards: what it works on goes on the AI board; it sees the user's tasks too.
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
-          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task]
+          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task, publish_file]
     - id: developer
       # loomie's task boards: what it works on goes on the AI board; it sees the user's tasks too. And
       # the health sources' data, to check what loomie's sync brings in against what Google Health holds.
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
-          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task, list_activities, get_activity, get_health_days, google_health_raw]
+          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task, list_activities, get_activity, get_health_days, google_health_raw, publish_file]
       # Every repo, by pull request; merging waits for the user's approval (merge_pr).
       git:
         repos: [Forgenn/loomie, Forgenn/hrld, Forgenn/plder, Forgenn/gitops-cluster, Forgenn/nixos-config]
@@ -241,7 +241,7 @@ config:
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
-          tools: [get_fitness_context, log_workout, list_activities, get_activity, get_health_days, get_training_plan, update_training_plan, upsert_training_sessions, set_activity_verdict, post_coach_note, list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task]
+          tools: [get_fitness_context, log_workout, list_activities, get_activity, get_health_days, get_training_plan, update_training_plan, upsert_training_sessions, set_activity_verdict, post_coach_note, list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task, publish_file]
   # MCP servers bots may use. hrld calls them as itself (Pocket ID client "hrld", client
   # credentials), through Pocket ID's in-cluster service.
   mcp:
