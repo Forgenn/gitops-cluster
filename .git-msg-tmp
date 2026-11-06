@@ -1,0 +1,10 @@
+longhorn: throttle concurrent-replica-rebuild-per-node-limit 2->1
+
+2026-11-06 08:01-11:20 UTC: memory-pressure blip on cuno triggered a
+rotating Longhorn rebuild storm - all three nodes saturated in turn for
+3.5h, 3 node NotReady flaps (cuno x2, katsuragi x1), ~22 volumes cycled
+replica rebuilds, two volumes (slskd-app, opencloud-nats-store) looped
+10 rebuilds each. Rebuild IO at limit 2 still cascades: whichever node
+hosts the rebuild wave saturates, its replicas time out, next wave.
+
+Lower to 1 to serialize rebuilds per node and stop the cascade.
