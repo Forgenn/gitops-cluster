@@ -3,4 +3,5 @@ kind: Setting
 metadata:
   name: concurrent-replica-rebuild-per-node-limit
   namespace: longhorn-system
-value: "2" # Temporarily 2 (was 5) during 2026-09-24 recovery: rebuild IO was starving etcd
+value: "1" # 2026-11-06 rotating rebuild storm (3 nodes, ~22 volumes, 3.5h): 2 still cascades; 1 per node
+# History: 5 -> 2 on 2026-09-24 (rebuild IO starving etcd) -> 1 on 2026-11-06 (rebuild-storm cascade)
