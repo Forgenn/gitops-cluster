@@ -13,7 +13,12 @@ spec:
   hostnames:
     - "registry.monederobox.dev"
   rules:
-    - backendRefs:
+    # Layered image pushes (large blob PUTs) can take tens of seconds to
+    # commit; keep a generous ceiling so long uploads are not cut off by the
+    # rule's default 15s request timeout (GEP-1742).
+    - timeouts:
+        request: 10m
+      backendRefs:
         - group: ""
           kind: Service
           name: zot
