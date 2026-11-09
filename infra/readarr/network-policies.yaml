@@ -41,3 +41,26 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: readarr
+---
+# Prowlarr syncs indexer definitions into Readarr (Applications -> Readarr).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: readarr-allow-from-prowlarr
+  namespace: readarr
+spec:
+  podSelector:
+    matchLabels:
+      app: readarr
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: prowlarr
+          podSelector:
+            matchLabels:
+              app: prowlarr
+      ports:
+        - protocol: TCP
+          port: 8787
