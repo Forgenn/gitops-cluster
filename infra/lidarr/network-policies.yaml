@@ -1,6 +1,7 @@
 # NetworkPolicies — ingress only, mirrors infra/loomie/network-policies.yaml.
 # No CNPG cluster and no live ServiceMonitor in this namespace.
 # Egress is left open, matching loomie's pass-1 posture.
+#   4. prowlarr -> lidarr:8686 (Prowlarr Application sync pushes indexers)
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -41,3 +42,26 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: lidarr
+---
+# Prowlarr syncs indexer definitions into Lidarr (Applications -> Lidarr).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: lidarr-allow-from-prowlarr
+  namespace: lidarr
+spec:
+  podSelector:
+    matchLabels:
+      app: lidarr
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: prowlarr
+          podSelector:
+            matchLabels:
+              app: prowlarr
+      ports:
+        - protocol: TCP
+          port: 8686
