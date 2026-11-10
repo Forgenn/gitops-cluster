@@ -24,7 +24,7 @@ spec:
     # volsync-src-zot-pvc-zrfsj" and VolSync retried forever. VolSync runs
     # `restic unlock` before the backup on the next sync; bump this string to
     # schedule another one. See infra/qbittorrent/replicationsource.yaml (unlock-2).
-    unlock: unlock-2 # 2026-10-11: a lock left on 10-09 by a mover pod that no longer exists
+    unlock: unlock-3 # 2026-11-10: stale lock from mover volsync-src-zot-pvc-5tg4n (died 2026-11-09 09:00:20, Sunday 09:00 event); retry storm = 47.6GiB re-read every ~3min
     moverSecurityContext:
       runAsUser: 0
       runAsGroup: 0
