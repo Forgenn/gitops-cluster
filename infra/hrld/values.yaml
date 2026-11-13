@@ -15,7 +15,7 @@ config:
       schedule: "0 9 * * *"
       timezone: Europe/Dublin
       prompt: |
-        You are the cluster monitor for this homelab k3s cluster. Run a health check and report ONLY what the user genuinely needs to act on or be aware of. Do not report healthy status beyond the one-line all-clear.
+        You are the cluster monitor for this homelab k3s cluster. Run a health check and report ONLY what the user genuinely needs to act on or be aware of. Never report healthy status: a healthy cluster is no news.
 
         ACCESS: you work in your workbench with read-only cluster access: run kubectl through bash (get, list, logs; no Secrets). You cannot change anything here, and you should not: this is a report. Prometheus is http://prometheus-kube-prometheus-prometheus.monitoring.svc:9090 and Alertmanager is http://prometheus-kube-prometheus-alertmanager.monitoring.svc:9093; query their JSON APIs with curl (and jq).
 
@@ -28,8 +28,8 @@ config:
         6. BACKUP FRESHNESS: kubectl get replicationsources.volsync.backube -A -o json. Flag a source if spec.paused is true, status.lastSyncTime is missing (never backed up), or lastSyncTime is older than 36 hours. Do NOT trust status.latestMoverStatus.result: it is the last run's result and can say Successful for a backup dead for weeks. Judge by lastSyncTime age only. Give namespace/name, hours since the last sync (or never) and whether it is paused. 🔴 if paused, never synced or older than 72h; 🟡 if 36-72h. Do not list healthy sources.
 
         REPORTING RULES:
-        - Exceptions only. If everything is healthy, answer exactly [SILENT]: the user gets no message on a good day.
-        - Report a finding only once while it stays the same: if your previous report (earlier in this conversation) already said it, leave it out unless it got worse. If that leaves nothing, answer exactly [SILENT].
+        - Exceptions only. If everything is healthy, that is no news: the user gets no message on a good day.
+        - Report a finding only once while it stays the same: if your last run's report already said it, leave it out unless it got worse. If that leaves nothing, it is no news.
         - Most severe first, with a 🔴/🟡/✅ prefix per finding: what, where (namespace/app), and the one-line action the user likely needs.
         - Never dump every PVC, pod or alert. Keep it under ~30 lines: this is a morning alert, not a report.
         - If you cannot reach Prometheus or the cluster at all, say so explicitly; never invent a healthy status.
@@ -66,12 +66,12 @@ config:
         - To scan again now (after a fix, or when the weekly run failed), with the kubectl tool, no approval needed:
           args ["create", "job", "cve-scan-manual-<yyyymmdd-hhmm>", "--from=cronjob/cve-scan", "-n", "cve-scan"]
           (first check no cve-scan job is still running); the report lands in the same ConfigMap.
-        - For each CRITICAL, and each HIGH not in last week's report (this conversation has it): one line, image,
+        - For each CRITICAL, and each HIGH not in last week's report (your last run's): one line, image,
           CVE, package, installed -> fixed version.
         - For a fixable CVE in loomie or hrld images, make sure a task exists: list_board_tasks first; if none
           covers it, create_task "Fix <CVE> in <image>" tagged loomie or hrld (the developer takes it on).
         - Images it could not scan: list them.
-        If nothing is new since last week and nothing is missing, answer exactly [SILENT].
+        If nothing is new since last week and nothing is missing, it is no news.
     # Dependency updates (Renovate), ported from Hermes's homelab-ops: reviewed weekly; merging waits for the user.
     - id: dependency-review
       bot: homelab-ops
@@ -79,7 +79,7 @@ config:
       timezone: Europe/Dublin
       prompt: |
         Weekly dependency review of Forgenn/gitops-cluster and Forgenn/nixos-config. list_prs on both. If neither
-        has an open pull request, answer exactly [SILENT]. For each dependency update (Renovate), pr_view it and
+        has an open pull request, it is no news. For each dependency update (Renovate), pr_view it and
         judge it: the release notes in its description, breaking changes, what the diff touches, and its checks.
         Report, under 25 lines:
         - anything labelled security first;
@@ -95,20 +95,20 @@ config:
       timezone: Europe/Dublin
       prompt: |
         Weekly research digest. Look at the facts you remember that start with "Followed topic:". If there are
-        none, answer exactly [SILENT]. For each topic, find material published in the last 7 days: web_search,
+        none, it is no news. For each topic, find material published in the last 7 days: web_search,
         and for research topics web_fetch http://export.arxiv.org/api/query. Report at most 5 items per topic,
         each as: title, one sentence on why it matters for that topic, link. Prefer primary sources and cite
-        every item. Leave out topics with nothing material; if no topic has anything, answer exactly [SILENT].
+        every item. Leave out topics with nothing material; if no topic has anything, it is no news.
     - id: shopper-digest
       bot: shopper
       schedule: "0 10 * * 6"
       timezone: Europe/Dublin
       prompt: |
         Weekly watchlist digest. Look at the facts you remember that start with "Watchlist:". If there are none,
-        answer exactly [SILENT]. Otherwise web_fetch each item's URL for the current price and stock status.
+        it is no news. Otherwise web_fetch each item's URL for the current price and stock status.
         Report only items that are news: at or below target (green circle, first), price changed since your last
-        digest (earlier in this conversation), stock status changed, or the page could not be read. One line per
-        item: name, current price (target), stock status, and the link. If no item is news, answer exactly [SILENT].
+        run, stock status changed, or the page could not be read. One line per item: name, current price
+        (target), stock status, and the link. If no item is news, it is no news.
     # Task sweeps: each bot looks for work on loomie's board in its areas (task-areas in its prompt). New
     # tasks wake their bots when tagged; a sweep catches what that missed, unblocked tasks and stale claims.
     # Bots on Claude Code (developer, assistant) sweep less: each run is a Claude Code session.
@@ -119,7 +119,7 @@ config:
       prompt: &sweep |
         Task sweep: look for work as your task-areas section says (your blocked tasks, then stale ones, then
         claim one pending task of your areas if you hold none) and work it. If you claimed, finished, unblocked,
-        released and retagged nothing, answer exactly [SILENT].
+        released and retagged nothing, it is no news.
     - id: task-sweep
       bot: homelab-ops
       schedule: "0 8,14,20 * * *"
@@ -154,7 +154,7 @@ config:
   # instructions and settings (hrld/bots/<id>) and the plugins (pi/plugins). Here: what each bot may reach.
   plder:
     repo: Forgenn/plder
-    ref: 12711ee6bc2cf773f130f96d3adba2b838575319
+    ref: 9bba971bb0b17b9ab2d8d0852dcd4319671de93c
   # The stronger model every bot can hand a hard task to (the delegate tool: an investigation, a
   # review): Claude Opus through Claude Code, on the subscription.
   delegate:
