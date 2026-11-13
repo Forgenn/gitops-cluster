@@ -150,20 +150,6 @@ config:
       schedule: "45 9 * * *"
       timezone: Europe/Dublin
       prompt: *sweep
-    # The coach's week: what was done against the plan, and next week's sessions.
-    - id: weekly-review
-      bot: coach
-      schedule: "0 19 * * 0"
-      timezone: Europe/Dublin
-      prompt: |
-        Weekly review. Read the plan (get_training_plan), this week's workouts (list_activities) and the
-        week's sleep, resting HR and HRV (get_health_days). If there is no plan and no workout this week,
-        answer exactly [SILENT]. Otherwise: mark what is still planned for this week as done (with its workout)
-        or skipped, then set next week's sessions (upsert_training_sessions), adjusted for how this week went
-        and how recovered the user is. Report in a few lines: the week against the plan (sessions done, total
-        distance and time), one thing to keep and one to change, and next week day by day. Post next week to
-        the fitness page too (post_coach_note, kind week_ahead, for_day next Monday): the phase and week
-        header, the day grid, one line of why per session, and what changed from this week.
   # plder, the Pi configuration repo, at a pinned commit (fetched through hrld's GitHub App): the bots'
   # instructions and settings (hrld/bots/<id>) and the plugins (pi/plugins). Here: what each bot may reach.
   plder:
