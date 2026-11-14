@@ -418,13 +418,18 @@ extraEnv:
         name: hrld-openrouter
         key: api_key
 
-# Each active Claude conversation holds a Claude Code process (~150-300 MB; at most 3 live).
+# Each active Claude conversation holds a Claude Code process (~150-300 MB; at most 3 live),
+# and conversation contexts can be huge (2026-11-11 measured 877k-943k tokens): a giant
+# conversation resident in memory pinned the pod at 1.8-1.9 Gi for hours after the turns
+# ended (HrldContainerNearMemoryLimit 2026-11-14), leaving only ~150 Mi headroom before
+# an OOM kill. 3Gi gives one full giant context of headroom until the context-cap work
+# (hrld task de655eeb) lands. Real usage stays ~0.5-1.9 Gi; requests stay modest.
 resources:
   requests:
     cpu: 50m
     memory: 256Mi
   limits:
-    memory: 2Gi
+    memory: 3Gi
 
 # Bots' git: through hrld's GitHub App (forgenn-hrld; secret from externalsecret.yaml) and its proxy.
 github:
