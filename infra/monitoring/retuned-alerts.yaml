@@ -92,6 +92,31 @@ spec:
         summary: "PersistentVolume is expected to fill up within four days."
         description: "The volume claimed by {{ $labels.persistentvolumeclaim }} in {{ $labels.namespace }} is {{ $value | humanizePercentage }} free and trending to zero."
 
+    - alert: KubePersistentVolumeThreeQuartersFull
+      # NEW -- fills a gap, does not replace anything.
+      #
+      # The two rules above speak at 85% (and only with a 4-day fill forecast) and at 97%.
+      # A volume that grows slowly and steadily -- an append-only store like hrld-data, which
+      # gains ~20 MiB a day -- never trips the forecast until it is nearly too late to plan a
+      # resize. 75% for an hour is the early, plain warning: weeks of lead time, not days.
+      # Same volsync exclusion as above.
+      #
+      # keep_firing_for: Prometheus's own TSDB drops a few points at each 2h block compaction
+      # (10-45 min dips); without it the alert would resolve and re-fire on every dip.
+      expr: |-
+        (
+          kubelet_volume_stats_used_bytes{job="kubelet", metrics_path="/metrics", persistentvolumeclaim!~"volsync-.*-(src|dst)"}
+            /
+          kubelet_volume_stats_capacity_bytes{job="kubelet", metrics_path="/metrics", persistentvolumeclaim!~"volsync-.*-(src|dst)"}
+        ) > 0.75
+      for: 1h
+      keep_firing_for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: "PersistentVolume is more than three quarters full."
+        description: "The volume claimed by {{ $labels.persistentvolumeclaim }} in {{ $labels.namespace }} is {{ $value | humanizePercentage }} used. Plan a resize or a cleanup before the 85% and 97% alerts."
+
   - name: retuned.apiserver.rules
     rules:
 
