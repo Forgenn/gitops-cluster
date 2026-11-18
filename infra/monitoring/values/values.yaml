@@ -463,7 +463,11 @@ prometheus:
     # volume had no guardrail other than time. 15d of blocks reached ~16.2GiB of the
     # 20Gi PVC (12.7% free) and KubePersistentVolumeFillingUp went pending on
     # 2026-09-23. Keep a real size cap below capacity so the disk cannot fill first.
-    retentionSize: 16GB
+    # 2026-11-18: usage regrew to 14.9GiB (~93% of the 16GB cap, 75% of the PVC) and
+    # tripped the new 75% warning (#242): retention was being size-clipped below 15d.
+    # PVC 20->40Gi (same online-expansion + STS orphan-recreate procedure as before);
+    # size cap moved with it, same ~80%-of-PVC ratio.
+    retentionSize: 32GB
     # dolores isn't a k8s node, so the chart's own DaemonSet-based node-exporter (below)
     # never reaches it. Static target instead -- node_exporter enabled directly in its
     # NixOS config, firewalled to just the 3 cluster node IPs.
@@ -487,7 +491,7 @@ prometheus:
           accessModes: ["ReadWriteOnce"]
           resources:
             requests:
-              storage: 20Gi
+              storage: 40Gi
     resources:
       requests:
         cpu: 200m
