@@ -244,6 +244,9 @@ config:
         # Tools whose results carry third-party text: no bot may write memory in the turn that read
         # one (hrld #47). list_board_tasks and the like are the household's own data, not third-party.
         untrustedTools: [list_news]
+        # Its tool that publishes a file: bots with a workbench may give it a path there, and hrld
+        # sends the file's bytes itself instead of the model (hrld #79).
+        publishTool: publish_file
   # Phone alerts: answers and approvals in loomie Chat conversations are reported to loomie (through
   # the loomie MCP server above), which pushes what the user has not seen to their phone.
   alerts:
