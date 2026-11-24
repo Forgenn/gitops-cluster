@@ -180,7 +180,7 @@ config:
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
-          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task, post_news, list_news, publish_file]
+          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task, post_news, list_news, publish_file, read_file]
       git:
         repos: [Forgenn/gitops-cluster, Forgenn/nixos-config]
       exec:
@@ -192,27 +192,27 @@ config:
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
-          tools: [post_news, list_news, list_board_tasks, create_task, update_task, complete_task, claim_task, publish_file]
+          tools: [post_news, list_news, list_board_tasks, create_task, update_task, complete_task, claim_task, publish_file, read_file]
     - id: shopper
       # loomie's tea library (what the user tried, liked, wants), shopping list and task boards: only these
       # tools, so the write scope reaches nothing but the tea wishlist, the shopping list and tasks.
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
-          tools: [get_tea_context, add_tea_to_buy, list_shopping_items, add_shopping_item, list_board_tasks, create_task, update_task, complete_task, claim_task, publish_file]
+          tools: [get_tea_context, add_tea_to_buy, list_shopping_items, add_shopping_item, list_board_tasks, create_task, update_task, complete_task, claim_task, publish_file, read_file]
     - id: projects
       # loomie's task boards: what it works on goes on the AI board; it sees the user's tasks too.
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
-          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task, publish_file]
+          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task, publish_file, read_file]
     - id: developer
       # loomie's task boards: what it works on goes on the AI board; it sees the user's tasks too. And
       # the health sources' data, to check what loomie's sync brings in against what Google Health holds.
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
-          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task, list_activities, get_activity, get_health_days, google_health_raw, publish_file]
+          tools: [list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task, list_activities, get_activity, get_health_days, google_health_raw, publish_file, read_file]
       # Every repo, by pull request; merging waits for the user's approval (merge_pr).
       git:
         repos: [Forgenn/loomie, Forgenn/hrld, Forgenn/plder, Forgenn/gitops-cluster, Forgenn/nixos-config]
@@ -233,7 +233,7 @@ config:
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
-          tools: [get_fitness_context, log_workout, list_activities, get_activity, get_health_days, get_training_plan, update_training_plan, upsert_training_sessions, set_activity_verdict, post_coach_note, get_nutrition_context, get_daily_nutrition_summary, log_meal, create_nutrition_goal, list_recipes, create_recipe, list_my_ingredients, search_foods, calculate_recipe_nutrition, list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task, publish_file]
+          tools: [get_fitness_context, log_workout, list_activities, get_activity, get_health_days, get_training_plan, update_training_plan, upsert_training_sessions, set_activity_verdict, post_coach_note, get_nutrition_context, get_daily_nutrition_summary, log_meal, create_nutrition_goal, list_recipes, create_recipe, list_my_ingredients, search_foods, calculate_recipe_nutrition, list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task, publish_file, read_file]
   # MCP servers bots may use. hrld calls them as itself (Pocket ID client "hrld", client
   # credentials), through Pocket ID's in-cluster service.
   mcp:
@@ -250,6 +250,10 @@ config:
         # Its tool that publishes a file: bots with a workbench may give it a path there, and hrld
         # sends the file's bytes itself instead of the model (hrld #79).
         publishTool: publish_file
+        # Its tool that reads a chat file's exact bytes: what the user attaches to a message in loomie's
+        # chat is fetched with it, written into the bot's workbench and its images shown to the model
+        # (hrld #80, loomie #392). Bots also read chat files with it themselves (their tools lists).
+        readTool: read_file
   # Phone alerts: answers and approvals in loomie Chat conversations are reported to loomie (through
   # the loomie MCP server above), which pushes what the user has not seen to their phone.
   alerts:
