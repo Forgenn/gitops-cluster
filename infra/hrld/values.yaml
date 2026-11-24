@@ -154,7 +154,7 @@ config:
   # instructions and settings (hrld/bots/<id>) and the plugins (pi/plugins). Here: what each bot may reach.
   plder:
     repo: Forgenn/plder
-    ref: a517fa6b9e2488bfb585f627b5486ed6e9e3b4cb
+    ref: c06250397ca4c40ee9c41eecd9066a3f9532f62d
   # The stronger model every bot can hand a hard task to (the delegate tool: an investigation, a
   # review): Claude Opus through Claude Code, on the subscription.
   delegate:
@@ -227,12 +227,13 @@ config:
     - id: coach
       # The training plan, the workouts and health days loomie's sources bring in, and its verdict on each
       # workout; the meals, recipes and daily targets of the nutrition page (loomie #389, so the bot keeps
-      # them in loomie's own meal log rather than a markdown file); the task boards for its areas (fitness,
-      # health) and to plan around the user's week.
+      # them in loomie's own meal log rather than a markdown file), including search_foods to find a food in
+      # the general database (CoFID, loomie #391) with its id and per-100 g values; the task boards for its
+      # areas (fitness, health) and to plan around the user's week.
       mcp:
         - server: loomie
           scopes: ["loomie:read", "loomie:write"]
-          tools: [get_fitness_context, log_workout, list_activities, get_activity, get_health_days, get_training_plan, update_training_plan, upsert_training_sessions, set_activity_verdict, post_coach_note, get_nutrition_context, get_daily_nutrition_summary, log_meal, create_nutrition_goal, list_recipes, create_recipe, list_my_ingredients, calculate_recipe_nutrition, list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task, publish_file]
+          tools: [get_fitness_context, log_workout, list_activities, get_activity, get_health_days, get_training_plan, update_training_plan, upsert_training_sessions, set_activity_verdict, post_coach_note, get_nutrition_context, get_daily_nutrition_summary, log_meal, create_nutrition_goal, list_recipes, create_recipe, list_my_ingredients, search_foods, calculate_recipe_nutrition, list_board_tasks, list_upcoming_tasks, create_task, update_task, complete_task, claim_task, publish_file]
   # MCP servers bots may use. hrld calls them as itself (Pocket ID client "hrld", client
   # credentials), through Pocket ID's in-cluster service.
   mcp:
