@@ -111,7 +111,7 @@ config:
         (target), stock status, and the link. If no item is news, it is no news.
     # Task sweeps: each bot looks for work on loomie's board in its areas (task-areas in its prompt). New
     # tasks wake their bots when tagged; a sweep catches what that missed, unblocked tasks and stale claims.
-    # Bots on Claude Code (developer, assistant) sweep less: each run is a Claude Code session.
+    # Bots on Claude (developer, assistant) sweep less: each run costs from the subscription's window.
     - id: task-sweep
       bot: developer
       schedule: "0 9,18 * * *"
@@ -154,25 +154,24 @@ config:
   # instructions and settings (hrld/bots/<id>) and the plugins (pi/plugins). Here: what each bot may reach.
   plder:
     repo: Forgenn/plder
-    ref: c06250397ca4c40ee9c41eecd9066a3f9532f62d
+    ref: 318a510e761a51a795a17a6477d8f0a32f588af8
   # The stronger model every bot can hand a hard task to (the delegate tool: an investigation, a
-  # review): Claude Opus through Claude Code, on the subscription.
+  # review): Claude Opus on the subscription, through Anthropic's API.
   delegate:
-    provider: claude-code
-    modelId: opus
-  # Model fallback, by quality tier: when a conversation's model fails before answering (a Claude
-  # session limit, an outage, a removed model), the turn goes to the other models of its own tier,
+    provider: claude
+    modelId: claude-opus-5-5
+  # Model fallback, by quality tier: when a conversation's model fails before answering (a usage
+  # window, an outage, a removed model), the turn goes to the other models of its own tier,
   # then the lower tiers, then the higher ones. Each bot still tries its own model first. Within a
-  # tier: the Claude subscription, then Z.AI's Coding Plan, then OpenRouter (paid per token) last;
-  # except the low tier, which starts at Z.AI: a plain API call, no Claude Code process to start.
+  # tier: the Claude subscription, then Z.AI's Coding Plan, then OpenRouter (paid per token) last.
   # Conversation titles and tags, and new loomie tasks' tags (POST /v1/tags), start at the low tier.
   fallback:
-    - { provider: claude-code, modelId: opus, tier: max }
+    - { provider: claude, modelId: claude-opus-5-5, tier: max }
     - { provider: zai, modelId: glm-5.3, tier: max }
-    - { provider: claude-code, modelId: sonnet, tier: medium }
+    - { provider: claude, modelId: claude-sonnet-5-5, tier: medium }
     - { provider: zai, modelId: glm-5-turbo, tier: medium }
     - { provider: zai, modelId: glm-5.3-flash, tier: low }
-    - { provider: claude-code, modelId: haiku, tier: low }
+    - { provider: claude, modelId: claude-haiku-5-5, tier: low }
     - { provider: openrouter, modelId: deepseek/deepseek-v4.1-flash, tier: low }
   bots:
     - id: homelab-ops
@@ -414,10 +413,11 @@ networkPolicy:
       ports:
         - { protocol: TCP, port: 1411 }
 
-# The Claude Code token for bots on claude-code, and the OpenRouter key for the fallback's last step
-# (hrld reads each from its env var).
+# The Claude subscription token for bots on claude (claude setup-token, Infisical
+# /hrld/CLAUDE_CODE_TOKEN), and the OpenRouter key for the fallback's last step (hrld reads each
+# from its env var).
 extraEnv:
-  - name: CLAUDE_CODE_OAUTH_TOKEN
+  - name: CLAUDE_OAUTH_TOKEN
     valueFrom:
       secretKeyRef:
         name: hrld-claude
@@ -428,12 +428,12 @@ extraEnv:
         name: hrld-openrouter
         key: api_key
 
-# Each active Claude conversation holds a Claude Code process (~150-300 MB; at most 3 live),
-# and conversation contexts can be huge (2026-11-11 measured 877k-943k tokens): a giant
-# conversation resident in memory pinned the pod at 1.8-1.9 Gi for hours after the turns
-# ended (HrldContainerNearMemoryLimit 2026-11-14), leaving only ~150 Mi headroom before
-# an OOM kill. 3Gi gives one full giant context of headroom until the context-cap work
-# (hrld task de655eeb) lands. Real usage stays ~0.5-1.9 Gi; requests stay modest.
+# Model calls are plain HTTPS requests in process now (no child processes since hrld #84): memory
+# is the conversation contexts and Pi's compaction buffers. Contexts are budgeted at 220k tokens
+# on claude (the models take 1M; hrld compacts long before that), and a giant conversation
+# resident in memory pinned the pod at 1.8-1.9 Gi for hours after the turns ended
+# (HrldContainerNearMemoryLimit 2026-11-14). 3Gi keeps a full giant context of headroom.
+# Real usage stays ~0.5-1.9 Gi; requests stay modest.
 resources:
   requests:
     cpu: 50m
