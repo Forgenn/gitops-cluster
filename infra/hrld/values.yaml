@@ -154,7 +154,7 @@ config:
   # instructions and settings (hrld/bots/<id>) and the plugins (pi/plugins). Here: what each bot may reach.
   plder:
     repo: Forgenn/plder
-    ref: 318a510e761a51a795a17a6477d8f0a32f588af8
+    ref: 255d4c0a8408884139623bd985983e8528c53c3d
   # The stronger model every bot can hand a hard task to (the delegate tool: an investigation, a
   # review): Claude Opus on the subscription, through Anthropic's API.
   delegate:
