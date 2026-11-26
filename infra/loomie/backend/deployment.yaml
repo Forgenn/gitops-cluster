@@ -138,6 +138,15 @@ spec:
                 secretKeyRef:
                   name: loomie-secrets
                   key: GOOGLE_HEALTH_CLIENT_SECRET
+            # Garmin's sync loop (every 5 min by default, GARMIN_SYNC_EVERY): enriches the watch's runs with
+            # splits, laps and elevation. Without the key loomie logs "Garmin: disabled" and runs on;
+            # optional so the pod starts even before the key reaches loomie-secrets.
+            - name: GARMIN_PERSONAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: loomie-secrets
+                  key: GARMIN_PERSONAL_API_KEY
+                  optional: true
             # Push notifications (FCM)
             - name: FCM_SA_KEY
               valueFrom:
