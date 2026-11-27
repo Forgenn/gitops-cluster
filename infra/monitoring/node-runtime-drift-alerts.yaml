@@ -1,0 +1,109 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: node-runtime-drift
+  labels:
+    app: kube-prometheus-stack
+    release: prometheus
+spec:
+  groups:
+  - name: node-runtime-drift
+    # WHY THIS FILE EXISTS
+    #
+    # A node's effective k3s/open-iscsi/kernel versions follow from WHICH NixOS
+    # generation it booted, not from what nixos-config's flake.lock declares. When
+    # those two disagree, the node behaves in a way nobody can predict from the
+    # repo -- and on 2026-11-27 that cost the cluster ~4.5 h: a site-wide power
+    # event rebooted dubois onto an OLDER generation than it had been running, its
+    # iscsiadm (2.1.12) could not parse the iSCSI node records the newer open-iscsi
+    # (2.1.13) had written, and because iscsiadm reads the whole /etc/iscsi/nodes
+    # database on every call, EVERY Longhorn engine frontend on dubois failed
+    # ("failed to start up frontend", exit status 7). Volumes whose engine lived
+    # there could not attach, and the cluster surfaced it only as an infisical
+    # crashloop.
+    #
+    # Nothing described the drift beforehand: the node was Ready, no metric said
+    # which userland it ran. These series come from the node-side unit
+    # node-runtime-drift-metrics (nixos-config modules/nixos/node-runtime-drift-metrics.nix),
+    # written to the node-exporter textfile collector -- read the values.yaml
+    # `prometheus-node-exporter` block for how they reach Prometheus.
+    #
+    # The same class had already hit once as k3s 1.35.8 (running) reverting to
+    # 1.35.6 (booted). Tracking it as a version problem is the point: these fire
+    # before the outage, not as an application alert during it.
+    #
+    # Runbook: nixos-config docs/runbooks/node-runtime-drift.md (remedy: rebuild
+    # and REBOOT the node so the new generation becomes the boot default -- the
+    # reboot is what closes the gap, and doing it deliberately is far cheaper than
+    # a power cut doing it).
+    #
+    # These thresholds are counts and booleans of a handful of series: nothing here
+    # needs a rate window, and `for:` is what keeps a rolling rebuild from paging.
+    rules:
+
+    - alert: NodeRuntimeProfileMismatch
+      # 1 when the running component differs from the generation the node was
+      # last switched to -- i.e. a rebuild or a reboot will change that version.
+      # For iscsiadm this is precisely the state dubois sat in before the reboot.
+      expr: node_runtime_profile_mismatch > 0
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: "{{ $labels.instance }} runs a different {{ $labels.component }} than its switched profile."
+        description: >-
+          Running {{ $labels.component }} differs from the version in
+          /nix/var/nix/profiles/system, so a reboot (or a rebuild) changes it. For
+          open-iscsi that is the precondition for a record-format mismatch, where
+          every iscsiadm call on the node fails and no Longhorn volume can attach
+          there. Check with: ssh <node> 'journalctl -u node-runtime-drift-metrics -n 3',
+          then rebuild and reboot per nixos-config docs/runbooks/node-runtime-drift.md.
+
+    - alert: NodeGenerationRebootPending
+      # Either side of "a reboot would not come back on what the node is running":
+      # running != profile (switch never activated) or booted != running (activated
+      # but the boot default is older). Both were true of dubois at different times.
+      expr: node_generation_running_differs_from_profile > 0 or node_generation_booted_differs_from_running > 0
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: "{{ $labels.instance }} booted a generation other than the one it was switched to."
+        description: >-
+          The booted generation decides this node's k3s, open-iscsi and kernel
+          versions, and a reboot will change them (in whichever direction the boot
+          default holds). Compare with: ssh <node> 'readlink -f /run/current-system
+          /run/booted-system /nix/var/nix/profiles/system'; remedy in nixos-config
+          docs/runbooks/node-runtime-drift.md.
+
+    - alert: NodeRuntimeVersionsDisagree
+      # More than one (kernel, k3s, iscsiadm) triple across the node fleet: expected
+      # mid-rollout, and it stays up until the last node is rebuilt -- which is the
+      # point, because that is exactly when a generation flip can bite.
+      expr: count(count by (kernel, k3s, iscsiadm) (node_runtime_info)) > 1
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: "Cluster nodes are not all running the same kernel/k3s/open-iscsi."
+        description: >-
+          Nodes disagree on the versions that follow from their booted generation.
+          Inspect with: topk(10, node_runtime_info). Expected during a rolling
+          rebuild; otherwise rebuild the odd node out.
+
+    - alert: NodeRuntimeMetricsAbsent
+      # absent() for the all-everything case, the count comparison for a single
+      # node that stops exporting (the unit failing, or its file being unreadable).
+      # Without this, every rule above silently evaluates against nothing.
+      expr: absent(node_runtime_info) or count(node_runtime_info) < count(kube_node_info)
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Node runtime drift metrics are missing for at least one node."
+        description: >-
+          Fewer node_runtime_info series than nodes. The node-side unit
+          node-runtime-drift-metrics writes
+          /var/lib/node_exporter/textfile_collector/node_runtime_drift.prom; check
+          `systemctl status node-runtime-drift-metrics` on the node and that
+          node-exporter still mounts the host root (--path.rootfs=/host/root).

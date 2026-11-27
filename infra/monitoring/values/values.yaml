@@ -535,3 +535,27 @@ nodeExporter:
     limits:
       cpu: 100m
       memory: 64Mi
+
+# Node runtime drift metrics -- rules in infra/monitoring/node-runtime-drift-alerts.yaml.
+#
+# The cluster nodes export the versions they are ACTUALLY running (k3s, open-iscsi,
+# and the generation they booted vs the profile they were switched to) into
+# /var/lib/node_exporter/textfile_collector/node_runtime_drift.prom, written by the
+# unit `node-runtime-drift-metrics` in nixos-config
+# modules/nixos/node-runtime-drift-metrics.nix. That is the mismatch that cost the
+# cluster ~4.5 h on 2026-11-27: dubois rebooted onto an older generation whose
+# iscsiadm could not parse the iSCSI node records the newer one had written, so no
+# Longhorn engine frontend could start there.
+#
+# Node-exporter already mounts the host root at /host/root (hostRootFsMount), so the
+# collector only needs pointing at the host copy of that directory -- no extra mount.
+# A node without the unit simply has no series, which NodeRuntimeMetricsAbsent reports.
+# If hostRootFsMount is ever disabled, this path silently stops resolving.
+#
+# NOTE, unrelated to this block: the `nodeExporter:` key above is NOT a
+# kube-prometheus-stack value (the subchart is `prometheus-node-exporter`), so those
+# resources have never applied -- the live DaemonSet carries no requests or limits.
+# Left as found, since fixing it changes live resources; it wants its own change.
+prometheus-node-exporter:
+  extraArgs:
+    - --collector.textfile.directory=/host/root/var/lib/node_exporter/textfile_collector
