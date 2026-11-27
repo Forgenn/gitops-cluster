@@ -1,0 +1,44 @@
+# Prometheus scrapes Longhorn Manager's metrics (longhorn-backend:9500/metrics, see
+# infra/monitoring/longhorn-servicemonitor.yaml and longhorn-alerts.yaml).
+#
+# The chart's own `longhorn-manager` NetworkPolicy (networkPolicies.enabled=true in
+# values/values.yaml) is an ingress allow-list that admits only Longhorn's own
+# components, and Longhorn serves /metrics on the same port as its unauthenticated
+# REST API. A scrape from the monitoring namespace is therefore denied and every
+# longhorn-backend target stays DOWN -- which is the failure mode this policy exists
+# to remove: LonghornVolumeFaulted / Degraded / AttachStuck / ReadOnly then evaluate
+# against no series at all, i.e. a monitoring blind spot that looks calm.
+# Upstream tracks this as longhorn/longhorn discussion #13732 (and chart issue #97):
+# with the manager policy in place, Prometheus cannot scrape the manager endpoint.
+#
+# NetworkPolicies are additive -- the union of every policy selecting a pod is what is
+# allowed -- so this opens exactly one path and nothing more:
+#   pods in namespace monitoring carrying app.kubernetes.io/name=prometheus
+#   -> pods carrying app=longhorn-manager, TCP port 9500.
+# The rest of the monitoring namespace, and every other port on the manager, stays
+# closed. The trade-off is deliberate and worth naming: port 9500 is also the manager
+# API, which has no authentication (reachability is its only access control, see the
+# comment in values/values.yaml), so the Prometheus pod can now read that API. There
+# is no way to expose /metrics without exposing the port it shares; keeping the rule
+# to the single Prometheus pod label keeps the blast radius to the one component that
+# needs it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: longhorn-manager-metrics-from-prometheus
+  namespace: longhorn-system
+spec:
+  podSelector:
+    matchLabels:
+      app: longhorn-manager
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - {protocol: TCP, port: 9500}

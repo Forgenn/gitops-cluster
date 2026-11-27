@@ -8,6 +8,7 @@ resources:
   - snapshot-class.yaml
   - setting-concurrent-replica-rebuild.yaml
   - network-policy-ui.yaml
+  - network-policy-metrics.yaml
 
 helmCharts:
   - name: longhorn
