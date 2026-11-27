@@ -547,10 +547,21 @@ nodeExporter:
 # iscsiadm could not parse the iSCSI node records the newer one had written, so no
 # Longhorn engine frontend could start there.
 #
-# Node-exporter already mounts the host root at /host/root (hostRootFsMount), so the
-# collector only needs pointing at the host copy of that directory -- no extra mount.
-# A node without the unit simply has no series, which NodeRuntimeMetricsAbsent reports.
-# If hostRootFsMount is ever disabled, this path silently stops resolving.
+# The collector directory is mounted straight off the host with type
+# DirectoryOrCreate, for two reasons: node-exporter cannot create it itself, and the
+# node-side half of this feature ships on a different schedule (nixos-config
+# modules/nixos/node-runtime-drift-metrics.nix creates the directory with a
+# systemd-tmpfiles rule, but only a node rebuild puts it there). Without the mount,
+# every scrape of a node that has not been rebuilt logs
+#   failed to read textfile collector directory ... no such file or directory
+# and fires NodeTextFileCollectorScrapeError -- a warning about a directory that is
+# coming anyway. With it, kubelet creates the (empty) directory as root 0755, the
+# collector reads it cleanly, and "the node-side unit is not deployed" is reported by
+# the accurate rule instead: NodeRuntimeMetricsAbsent, from
+# infra/monitoring/node-runtime-drift-alerts.yaml. A node without the unit has no
+# node_runtime_info series, which that rule names explicitly.
+#
+# Read-only: the unit on the host owns the file, node-exporter only reads it.
 #
 # NOTE, unrelated to this block: the `nodeExporter:` key above is NOT a
 # kube-prometheus-stack value (the subchart is `prometheus-node-exporter`), so those
@@ -558,4 +569,13 @@ nodeExporter:
 # Left as found, since fixing it changes live resources; it wants its own change.
 prometheus-node-exporter:
   extraArgs:
-    - --collector.textfile.directory=/host/root/var/lib/node_exporter/textfile_collector
+    - --collector.textfile.directory=/var/lib/node_exporter/textfile_collector
+  extraVolumes:
+    - name: textfile-collector
+      hostPath:
+        path: /var/lib/node_exporter/textfile_collector
+        type: DirectoryOrCreate
+  extraVolumeMounts:
+    - name: textfile-collector
+      mountPath: /var/lib/node_exporter/textfile_collector
+      readOnly: true
