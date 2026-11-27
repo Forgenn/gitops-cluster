@@ -1,0 +1,111 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: longhorn-alerts
+  labels:
+    app: kube-prometheus-stack
+    release: prometheus
+spec:
+  groups:
+  - name: longhorn.rules
+    # WHY THIS FILE EXISTS
+    #
+    # Until now Longhorn exported nothing to Prometheus in this cluster: no
+    # ServiceMonitor, no rules, so volume health had no alerting at all. That is why
+    # the 2026-11-27 outage (one unreadable iSCSI node record on dubois -> no engine
+    # frontend could start -> ~10 volumes unable to attach for ~4.5 h) first appeared
+    # as "infisical is crash looping", an application symptom three layers away from
+    # the cause. Same story in the 2026-11-06 and 2026-11-11 rebuild storms: hours of
+    # rotating rebuilds, zero alerts, discovered by looking.
+    #
+    # Metrics come from longhorn-backend:9500 (see longhorn-servicemonitor.yaml).
+    # The numbers are documented at https://longhorn.io/docs/1.10.0/monitoring/metrics/:
+    #
+    #   longhorn_volume_robustness   0=unknown 1=healthy 2=degraded 3=faulted
+    #   longhorn_volume_state        1=creating 2=attached 3=detached 4=attaching 5=detaching 6=deleting
+    #   longhorn_volume_file_system_read_only   1 (and only 1) when the volume went read-only
+    #   longhorn_node_status{condition="ready"} 1/0
+    #
+    # Severity is chosen against how this cluster actually behaves, not upstream
+    # defaults: rebuild churn here is chronic (the replica rebuild throttle is set to
+    # 1 per node on purpose, see infra/longhorn/setting-concurrent-replica-rebuild.yaml),
+    # so *degraded* is a warning with a long window -- a single-node rebuild draining
+    # for an hour is normal. *Faulted* means no usable replica at all, which is not
+    # normal, and it starts as a warning only because recovery is usually a rebuild
+    # away; escalate by hand if it persists.
+    rules:
+
+    - alert: LonghornVolumeFaulted
+      # 3 = faulted: the volume has no healthy replica. Data is unavailable to its
+      # workload right now.
+      expr: max_over_time(longhorn_volume_robustness[15m]) == 3
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Longhorn volume {{ $labels.volume }} ({{ $labels.pvc_namespace }}/{{ $labels.pvc }}) is faulted."
+        description: >-
+          No healthy replica for {{ $labels.volume }} on {{ $labels.node }}.
+          Check which node's engine is hosting it (kubectl get volumeattachment) and
+          look at that node's longhorn-manager / instance-manager logs -- on
+          2026-11-27 every volume with an engine on dubois failed this way because a
+          single unreadable iscsiadm record stopped all frontend starts.
+
+    - alert: LonghornVolumeDegraded
+      # 2 = degraded: at least one replica is down, usually rebuilding. Chronic by
+      # design here, hence 30m and a warning: it matters when it is not draining.
+      expr: longhorn_volume_robustness == 2
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Longhorn volume {{ $labels.volume }} has been degraded for 30m."
+        description: >-
+          {{ $labels.volume }} ({{ $labels.pvc_namespace }}/{{ $labels.pvc }}) is
+          missing a replica. Normal during a rebuild; if the rebuild is not draining,
+          check the throttle (setting concurrent-replica-rebuild-per-node-limit) and
+          node IO pressure before assuming a stuck replica.
+
+    - alert: LonghornVolumeAttachStuck
+      # 4 = attaching. A healthy attach takes seconds; 15m of it is the signature of
+      # the 2026-11-27 wedge, where the attach never completed and kubelet's retry
+      # produced "volume ... hasn't been attached yet" / FailedAttachVolume on pods.
+      expr: longhorn_volume_state == 4
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Longhorn volume {{ $labels.volume }} has been attaching for 15m."
+        description: >-
+          {{ $labels.volume }} is stuck in attaching on node {{ $labels.node }}.
+          On the node, check that the initiator side works at all:
+          'iscsiadm -m node -o show >/dev/null; echo $?' (exit 7 = the node database
+          is unreadable, which blocks every volume there). Pair this with
+          node_runtime_profile_mismatch{component="iscsiadm"}.
+
+    - alert: LonghornVolumeReadOnly
+      # A volume that flipped to read-only: the workload writing to it is failing now.
+      expr: longhorn_volume_file_system_read_only == 1
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Longhorn volume {{ $labels.volume }} ({{ $labels.pvc_namespace }}/{{ $labels.pvc }}) went read-only."
+        description: >-
+          The filesystem on {{ $labels.volume }} is mounted/exported read-only, so
+          whatever writes to it is erroring. This is data safety, not performance:
+          check the workload's logs and the volume's robustness at the same time.
+
+    - alert: LonghornNodeNotReady
+      # Longhorn's own view of a node (its manager/engine reachability), which can
+      # differ from kubelet's: a node can be Ready for Kubernetes and still be
+      # unschedulable for Longhorn replicas.
+      expr: longhorn_node_status{condition="ready"} == 0
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Longhorn node {{ $labels.node }} is not ready."
+        description: >-
+          longhorn-manager reports node {{ $labels.node }} ({{ $labels.condition_reason }})
+          as not ready. Replica scheduling and rebuilds avoid it while this holds.

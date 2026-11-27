@@ -9,6 +9,9 @@ resources:
   - nas-alerts.yaml
   - hrld-memory-alerts.yaml
   - retuned-alerts.yaml
+  - node-runtime-drift-alerts.yaml
+  - longhorn-alerts.yaml
+  - longhorn-servicemonitor.yaml
   - node-exporter-full-dashboard.yaml
   - argocd-dashboard.yaml
   - grafana-admin-externalsecret.yaml

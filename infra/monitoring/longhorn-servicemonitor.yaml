@@ -1,0 +1,25 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: longhorn-servicemonitor
+  namespace: monitoring # Must be in the same namespace as Prometheus
+  labels:
+    release: prometheus # This label allows Prometheus to find this ServiceMonitor
+spec:
+  # longhorn-backend (namespace longhorn-system) fronts the longhorn-manager pods on
+  # :9500/metrics; the Service's port is named `manager`.
+  selector:
+    matchLabels:
+      app: longhorn-manager
+  namespaceSelector:
+    matchNames:
+      - longhorn-system
+  endpoints:
+    - port: manager
+      path: /metrics
+      # The manager re-renders its whole metric set per scrape (one series per volume,
+      # replica and node) and this is a 3-node cluster: 60s keeps it cheap, and every
+      # rule in longhorn-alerts.yaml uses `for:` windows of 5-30m, so scrape latency
+      # is irrelevant to them.
+      interval: 60s
+      scrapeTimeout: 30s
