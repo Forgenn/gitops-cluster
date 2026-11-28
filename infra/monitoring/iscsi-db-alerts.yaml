@@ -1,0 +1,100 @@
+# Alerts for the per-node iscsi-db-check CronJobs (infra/longhorn/iscsi-db-check.yaml).
+#
+# WHY THIS FILE EXISTS
+#
+# A single /etc/iscsi/nodes record that names a session parameter the host's
+# iscsiadm does not know makes iscsiadm reject the WHOLE database (exit 7) --
+# and Longhorn's engine frontends run the host's iscsiadm, so every volume
+# attach on that node fails while the node itself stays Ready. On 2026-11-27
+# that cost ~4.5 h (dubois, site-wide power reboot onto an older NixOS
+# generation; open-iscsi 2.1.13 records read by 2.1.12: "Unknown parameter
+# name node.session.login_redirect_max"), and it surfaced only as application
+# crashloops + FailedAttachVolume backlog -- no alert named the cause, and the
+# poisoned record self-cleared ~4.5 h later only because Longhorn recreated
+# that volume's engine.
+#
+# The CronJobs close the detection gap: every 5 minutes they run the exact
+# reader (`iscsiadm -m node -o show`, the nixos guard's own detector, exit
+# 0/21 = healthy) with the host's iscsiadm through the same nsenter door
+# Longhorn uses, and write node_iscsi_db_check_* gauges into node-exporter's
+# textfile collector. These rules turn the gauges into alerts on the existing
+# Alertmanager -> loomie/Telegram path.
+#
+# The node-runtime-drift rules (node-runtime-drift-alerts.yaml) are NOT
+# redundant with this: they alert on the version-skew PRECONDITION (which
+# generation the node booted) and their metrics only exist once nodes are
+# rebuilt onto current nixos-config; these rules detect the live state of the
+# iSCSI DB on whatever generation the node runs -- including the poisoned
+# record itself within minutes of it appearing.
+#
+# Runbook: nixos-config docs/runbooks/iscsi-node-records.md.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: iscsi-db-check
+  labels:
+    app: kube-prometheus-stack
+    release: prometheus
+spec:
+  groups:
+    - name: iscsi-db-check
+      rules:
+        - alert: IscsiNodeDatabaseUnreadable
+          expr: node_iscsi_db_check_healthy == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "{{ $labels.instance }}: the host iscsiadm cannot parse the iSCSI node database -- no Longhorn engine frontend can start on this node."
+            description: >-
+              node_iscsi_db_check_exit_code says which: 7 = a record in
+              /etc/iscsi/nodes this iscsiadm cannot read (the 2026-11-27
+              login_redirect_max class; iscsiadm parses the whole database, so
+              every attach on the node fails and pods cluster-wide stick
+              ContainerCreating / FailedAttachVolume while the node stays
+              Ready). Anything else (127 etc.) means the check itself could not
+              run -- and for nsenter/iscsiadm failures that is the same
+              "no frontend can start" class. Exact output: kubectl -n
+              longhorn-system logs the latest job from 'kubectl -n
+              longhorn-system get jobs | grep iscsi-db-check'. Remedy: the
+              records are a cache Longhorn re-creates on attach -- on the node,
+              sudo grep -rl 'login_redirect_max\|Unknown parameter'
+              /etc/iscsi/nodes/ to confirm, then drop the unreadable records
+              (sudo rm -rf /etc/iscsi/nodes/iqn.2019-10.io.longhorn:*) or let
+              Longhorn mint a fresh engine session as it did on 2026-11-27;
+              see nixos-config docs/runbooks/iscsi-node-records.md. The durable
+              fix is rebuilding + rebooting the node so booted generation
+              matches the profile.
+        - alert: IscsiDbCheckStale
+          # Three scheduled runs (*/5) with no gauge written: the detector
+          # itself is not running; without it a poisoned DB is invisible.
+          expr: time() - node_iscsi_db_check_timestamp_seconds > 900
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.instance }}: no iscsi-db-check result for 15+ minutes."
+            description: >-
+              The iscsi-db-check CronJob on this node has not written its
+              gauges for three scheduled runs: the Job is not running or fails
+              before the metric write. Check 'kubectl -n longhorn-system get
+              jobs | grep iscsi-db-check' and the pod's logs. Until it runs
+              again, a poisoned iSCSI node database on this node would go
+              undetected (IscsiNodeDatabaseUnreadable cannot fire).
+        - alert: IscsiDbCheckMissing
+          # absent() for the nothing-anywhere case, the count comparison for a
+          # single node that stops exporting -- same shape as
+          # NodeRuntimeMetricsAbsent.
+          expr: absent(node_iscsi_db_check_healthy) or count(node_iscsi_db_check_healthy) < count(kube_node_info)
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: "The iscsi-db-check gauge is missing for at least one node."
+            description: >-
+              Fewer node_iscsi_db_check_healthy series than nodes: either a
+              node without its iscsi-db-check CronJob (infra/longhorn/
+              iscsi-db-check.yaml keeps one CronJob per node -- a new node
+              needs a new entry), or the gauge is not being scraped (the
+              node-exporter textfile collector on that node). That node gets
+              no iSCSI DB poison detection.
