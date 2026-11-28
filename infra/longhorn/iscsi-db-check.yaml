@@ -1,0 +1,248 @@
+# Runtime detector for a poisoned per-node iSCSI node database (one CronJob per
+# node; alert rules in infra/monitoring/iscsi-db-alerts.yaml).
+#
+# WHY: one /etc/iscsi/nodes record naming a session parameter the host's
+# iscsiadm does not know makes iscsiadm reject the WHOLE database (exit 7) --
+# and Longhorn's engine frontends run the HOST's iscsiadm through nsenter
+# (instance-manager: host / at /host, "nsenter --mount=/host/proc/<pid>/ns/mnt
+# ... iscsiadm"), so every attach on that node fails ("failed to start up
+# frontend"). On 2026-11-27 that turned a site-wide power reboot into a ~4.5 h
+# outage on dubois: 294 "config file ... invalid" hits/hour, volumes
+# cluster-wide stuck FailedAttachVolume, and the poison record self-cleared
+# only when Longhorn recreated that volume's engine ~4.5 h later (17:58Z).
+#
+# The nixos-config guard (iscsi-node-record-guard.service, d0cee40) catches
+# this at BOOT -- but it only reaches a node at its next rebuild+reboot, and
+# the whole fleet still boots old generations (NodeRuntimeMetricsAbsent fires
+# by design). This check runs the exact reader MID-RUN, every 5 minutes, on
+# every node: `iscsiadm -m node -o show` with the guard's own exit semantics
+# (0 = readable, 21 = no records at all, anything else = unreadable), so a
+# runtime poison surfaces as an alert within minutes instead of hours.
+#
+# Deliberately a k8s CronJob, not a nixos systemd timer: it must reach nodes on
+# OLD generations today (nixos changes land only at rebuild), and it reads
+# /run/current-system live, so it stays correct across rebuilds unchanged.
+#
+# HOW: same door Longhorn itself uses -- privileged pod (setns needs
+# CAP_SYS_ADMIN, like every instance-manager), host / mounted READ-ONLY at
+# /host, then nsenter into PID 1's mount namespace (the init namespace every
+# host process, iscsid included, lives in). `-o show` is display-only: it
+# parses the node DB and never logs in/out, never writes /etc/iscsi. Results
+# are published as node_iscsi_db_check_* gauges through node-exporter's
+# textfile collector (/var/lib/node_exporter/textfile_collector -- the same
+# path the node-runtime-drift metrics use), and the Job itself fails when the
+# DB is unreadable, so the signal exists even if the metric path dies.
+#
+# One CronJob per node (the check is per-host); keep the three copies
+# identical except name + nodeSelector. A node without its CronJob is caught
+# by IscsiDbCheckMissing (fewer gauges than kube_node_info).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: iscsi-db-check-dubois
+  labels: { app: iscsi-db-check }
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      # one attempt: the exit code IS the signal, a retry only re-parses
+      backoffLimit: 0
+      activeDeadlineSeconds: 60
+      template:
+        metadata:
+          labels: { app: iscsi-db-check }
+        spec:
+          restartPolicy: Never
+          # talks to no API, mounts no secrets
+          automountServiceAccountToken: false
+          nodeSelector: { kubernetes.io/hostname: dubois }
+          containers:
+            - name: check
+              # The same image Longhorn runs on every node: ships /bin/bash and
+              # /usr/bin/nsenter (proven live: the 2026-11-27 frontend failures
+              # logged "failed to execute: /usr/bin/nsenter [nsenter
+              # --mount=/host/proc/.../ns/mnt ... iscsiadm]"), and it is already
+              # cached on every node, so the check never depends on a pull.
+              # Keep it co-versioned with the longhorn chart version above.
+              image: docker.io/longhornio/longhorn-engine:v1.10.2
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                # nsenter into PID 1's mount namespace needs CAP_SYS_ADMIN,
+                # exactly like Longhorn's own instance-manager pods in this
+                # namespace. The only host writes are the textfile metric,
+                # done through the same door Longhorn uses.
+                privileged: true
+                runAsUser: 0
+              volumeMounts:
+                - { name: host, mountPath: /host, readOnly: true }
+              command: ["/bin/bash", "-c"]
+              args:
+                - |
+                  set -u
+                  # Locate the HOST's iscsiadm through the read-only host mount.
+                  # NixOS links the open-iscsi package into /run/current-system/sw
+                  # (sbin merged into bin on current NixOS; probe both, and fail
+                  # loudly if neither is there).
+                  iscsiadm=""
+                  for p in /run/current-system/sw/bin/iscsiadm /run/current-system/sw/sbin/iscsiadm; do
+                    if [ -x "/host$p" ]; then iscsiadm="$p"; break; fi
+                  done
+                  if [ -z "$iscsiadm" ]; then
+                    echo "iscsi-db-check: no iscsiadm under /host/run/current-system/sw (bin|sbin): check broken" >&2
+                    healthy=0
+                    code=127
+                  else
+                    out="$(nsenter --mount=/host/proc/1/ns/mnt -- "$iscsiadm" -m node -o show 2>&1)"
+                    code=$?
+                    if [ -n "$out" ]; then
+                      echo "iscsi-db-check: $iscsiadm -m node -o show -> exit $code"
+                      echo "$out" | tail -4
+                    fi
+                    # 0 = whole DB parsed; 21 = no records at all (fresh boot,
+                    # nothing attached yet). Anything else -- 7 above all: a
+                    # record this iscsiadm cannot parse -- means iscsiadm
+                    # rejects the WHOLE database and no Longhorn engine
+                    # frontend can start on this node.
+                    if [ "$code" -eq 0 ] || [ "$code" -eq 21 ]; then healthy=1; else healthy=0; fi
+                  fi
+
+                  # Publish the gauges into node-exporter's textfile collector
+                  # ON THE HOST, through the same nsenter door (stdin crosses
+                  # namespaces). tmp+mv in the same directory keeps
+                  # node-exporter from reading a half-written file.
+                  printf '# HELP node_iscsi_db_check_healthy 1 when the host iscsiadm parses the whole iSCSI node DB; 0 means a poisoned record blocks every Longhorn frontend on this node.\n# TYPE node_iscsi_db_check_healthy gauge\nnode_iscsi_db_check_healthy %d\n# HELP node_iscsi_db_check_exit_code Exit code of the host iscsiadm -m node -o show: 0 readable, 21 empty, 7 poisoned record, 127 check could not run.\n# TYPE node_iscsi_db_check_exit_code gauge\nnode_iscsi_db_check_exit_code %d\n# HELP node_iscsi_db_check_timestamp_seconds Unix time of the last iscsi-db-check run on this node.\n# TYPE node_iscsi_db_check_timestamp_seconds gauge\nnode_iscsi_db_check_timestamp_seconds %d\n' "$healthy" "$code" "$(date +%s)" \
+                    | nsenter --mount=/host/proc/1/ns/mnt -- /bin/sh -c 'cat > /var/lib/node_exporter/textfile_collector/.iscsi-db-check.tmp && mv /var/lib/node_exporter/textfile_collector/.iscsi-db-check.tmp /var/lib/node_exporter/textfile_collector/iscsi-db-check.prom' \
+                    || { echo "iscsi-db-check: metric write failed" >&2; exit 3; }
+
+                  # Fail loudly: the Job itself is Failed whenever the DB is
+                  # not readable, even if the metric path dies.
+                  [ "$healthy" -eq 1 ] || exit "$code"
+              resources: { requests: { cpu: 10m, memory: 32Mi }, limits: { memory: 64Mi } }
+          volumes:
+            - name: host
+              hostPath: { path: /, type: Directory }
+---
+# cuno: identical to iscsi-db-check-dubois except name + nodeSelector.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: iscsi-db-check-cuno
+  labels: { app: iscsi-db-check }
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 60
+      template:
+        metadata:
+          labels: { app: iscsi-db-check }
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          nodeSelector: { kubernetes.io/hostname: cuno }
+          containers:
+            - name: check
+              image: docker.io/longhornio/longhorn-engine:v1.10.2
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                privileged: true
+                runAsUser: 0
+              volumeMounts:
+                - { name: host, mountPath: /host, readOnly: true }
+              command: ["/bin/bash", "-c"]
+              args:
+                - |
+                  set -u
+                  iscsiadm=""
+                  for p in /run/current-system/sw/bin/iscsiadm /run/current-system/sw/sbin/iscsiadm; do
+                    if [ -x "/host$p" ]; then iscsiadm="$p"; break; fi
+                  done
+                  if [ -z "$iscsiadm" ]; then
+                    echo "iscsi-db-check: no iscsiadm under /host/run/current-system/sw (bin|sbin): check broken" >&2
+                    healthy=0
+                    code=127
+                  else
+                    out="$(nsenter --mount=/host/proc/1/ns/mnt -- "$iscsiadm" -m node -o show 2>&1)"
+                    code=$?
+                    if [ -n "$out" ]; then
+                      echo "iscsi-db-check: $iscsiadm -m node -o show -> exit $code"
+                      echo "$out" | tail -4
+                    fi
+                    if [ "$code" -eq 0 ] || [ "$code" -eq 21 ]; then healthy=1; else healthy=0; fi
+                  fi
+                  printf '# HELP node_iscsi_db_check_healthy 1 when the host iscsiadm parses the whole iSCSI node DB; 0 means a poisoned record blocks every Longhorn frontend on this node.\n# TYPE node_iscsi_db_check_healthy gauge\nnode_iscsi_db_check_healthy %d\n# HELP node_iscsi_db_check_exit_code Exit code of the host iscsiadm -m node -o show: 0 readable, 21 empty, 7 poisoned record, 127 check could not run.\n# TYPE node_iscsi_db_check_exit_code gauge\nnode_iscsi_db_check_exit_code %d\n# HELP node_iscsi_db_check_timestamp_seconds Unix time of the last iscsi-db-check run on this node.\n# TYPE node_iscsi_db_check_timestamp_seconds gauge\nnode_iscsi_db_check_timestamp_seconds %d\n' "$healthy" "$code" "$(date +%s)" \
+                    | nsenter --mount=/host/proc/1/ns/mnt -- /bin/sh -c 'cat > /var/lib/node_exporter/textfile_collector/.iscsi-db-check.tmp && mv /var/lib/node_exporter/textfile_collector/.iscsi-db-check.tmp /var/lib/node_exporter/textfile_collector/iscsi-db-check.prom' \
+                    || { echo "iscsi-db-check: metric write failed" >&2; exit 3; }
+                  [ "$healthy" -eq 1 ] || exit "$code"
+              resources: { requests: { cpu: 10m, memory: 32Mi }, limits: { memory: 64Mi } }
+          volumes:
+            - name: host
+              hostPath: { path: /, type: Directory }
+---
+# katsuragi: identical to iscsi-db-check-dubois except name + nodeSelector.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: iscsi-db-check-katsuragi
+  labels: { app: iscsi-db-check }
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 60
+      template:
+        metadata:
+          labels: { app: iscsi-db-check }
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          nodeSelector: { kubernetes.io/hostname: katsuragi }
+          containers:
+            - name: check
+              image: docker.io/longhornio/longhorn-engine:v1.10.2
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                privileged: true
+                runAsUser: 0
+              volumeMounts:
+                - { name: host, mountPath: /host, readOnly: true }
+              command: ["/bin/bash", "-c"]
+              args:
+                - |
+                  set -u
+                  iscsiadm=""
+                  for p in /run/current-system/sw/bin/iscsiadm /run/current-system/sw/sbin/iscsiadm; do
+                    if [ -x "/host$p" ]; then iscsiadm="$p"; break; fi
+                  done
+                  if [ -z "$iscsiadm" ]; then
+                    echo "iscsi-db-check: no iscsiadm under /host/run/current-system/sw (bin|sbin): check broken" >&2
+                    healthy=0
+                    code=127
+                  else
+                    out="$(nsenter --mount=/host/proc/1/ns/mnt -- "$iscsiadm" -m node -o show 2>&1)"
+                    code=$?
+                    if [ -n "$out" ]; then
+                      echo "iscsi-db-check: $iscsiadm -m node -o show -> exit $code"
+                      echo "$out" | tail -4
+                    fi
+                    if [ "$code" -eq 0 ] || [ "$code" -eq 21 ]; then healthy=1; else healthy=0; fi
+                  fi
+                  printf '# HELP node_iscsi_db_check_healthy 1 when the host iscsiadm parses the whole iSCSI node DB; 0 means a poisoned record blocks every Longhorn frontend on this node.\n# TYPE node_iscsi_db_check_healthy gauge\nnode_iscsi_db_check_healthy %d\n# HELP node_iscsi_db_check_exit_code Exit code of the host iscsiadm -m node -o show: 0 readable, 21 empty, 7 poisoned record, 127 check could not run.\n# TYPE node_iscsi_db_check_exit_code gauge\nnode_iscsi_db_check_exit_code %d\n# HELP node_iscsi_db_check_timestamp_seconds Unix time of the last iscsi-db-check run on this node.\n# TYPE node_iscsi_db_check_timestamp_seconds gauge\nnode_iscsi_db_check_timestamp_seconds %d\n' "$healthy" "$code" "$(date +%s)" \
+                    | nsenter --mount=/host/proc/1/ns/mnt -- /bin/sh -c 'cat > /var/lib/node_exporter/textfile_collector/.iscsi-db-check.tmp && mv /var/lib/node_exporter/textfile_collector/.iscsi-db-check.tmp /var/lib/node_exporter/textfile_collector/iscsi-db-check.prom' \
+                    || { echo "iscsi-db-check: metric write failed" >&2; exit 3; }
+                  [ "$healthy" -eq 1 ] || exit "$code"
+              resources: { requests: { cpu: 10m, memory: 32Mi }, limits: { memory: 64Mi } }
+          volumes:
+            - name: host
+              hostPath: { path: /, type: Directory }

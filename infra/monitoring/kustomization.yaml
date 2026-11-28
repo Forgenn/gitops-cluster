@@ -10,6 +10,7 @@ resources:
   - hrld-memory-alerts.yaml
   - retuned-alerts.yaml
   - node-runtime-drift-alerts.yaml
+  - iscsi-db-alerts.yaml
   - longhorn-alerts.yaml
   - longhorn-servicemonitor.yaml
   - node-exporter-full-dashboard.yaml

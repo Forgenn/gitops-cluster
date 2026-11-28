@@ -9,6 +9,7 @@ resources:
   - setting-concurrent-replica-rebuild.yaml
   - network-policy-ui.yaml
   - network-policy-metrics.yaml
+  - iscsi-db-check.yaml
 
 helmCharts:
   - name: longhorn
