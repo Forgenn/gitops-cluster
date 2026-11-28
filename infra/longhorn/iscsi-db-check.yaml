@@ -64,6 +64,13 @@ spec:
     spec:
       # one attempt: the exit code IS the signal, a retry only re-parses
       backoffLimit: 0
+      # Finished Jobs (success or failure) self-clean after 10 minutes: keeps
+      # the failure evidence greppable in kubectl logs, but stops a single
+      # transient failure from lingering as a kube_job_failed object that keeps
+      # the default KubeJobFailed rule (for: 15m) pending forever. A PERSISTENT
+      # failure recreates the job every 5 minutes, so the series stays alive and
+      # KubeJobFailed can still fire -- this only removes stale objects.
+      ttlSecondsAfterFinished: 600
       activeDeadlineSeconds: 60
       template:
         metadata:
@@ -167,6 +174,13 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: 0
+      # Finished Jobs (success or failure) self-clean after 10 minutes: keeps
+      # the failure evidence greppable in kubectl logs, but stops a single
+      # transient failure from lingering as a kube_job_failed object that keeps
+      # the default KubeJobFailed rule (for: 15m) pending forever. A PERSISTENT
+      # failure recreates the job every 5 minutes, so the series stays alive and
+      # KubeJobFailed can still fire -- this only removes stale objects.
+      ttlSecondsAfterFinished: 600
       activeDeadlineSeconds: 60
       template:
         metadata:
@@ -246,6 +260,13 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: 0
+      # Finished Jobs (success or failure) self-clean after 10 minutes: keeps
+      # the failure evidence greppable in kubectl logs, but stops a single
+      # transient failure from lingering as a kube_job_failed object that keeps
+      # the default KubeJobFailed rule (for: 15m) pending forever. A PERSISTENT
+      # failure recreates the job every 5 minutes, so the series stays alive and
+      # KubeJobFailed can still fire -- this only removes stale objects.
+      ttlSecondsAfterFinished: 600
       activeDeadlineSeconds: 60
       template:
         metadata:
