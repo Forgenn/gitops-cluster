@@ -10,7 +10,12 @@ spec:
   restic:
     copyMethod: Snapshot
     pruneIntervalDays: 7
-    unlock: unlock
+    # Bumped to unlock-2 (2026-11-28): stale lock left by mover
+    # volsync-src-opencloud-data-backup-shzmd (PID 41, root) at 08:15:27Z during
+    # the post-power-event Longhorn churn; the holder pod is gone, every retry
+    # since fails at `forget` with `repo already locked`. unlock was consumed
+    # once already (status.restic.lastUnlocked), so this needs a new value.
+    unlock: unlock-2
     repository: restic-config
     storageClassName: zfs-generic-nfs-csi
     volumeSnapshotClassName: zfs-generic-nfs-csi
