@@ -10,7 +10,15 @@ spec:
   restic:
     copyMethod: Snapshot
     pruneIntervalDays: 7
-    unlock: unlock
+    # VolSync consumes this value EXACTLY ONCE: it records it in
+    # status.restic.lastUnlocked, and only when the spec value differs from that
+    # does the next mover run `restic unlock` first. So it is not a toggle -- a
+    # stale repository lock needs a NEW value. 2026-11-28: the 08:00 sync was
+    # killed mid-forget and left the repo locked by a dead pod (volsync-src-
+    # opencloud-data-backup-shzmd, PID 41); every retry after that rescanned
+    # 390 GiB for 13 minutes, saved a snapshot, and died at `forget` with
+    # "repository is already locked". Bump the date below when that recurs.
+    unlock: unlock-2026-11-28
     repository: restic-config
     storageClassName: zfs-generic-nfs-csi
     volumeSnapshotClassName: zfs-generic-nfs-csi
