@@ -3,6 +3,13 @@ kind: ReplicationSource
 metadata:
   name: readarr-config
 spec:
+  # Paused 2026-11-28: the 02:00 UTC restic job fails (exit 3, unreadable LSIO asp
+  # key files despite runAsGroup 1000) and volsync's ~1min retry loop churned the
+  # source PVC's Longhorn attach cycle hard enough to fault replicas for hours
+  # after the 2026-11-27 power event (and bloats the restic repo ~1 snapshot per
+  # retry). Unpause only after the source file permissions are fixed, by
+  # removing this line in git (a live paused flag is invisible to ArgoCD).
+  paused: true
   sourcePVC: readarr-config
   trigger:
     schedule: "0 2 * * *"
