@@ -5,6 +5,19 @@ metadata:
   namespace: opencloud
 spec:
   sourcePVC: opencloud-opencloud-posixfs
+  # PAUSED 2026-11-28 ~10:10Z to break a self-perpetuating stale-lock loop; to be
+  # set back to false in a follow-up once every lock is >30 min old.
+  #
+  # Why unlock alone cannot end it: every mover pod runs `restic unlock` at start,
+  # but restic only removes a lock from ANOTHER host (another pod) once it is older
+  # than 30 minutes. A run here takes ~20 minutes (390 GiB scan), and a failed
+  # attempt is retried within minutes, so the dead predecessor's lock is always
+  # ~24 minutes old when `forget` meets it -> `repository is already locked` ->
+  # the pod fails and leaves a fresh lock of its own for the next one. Each lap
+  # also rescans 390 GiB on a Longhorn volume and saves a snapshot, which fed the
+  # 09:41Z replica-fault wave. A pause longer than 30 minutes ages every lock out;
+  # on unpause the next run's unlock clears them and the sync completes.
+  paused: true
   trigger:
     schedule: "0 8 * * *"
   restic:
